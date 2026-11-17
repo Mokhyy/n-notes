@@ -217,6 +217,7 @@ class EditorActivity : ComponentActivity() {
                                 onImportConsumed = { pendingImport = null },
                             )
                             SideEffect { launched = true }
+                            if (ed.onboardingOpen) com.xnotes.ui.Onboarding(ed)
                         }
                         com.xnotes.ui.EyedropperOverlay()
                         SyncStrip(ed)

@@ -103,6 +103,8 @@ data class Settings(
     val prefs: Preferences = Preferences(),
     /** One-shot flag: the first-run stylus check (which may auto-enable finger-draw) has run. */
     val fingerDrawAutoChecked: Boolean = false,
+    /** The first-run setup has been finished or skipped; installs that already had a root count as done. */
+    val onboardingDone: Boolean = false,
     /** Saved zooms from the zoom menu, ascending, shared by every note and canvas. */
     val favoriteZooms: List<Float> = DEFAULT_FAVORITE_ZOOMS,
 ) {
@@ -170,6 +172,7 @@ data class Settings(
             .put("prefs", prefs.toJson())
             .put("view_defaults", com.xnotes.platform.ViewSettingsJson.write(JSONObject(), viewDefaults))
             .put("finger_draw_auto_checked", fingerDrawAutoChecked)
+            .put("onboarding_done", onboardingDone)
             .put("favorite_zooms", JSONArray().apply { favoriteZooms.forEach { put(it.toDouble()) } })
     }
 
@@ -232,6 +235,7 @@ data class Settings(
                 newTable = tableDefaults(o.optJSONObject("new_table")),
                 prefs = Preferences.fromJson(o.optJSONObject("prefs")),
                 fingerDrawAutoChecked = o.optBoolean("finger_draw_auto_checked", false),
+                onboardingDone = o.optBoolean("onboarding_done", o.has("browse_root")),
                 favoriteZooms = favoriteZooms(o.optJSONArray("favorite_zooms")),
             )
         }

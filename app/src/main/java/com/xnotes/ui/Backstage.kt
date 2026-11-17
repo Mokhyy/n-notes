@@ -1053,7 +1053,7 @@ private fun ExplorerSection(
                 Text(stringResource(R.string.choose_folder_hint), color = palette.textDim.toComposeColor(), fontSize = 14.sp, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PrimaryButton(XnotesIcons.folder, stringResource(R.string.choose_folder), Modifier.fillMaxHeight(), calls.pickRoot)
+                    PrimaryButton(XnotesIcons.folder, stringResource(R.string.choose_folder), Modifier.fillMaxHeight(), onClick = calls.pickRoot)
                     PrimaryButton(XnotesIcons.database, stringResource(R.string.use_app_storage), Modifier.fillMaxHeight()) { editor.useInternalStorage() }
                 }
                 Spacer(Modifier.weight(1f))
@@ -2524,7 +2524,7 @@ private const val PRESS_FILL_MS = 120L
 
 /** Line glyph above a label in a bordered box; fills with the selection container while pressed. Matches the About pane buttons. */
 @Composable
-private fun PrimaryButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+internal fun PrimaryButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, selected: Boolean = false, onClick: () -> Unit) {
     val palette = LocalPalette.current
     val interaction = remember { MutableInteractionSource() }
     // Keep the pressed fill visible for a minimum time so even a millisecond tap registers.
@@ -2554,21 +2554,22 @@ private fun PrimaryButton(icon: ImageVector, label: String, modifier: Modifier =
     val accent = palette.accent.toComposeColor()
     val onAccent = palette.selectionForeground.toComposeColor()
     val shape = MaterialTheme.shapes.medium
+    val lit = pressed || selected
     Column(
         modifier
             .clip(shape)
-            .background(if (pressed) palette.selectionBackground.toComposeColor() else Color.Transparent)
-            .border(1.dp, if (pressed) accent else palette.border.toComposeColor(), shape)
+            .background(if (lit) palette.selectionBackground.toComposeColor() else Color.Transparent)
+            .border(1.dp, if (lit) accent else palette.border.toComposeColor(), shape)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .padding(vertical = 14.dp, horizontal = 22.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, null, tint = if (pressed) onAccent else accent, modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = if (lit) onAccent else accent, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(8.dp))
         Text(
             label,
-            color = if (pressed) onAccent else palette.text.toComposeColor(),
+            color = if (lit) onAccent else palette.text.toComposeColor(),
             fontWeight = FontWeight.Medium,
             textAlign = TextAlign.Center,
         )

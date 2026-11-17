@@ -4521,6 +4521,64 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         updateBrowseRoot(com.xnotes.platform.AppStorageDocumentsProvider.treeUri(appContext).toString())
     }
 
+    var onboardingOpen by mutableStateOf(!settings.onboardingDone)
+        private set
+
+    /** Saved as not done, so a language switch that rebuilds the activity comes back to the setup. */
+    fun restartOnboarding() {
+        onboardingOpen = true
+        settings = settings.copy(onboardingDone = false)
+        settingsRepo.save(settings)
+    }
+
+    fun finishOnboarding() {
+        onboardingOpen = false
+        settings = settings.copy(onboardingDone = true)
+        settingsRepo.save(settings)
+    }
+
+    /**
+     * Copies everything under [fromTree]'s root into [toTree]'s root and keeps the originals. Byte streams,
+     * not DocumentsContract.copyDocument, because the two trees usually live in different providers.
+     * Returns (copied, failed) counts. IO, call off-thread.
+     */
+    fun copyStorage(fromTree: String, toTree: String): Pair<Int, Int> {
+        val resolver = appContext.contentResolver
+        var copied = 0
+        var failed = 0
+        fun copyChildren(fromDocId: String, toParent: android.net.Uri) {
+            val taken = childDocumentUris(toTree, android.provider.DocumentsContract.getDocumentId(toParent))
+                .mapNotNullTo(HashSet()) { queryDisplayName(it)?.lowercase() }
+            for (src in childDocumentUris(fromTree, fromDocId)) {
+                val ok = runCatching {
+                    val name = queryDisplayName(src) ?: return@runCatching false
+                    val isDir = resolver.getType(src) == android.provider.DocumentsContract.Document.MIME_TYPE_DIR
+                    val newName = uniqueCopyName(name, taken, splitExtension = !isDir).also { taken += it.lowercase() }
+                    val mime = if (isDir) android.provider.DocumentsContract.Document.MIME_TYPE_DIR else "application/octet-stream"
+                    val dest = android.provider.DocumentsContract.createDocument(resolver, toParent, mime, newName)
+                        ?: return@runCatching false
+                    if (isDir) {
+                        copyChildren(android.provider.DocumentsContract.getDocumentId(src), dest)
+                        true
+                    } else {
+                        resolver.openInputStream(src)?.use { input ->
+                            resolver.openOutputStream(dest, "wt")?.use { output -> input.copyTo(output); true }
+                        } ?: false
+                    }
+                }.getOrDefault(false)
+                if (ok) copied++ else failed++
+            }
+        }
+        val from = android.net.Uri.parse(fromTree)
+        val to = android.net.Uri.parse(toTree)
+        copyChildren(
+            android.provider.DocumentsContract.getTreeDocumentId(from),
+            android.provider.DocumentsContract.buildDocumentUriUsingTree(to, android.provider.DocumentsContract.getTreeDocumentId(to)),
+        )
+        browseCache.clear()
+        return copied to failed
+    }
+
     /** The pins under the current explorer root; the rest wait for their folder to be the root again. */
     val sidebarPins: List<com.xnotes.settings.PinnedFolder>
         get() = browseRoot?.let { root -> pinnedFolders.filter { isUnderTree(it.uri, root) } }.orEmpty()

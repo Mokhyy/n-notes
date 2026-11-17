@@ -29,6 +29,13 @@ class SettingsTest {
         assertEquals(com.xnotes.canvas.ViewSettings(), s.viewDefaults)
     }
 
+    @Test fun onboardingDoneDefaultsFromExistingRoot() {
+        assertFalse(Settings.fromJson(JSONObject()).onboardingDone)
+        assertTrue(Settings.fromJson(JSONObject().put("browse_root", "content://x")).onboardingDone)
+        assertFalse(Settings.fromJson(JSONObject().put("browse_root", "content://x").put("onboarding_done", false)).onboardingDone)
+        assertTrue(Settings.fromJson(Settings(onboardingDone = true).toJson()).onboardingDone)
+    }
+
     @Test fun viewDefaultsRoundTrip() {
         val original = Settings(
             viewDefaults = com.xnotes.canvas.ViewSettings(
