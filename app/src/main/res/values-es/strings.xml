@@ -457,6 +457,11 @@
     <string name="remove">Quitar</string>
     <string name="pref_toolbar">Barra de herramientas</string>
     <string name="pref_toolbar_help">Toca una herramienta para mostrarla u ocultarla. Mantén pulsado para arrastrarla dentro de una sección o entre secciones. Mantén pulsada la parte superior de una sección para moverla entera.</string>
+    <string name="audio_rename">Renombrar audio</string>
+    <string name="pref_selection_bar">Barra de selección</string>
+    <string name="pref_selection_bar_help">Toca una acción para mostrarla u ocultarla. Mantén pulsado para arrastrarla entre la barra y el menú de tres puntos.</string>
+    <string name="selection_bar_main">Barra</string>
+    <string name="selection_bar_more">Menú de tres puntos</string>
     <string name="toggle_pan">Alternar desplazamiento</string>
     <string name="toggle_eraser">Alternar borrador</string>
     <string name="toggle_lasso">Alternar lazo</string>

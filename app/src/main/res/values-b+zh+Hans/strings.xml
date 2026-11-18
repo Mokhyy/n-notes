@@ -399,6 +399,11 @@
     <string name="remove">移除</string>
     <string name="pref_toolbar">工具栏</string>
     <string name="pref_toolbar_help">点按工具以显示或隐藏。长按可在分组内或分组间拖动。长按分组顶部可移动整个分组。</string>
+    <string name="audio_rename">重命名音频</string>
+    <string name="pref_selection_bar">选择工具栏</string>
+    <string name="pref_selection_bar_help">点按操作以显示或隐藏。长按可在工具栏和三点菜单之间拖动。</string>
+    <string name="selection_bar_main">工具栏</string>
+    <string name="selection_bar_more">三点菜单</string>
     <string name="toggle_pan">切换平移</string>
     <string name="toggle_eraser">切换橡皮擦</string>
     <string name="toggle_previous">切换上一个工具</string>

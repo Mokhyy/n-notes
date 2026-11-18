@@ -1912,6 +1912,7 @@ private fun EditorPane(
                         floatingBar()
                         com.xnotes.ui.SelectionMenu(
                             canvas,
+                            layout = editor.selectionBarLayout,
                             onSaveAudio = { actions.onSaveAudio(editor, it) },
                             onShareAudio = { actions.onShareAudio(editor, it) },
                             onShareImage = actions.onShareImage,
@@ -1970,6 +1971,7 @@ private fun EditorPane(
                             floatingBar()
                             com.xnotes.ui.SelectionMenu(
                                 editor,
+                                layout = editor.selectionBarLayout,
                                 onSaveAudio = { actions.onSaveAudio(editor, it) },
                                 onShareAudio = { actions.onShareAudio(editor, it) },
                                 onShareImage = actions.onShareImage,

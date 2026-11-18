@@ -457,6 +457,11 @@
     <string name="remove">Supprimer</string>
     <string name="pref_toolbar">Barre d\'outils</string>
     <string name="pref_toolbar_help">Touchez un outil pour l\'afficher ou le masquer. Appuyez longuement pour le déplacer au sein d\'une section ou vers une autre. Appuyez longuement sur le haut d\'une section pour la déplacer entièrement.</string>
+    <string name="audio_rename">Renommer l\'audio</string>
+    <string name="pref_selection_bar">Barre de sélection</string>
+    <string name="pref_selection_bar_help">Touchez une action pour l\'afficher ou la masquer. Appuyez longuement pour la déplacer entre la barre et le menu à trois points.</string>
+    <string name="selection_bar_main">Barre</string>
+    <string name="selection_bar_more">Menu à trois points</string>
     <string name="toggle_pan">Activer/désactiver le défilement</string>
     <string name="toggle_eraser">Activer/désactiver la gomme</string>
     <string name="toggle_lasso">Activer/désactiver le lasso</string>

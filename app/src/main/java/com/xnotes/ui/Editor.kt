@@ -680,6 +680,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     var toolbarColorCount by mutableStateOf(5)
         private set
     var toolbarLayout by mutableStateOf(ToolbarLayout.DEFAULT)
+    var selectionBarLayout by mutableStateOf(com.xnotes.core.tools.SelectionBarLayout.DEFAULT)
+        private set
 
     /** The infinite canvas's own bar. Its own layout: the two surfaces hold different items. */
     var canvasToolbarLayout by mutableStateOf(ToolbarLayout.CANVAS_DEFAULT)
@@ -3038,6 +3040,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         toolbarColorCount = settings.toolbarColorCount
         toolbarLayout = settings.toolbarLayout
         canvasToolbarLayout = settings.canvasToolbarLayout
+        selectionBarLayout = settings.selectionBarLayout
         activeColorIndex = settings.activeColor.coerceIn(0, toolbarColorCount - 1)
         // Render always at 1x (the DPI/supersampling control was removed).
         renderScale = 1.0
@@ -3226,6 +3229,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun applyToolbarLayout(layout: ToolbarLayout) {
         toolbarLayout = layout
         settings = settings.copy(toolbarLayout = layout)
+        settingsRepo.save(settings)
+    }
+
+    fun applySelectionBarLayout(layout: com.xnotes.core.tools.SelectionBarLayout) {
+        selectionBarLayout = layout
+        settings = settings.copy(selectionBarLayout = layout)
         settingsRepo.save(settings)
     }
 

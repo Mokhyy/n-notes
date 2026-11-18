@@ -1157,6 +1157,13 @@ internal fun ToolbarSettings(editor: Editor, prefs: Preferences, updateHome: (Pr
             p.key to @Composable { KindChip(ShapeIcons.connector(p), stringResource(connectorLabel(p.key)), selected = p.key !in prefs.hiddenShapes) { toggleHidden(p.key) } }
         }
     }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FieldLabel(stringResource(R.string.pref_selection_bar))
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { editor.applySelectionBarLayout(com.xnotes.core.tools.SelectionBarLayout.DEFAULT) }) { Text(stringResource(R.string.reset), fontSize = 13.sp) }
+    }
+    Text(stringResource(R.string.pref_selection_bar_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+    drag.SelectionBody()
 }
 
 @Composable

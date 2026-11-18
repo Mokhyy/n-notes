@@ -457,6 +457,11 @@
     <string name="remove">Odebrat</string>
     <string name="pref_toolbar">Panel nástrojů</string>
     <string name="pref_toolbar_help">Klepnutím nástroj zobrazíš nebo skryješ. Dlouhým stisknutím ho přetáhneš v rámci sekce nebo mezi sekcemi. Dlouhým stisknutím horní části sekce přesuneš celou sekci.</string>
+    <string name="audio_rename">Přejmenovat audio</string>
+    <string name="pref_selection_bar">Panel výběru</string>
+    <string name="pref_selection_bar_help">Klepnutím akci zobrazíš nebo skryješ. Dlouhým stisknutím ji přetáhneš mezi panelem a menu se třemi tečkami.</string>
+    <string name="selection_bar_main">Panel</string>
+    <string name="selection_bar_more">Menu se třemi tečkami</string>
     <string name="toggle_pan">Přepnout posun</string>
     <string name="toggle_eraser">Přepnout gumu</string>
     <string name="toggle_lasso">Přepnout laso</string>
