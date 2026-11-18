@@ -193,6 +193,7 @@ class InfiniteInteraction(
     /** Shapes pressure and tilt before they are stored, so a stroke keeps the feel it was drawn with. */
     var pressureCurve: StylusCurve = StylusCurve.IDENTITY
     var tiltCurve: StylusCurve = StylusCurve.IDENTITY
+    var orientationCurve: StylusCurve = StylusCurve.IDENTITY
 
     /** Per-pen override for [hoverPreview], by the event's device id; null uses the general value. */
     var hoverPreviewFor: ((Int) -> Boolean)? = null
@@ -865,7 +866,8 @@ class InfiniteInteraction(
         val rawOrientation = orientationOf(e, 0)
         val shapedPressure = if (drawingIsStylus) pressureCurve.valueAt(rawPressure.coerceIn(0.0, 1.0)) else rawPressure
         val shapedTilt = if (drawingIsStylus) tiltCurve.valueAt(rawTilt.coerceIn(0.0, 1.0)) else 0.0
-        stroke.addSample(Sample(p.x, p.y, shapedPressure, tilt = shapedTilt, orientation = rawOrientation))
+        val shapedOrientation = if (drawingIsStylus) orientationCurve.valueAt(rawOrientation.coerceIn(0.0, 1.0)) else 0.0
+        stroke.addSample(Sample(p.x, p.y, shapedPressure, tilt = shapedTilt, orientation = shapedOrientation))
         steadier = Stabilizer.forStroke(config.stabilize && !straight, config.stabilizeTrail, config.stabilizeCrossover, speedScale)
         steadier?.start(p.x, p.y, 0.0)
         tracing = measureSteadying()
@@ -916,7 +918,7 @@ class InfiniteInteraction(
         val stroke = liveStroke ?: return
         val shapedP = if (drawingIsStylus) pressureCurve.valueAt(pressure.coerceIn(0.0, 1.0)) else pressure
         val shapedT = if (drawingIsStylus) tiltCurve.valueAt(tilt.coerceIn(0.0, 1.0)) else 0.0
-        val shapedO = if (drawingIsStylus) orientation else 0.0
+        val shapedO = if (drawingIsStylus) orientationCurve.valueAt(orientation.coerceIn(0.0, 1.0)) else 0.0
         val nib = viewport.viewportToContent(Pt(vx, vy))
         var t = (timeMs - strokeStartTimeMs).toDouble()
         if (stroke.straight) {

@@ -488,13 +488,16 @@
     <string name="pref_stylus_store_orientation">Store pen orientation (off drops it from the file)</string>
     <string name="pref_stylus_pressure_curve">Pressure response</string>
     <string name="pref_stylus_tilt_curve">Tilt response</string>
+    <string name="pref_stylus_orientation_curve">Orientation response</string>
     <string name="curve_linear">Linear</string>
     <string name="curve_soft">Soft</string>
     <string name="curve_firm">Firm</string>
     <string name="curve_s_curve">S-curve</string>
     <string name="curve_axis_pressure">pressure</string>
     <string name="curve_axis_tilt">tilt</string>
+    <string name="curve_axis_orientation">orientation</string>
     <string name="curve_axis_strength">strength</string>
+    <string name="curve_axis_turn">turn</string>
     <string name="pref_two_finger_tap">Two-finger tap</string>
     <string name="pref_three_finger_tap">Three-finger tap</string>
     <string name="pref_stylus_double_tap">Stylus double-tap</string>

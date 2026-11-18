@@ -81,10 +81,12 @@ data class Preferences(
     /** Keep each sample's pen orientation (its turn around its own axis) in the stroke file. Off
      *  drops the angle channel on save; old files simply carry no orientation. */
     val stylusStoreOrientation: Boolean = true,
-    /** Shapes pressure before it reaches the ink: five knots from light to full press. */
+    /** Shapes pressure before it reaches the ink: points from light to full press. */
     val stylusPressureCurve: StylusCurve = StylusCurve.IDENTITY,
-    /** Shapes tilt lay before it scales the width: five knots from upright to flat. */
+    /** Shapes tilt lay before it scales the width: points from upright to flat. */
     val stylusTiltCurve: StylusCurve = StylusCurve.IDENTITY,
+    /** Shapes the pen's reported turn before the flat nib judges its angle: points from 0 to a full turn. */
+    val stylusOrientationCurve: StylusCurve = StylusCurve.IDENTITY,
     /** Action mapped to a clean two-finger tap; "none" (default) disables it. */
     val twoFingerTap: String = "none",
     /** Action mapped to a clean three-finger tap; "none" (default) disables it. */
@@ -257,6 +259,7 @@ data class Preferences(
         .put("stylus_store_orientation", stylusStoreOrientation)
         .apply { if (!stylusPressureCurve.isIdentity) put("stylus_pressure_curve", stylusPressureCurve.points.toJson()) }
         .apply { if (!stylusTiltCurve.isIdentity) put("stylus_tilt_curve", stylusTiltCurve.points.toJson()) }
+        .apply { if (!stylusOrientationCurve.isIdentity) put("stylus_orientation_curve", stylusOrientationCurve.points.toJson()) }
         .put("two_finger_tap", twoFingerTap)
         .put("three_finger_tap", threeFingerTap)
         .put("stylus_double_tap", stylusDoubleTap)
@@ -430,6 +433,7 @@ data class Preferences(
                 stylusStoreOrientation = o.optBoolean("stylus_store_orientation", true),
                 stylusPressureCurve = stylusCurve(o, "stylus_pressure_curve"),
                 stylusTiltCurve = stylusCurve(o, "stylus_tilt_curve"),
+                stylusOrientationCurve = stylusCurve(o, "stylus_orientation_curve"),
                 twoFingerTap = tapAction("two_finger_tap"),
                 threeFingerTap = tapAction("three_finger_tap"),
                 stylusDoubleTap = tapAction("stylus_double_tap"),

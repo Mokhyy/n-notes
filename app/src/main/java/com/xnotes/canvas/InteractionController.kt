@@ -810,6 +810,7 @@ class InteractionController(
     /** Shapes pressure and tilt before they are stored, so a stroke keeps the feel it was drawn with. */
     var pressureCurve: StylusCurve = StylusCurve.IDENTITY
     var tiltCurve: StylusCurve = StylusCurve.IDENTITY
+    var orientationCurve: StylusCurve = StylusCurve.IDENTITY
 
     /** The hovering pen's distance as a fraction of its device's maximum: 0 at the glass, 1 far. */
     private var hoverDistance = 0.0
@@ -1418,7 +1419,8 @@ class InteractionController(
         val first = state.toPageSpace(pageIndex, down)
         val shapedPressure = if (drawingIsStylus) pressureCurve.valueAt(pressure.coerceIn(0.0, 1.0)) else pressure
         val shapedTilt = if (drawingIsStylus) tiltCurve.valueAt(tilt.coerceIn(0.0, 1.0)) else 0.0
-        stroke.addSample(Sample(first.x, first.y, shapedPressure, tilt = shapedTilt, orientation = orientation)) // first sample: t = 0
+        val shapedOrientation = if (drawingIsStylus) orientationCurve.valueAt(orientation.coerceIn(0.0, 1.0)) else 0.0
+        stroke.addSample(Sample(first.x, first.y, shapedPressure, tilt = shapedTilt, orientation = shapedOrientation)) // first sample: t = 0
         steadier = Stabilizer.forStroke(cfg.stabilize && !straight, cfg.stabilizeTrail, cfg.stabilizeCrossover, speedScale)
         steadier?.start(down.x, down.y, 0.0)
         tracing = measureSteadying()
@@ -1469,7 +1471,7 @@ class InteractionController(
         // stroke carries the same feel on reload without needing the curve itself.
         val p = if (drawingIsStylus) pressureCurve.valueAt(pressure.coerceIn(0.0, 1.0)) else pressure
         val tl = if (drawingIsStylus) tiltCurve.valueAt(tilt.coerceIn(0.0, 1.0)) else 0.0
-        val or = if (drawingIsStylus) orientation else 0.0
+        val or = if (drawingIsStylus) orientationCurve.valueAt(orientation.coerceIn(0.0, 1.0)) else 0.0
         val vp = magnetize(Pt(vx, vy))
         // Once the ruler grabs the stroke it is a line, so hold-to-shape stays off until pen-up.
         if (dwellEligible && snapEngaged) {

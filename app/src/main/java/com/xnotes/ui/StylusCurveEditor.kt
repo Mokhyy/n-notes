@@ -46,7 +46,7 @@ import kotlin.math.hypot
  * ink uses, so the default two-point curve is exactly `y = x`.
  */
 @Composable
-internal fun StylusCurveEditor(curve: StylusCurve, inputLabel: String, onChange: (StylusCurve) -> Unit) {
+internal fun StylusCurveEditor(curve: StylusCurve, inputLabel: String, outputLabel: String, onChange: (StylusCurve) -> Unit) {
     val palette = LocalPalette.current
     val lineColor = palette.accent.toComposeColor()
     val gridColor = palette.border.toComposeColor()
@@ -83,7 +83,7 @@ internal fun StylusCurveEditor(curve: StylusCurve, inputLabel: String, onChange:
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(18.dp).height(160.dp), contentAlignment = Alignment.Center) {
             Text(
-                stringResource(R.string.curve_axis_strength),
+                outputLabel,
                 color = labelColor,
                 fontSize = 10.sp,
                 modifier = Modifier.rotate(-90f),

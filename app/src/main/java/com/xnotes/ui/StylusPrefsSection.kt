@@ -133,12 +133,20 @@ private fun StylusGeneralSection(
     StylusCurveEditor(
         prefs.stylusPressureCurve,
         inputLabel = stringResource(R.string.curve_axis_pressure),
+        outputLabel = stringResource(R.string.curve_axis_strength),
     ) { update(prefs.copy(stylusPressureCurve = it)) }
     FieldLabel(stringResource(R.string.pref_stylus_tilt_curve))
     StylusCurveEditor(
         prefs.stylusTiltCurve,
         inputLabel = stringResource(R.string.curve_axis_tilt),
+        outputLabel = stringResource(R.string.curve_axis_strength),
     ) { update(prefs.copy(stylusTiltCurve = it)) }
+    FieldLabel(stringResource(R.string.pref_stylus_orientation_curve))
+    StylusCurveEditor(
+        prefs.stylusOrientationCurve,
+        inputLabel = stringResource(R.string.curve_axis_orientation),
+        outputLabel = stringResource(R.string.curve_axis_turn),
+    ) { update(prefs.copy(stylusOrientationCurve = it)) }
     val tapOptions = tapGestureOptions.map { (id, res) -> id to stringResource(res) }
     FieldLabel(stringResource(R.string.pref_stylus_double_tap))
     OptionDropdown(tapOptions, prefs.stylusDoubleTap) { update(prefs.copy(stylusDoubleTap = it)) }

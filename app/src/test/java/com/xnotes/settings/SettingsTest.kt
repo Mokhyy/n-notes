@@ -224,10 +224,17 @@ class SettingsTest {
 
     @Test fun stylusResponseCurvesRoundTrip() {
         val back = Settings.fromJson(
-            Settings(prefs = Preferences(stylusPressureCurve = StylusCurve.SOFT, stylusTiltCurve = StylusCurve.FIRM)).toJson(),
+            Settings(
+                prefs = Preferences(
+                    stylusPressureCurve = StylusCurve.SOFT,
+                    stylusTiltCurve = StylusCurve.FIRM,
+                    stylusOrientationCurve = StylusCurve.S_CURVE,
+                ),
+            ).toJson(),
         ).prefs
         assertEquals(StylusCurve.SOFT.points, back.stylusPressureCurve.points)
         assertEquals(StylusCurve.FIRM.points, back.stylusTiltCurve.points)
+        assertEquals(StylusCurve.S_CURVE.points, back.stylusOrientationCurve.points)
         assertEquals(StylusCurve.IDENTITY.points, Settings.fromJson(JSONObject()).prefs.stylusTiltCurve.points)
         // Curves saved by the first fixed-five-knot version still load.
         val legacy = JSONObject().put("stylus_pressure_curve", JSONArray(listOf(0.0, 0.25, 0.5, 0.75, 1.0)))
