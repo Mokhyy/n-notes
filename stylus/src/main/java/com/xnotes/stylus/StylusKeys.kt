@@ -35,6 +35,9 @@ object StylusKeys {
     /** Xiaomi Focus Pen Pro has no button and sends its pinch as BUTTON_7. */
     val FOCUS_PEN_PRO_PINCH: Int = KeyEvent.KEYCODE_BUTTON_7
 
+    /** Xiaomi Focus Pen Pro sends one barrel double-tap as BUTTON_8. */
+    val FOCUS_PEN_PRO_DOUBLE_TAP: Int = KeyEvent.KEYCODE_BUTTON_8
+
     /** Huawei M-Pencil's barrel double-tap arrives as this vendor keycode. */
     const val BARREL_DOUBLE_TAP: Int = 718
 

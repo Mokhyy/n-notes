@@ -17,9 +17,23 @@ object StylusJson {
 
     fun profilesFromJson(array: JSONArray?): List<StylusProfile> {
         if (array == null) return StylusPresets.profiles
-        val saved = (0 until array.length()).mapNotNull { i -> array.optJSONObject(i)?.let { profileFromJson(it) } }
+        val saved = (0 until array.length()).mapNotNull { i ->
+            array.optJSONObject(i)?.let { profileFromJson(it) }?.let(::migrate)
+        }
         return if (saved.isEmpty()) StylusPresets.profiles else saved
     }
+
+    /**
+     * Settings saved before a preset gained a field keep working. The Focus Pen Pro's BUTTON_8
+     * double-tap was discovered after the first release of per-pen profiles, so an old saved copy
+     * of that preset gets it here instead of silently falling back to the generic 718 keycode.
+     */
+    private fun migrate(p: StylusProfile): StylusProfile =
+        if (p.id == "xiaomi-focus-pen" && p.doubleTapKeycode == null) {
+            p.copy(doubleTapKeycode = StylusKeys.FOCUS_PEN_PRO_DOUBLE_TAP)
+        } else {
+            p
+        }
 
     private fun profileToJson(p: StylusProfile): JSONObject = JSONObject()
         .put("id", p.id)

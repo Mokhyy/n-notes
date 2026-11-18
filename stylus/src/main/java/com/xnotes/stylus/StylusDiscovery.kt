@@ -73,7 +73,16 @@ data class StylusDeviceInfo(
         /** Combine two interfaces of the same pen (its HID, mouse and keyboard nodes). */
         fun richer(a: StylusDeviceInfo, b: StylusDeviceInfo): StylusDeviceInfo {
             val digitizer = if (b.isDigitizer && !a.isDigitizer) b else a
+            // A digitizer's node is the one that draws; otherwise keep the shortest name, which is
+            // the pen itself rather than its "... Mouse" or "... Keyboard" HID node.
+            val representative = when {
+                b.isDigitizer && !a.isDigitizer -> b.device
+                a.isDigitizer && !b.isDigitizer -> a.device
+                b.device.name.length < a.device.name.length -> b.device
+                else -> a.device
+            }
             return digitizer.copy(
+                device = representative,
                 hasPressure = a.hasPressure || b.hasPressure,
                 pressureMax = maxOf(a.pressureMax, b.pressureMax),
                 hasTilt = a.hasTilt || b.hasTilt,
@@ -104,7 +113,15 @@ object StylusDiscovery {
             if (!isPenLike(device)) continue
             val snapshot = StylusDevice.of(device)
             val info = StylusDeviceInfo.of(device, snapshot)
-            val key = snapshot.descriptor.takeIf { it.isNotBlank() } ?: "id:$id"
+            // The Bluetooth HID, mouse and keyboard nodes share no public unique id, so group
+            // external nodes by vendor/product; digitizers are distinct hardware and keep their
+            // own descriptor.
+            val key = when {
+                device.isExternal && snapshot.vendorId != 0 && snapshot.productId != 0 ->
+                    "hid:${snapshot.vendorId}:${snapshot.productId}"
+                snapshot.descriptor.isNotBlank() -> snapshot.descriptor
+                else -> "id:$id"
+            }
             val existing = grouped[key]
             grouped[key] = if (existing == null) info else StylusDeviceInfo.richer(existing, info)
         }

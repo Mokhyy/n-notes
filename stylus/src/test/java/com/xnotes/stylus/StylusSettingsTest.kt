@@ -114,6 +114,20 @@ class StylusSettingsTest {
     }
 
     @Test
+    fun aProfileCanMatchByInputDescriptor() {
+        val profile = StylusProfile(
+            id = "descriptor",
+            name = "Descriptor",
+            match = StylusDeviceMatch(descriptor = "abc123"),
+        )
+        val matching = StylusDevice(1, "Any pen", 0, 0, 0, descriptor = "abc123")
+        val other = StylusDevice(1, "Any pen", 0, 0, 0, descriptor = "def456")
+
+        assertTrue(profile.match.matches(matching))
+        assertFalse(profile.match.matches(other))
+    }
+
+    @Test
     fun aProfileAddsItsKeycodesToTheGeneralSet() {
         val profile = StylusProfile(
             id = "extra",
@@ -136,7 +150,8 @@ class StylusSettingsTest {
             StylusProfile(
                 id = "one",
                 name = "One",
-                match = StylusDeviceMatch(vendorId = 10, productId = 20, nameContains = "Pen"),
+                notes = "Pressure and tilt",
+                match = StylusDeviceMatch(vendorId = 10, productId = 20, nameContains = "Pen", descriptor = "abc"),
                 penButtonTool = "eraser",
                 heldKeycodes = setOf(1, 2),
                 doubleTapKeycode = 718,
@@ -155,5 +170,18 @@ class StylusSettingsTest {
     @Test
     fun aMissingProfileArrayFallsBackToThePresets() {
         assertEquals(StylusPresets.profiles, StylusJson.profilesFromJson(null))
+    }
+
+    @Test
+    fun anOldFocusPenProfileGainsItsButton8DoubleTap() {
+        val old = StylusProfile(
+            id = "xiaomi-focus-pen",
+            name = "Xiaomi Focus Pen Pro",
+            match = StylusDeviceMatch(nameContains = "Focus Pen"),
+        )
+
+        val back = StylusJson.profilesFromJson(StylusJson.profilesToJson(listOf(old)))
+
+        assertEquals(StylusKeys.FOCUS_PEN_PRO_DOUBLE_TAP, back.single().doubleTapKeycode)
     }
 }

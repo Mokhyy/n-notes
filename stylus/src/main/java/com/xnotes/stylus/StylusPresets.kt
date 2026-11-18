@@ -51,6 +51,8 @@ object StylusPresets {
             match = StylusDeviceMatch(nameContains = "Focus Pen"),
             heldKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_PINCH),
             clickableHeldKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_PINCH),
+            doubleTapKeycode = StylusKeys.FOCUS_PEN_PRO_DOUBLE_TAP,
+            notes = "Pressure, tilt, orientation. Pinch/hold = BUTTON_7; barrel double-tap = BUTTON_8.",
         ),
     )
 

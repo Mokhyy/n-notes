@@ -128,8 +128,8 @@ private val NAME_TEMPLATE_PRESETS = listOf(
     "note_YYYY-MM-DD",
     "note_YYYY-MM-DD_HH-mm",
 )
-private val penButtonOptions = listOf("eraser" to R.string.tool_eraser, "pan" to R.string.tool_pan, "select" to R.string.tool_select, "none" to R.string.none)
-private val tapGestureOptions = listOf(
+internal val penButtonOptions = listOf("eraser" to R.string.tool_eraser, "pan" to R.string.tool_pan, "select" to R.string.tool_select, "none" to R.string.none)
+internal val tapGestureOptions = listOf(
     "none" to R.string.none,
     "undo" to R.string.undo,
     "redo" to R.string.redo,
@@ -144,6 +144,7 @@ private enum class PrefCategory(val title: Int, val summary: Int) {
     GENERAL(R.string.pref_general, R.string.pref_general_summary),
     APPEARANCE(R.string.pref_appearance, R.string.pref_appearance_summary),
     INPUT(R.string.pref_input, R.string.pref_input_summary),
+    STYLUS(R.string.pref_stylus, R.string.pref_stylus_summary),
     OCR(R.string.pref_ocr, R.string.pref_ocr_summary),
     NEW_NOTES(R.string.pref_new_notes, R.string.pref_new_notes_summary),
     HOME(R.string.pref_home_explorer, R.string.pref_home_summary),
@@ -403,6 +404,11 @@ fun PreferencesPane(
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
                 if (all) SectionTitle(stringResource(R.string.pref_input))
                 InputControls(prefs, ::update)
+            }
+            if (shown(PrefCategory.STYLUS)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_stylus))
+                StylusPensSection(prefs, ::update, editor)
             }
             if (shown(PrefCategory.OCR)) {
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
@@ -1008,39 +1014,11 @@ internal fun InputControls(prefs: Preferences, update: (Preferences) -> Unit) {
         Chip(stringResource(R.string.on), prefs.snapRotation90) { update(prefs.copy(snapRotation90 = true)) }
         Chip(stringResource(R.string.off), !prefs.snapRotation90) { update(prefs.copy(snapRotation90 = false)) }
     }
-    FieldLabel(stringResource(R.string.pref_pen_button_hold))
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        penButtonOptions.forEach { (id, label) ->
-            Chip(stringResource(label), prefs.penButtonTool == id) { update(prefs.copy(penButtonTool = id)) }
-        }
-    }
-    if (prefs.penButtonTool == "eraser" || prefs.penButtonTool == "pan") {
-        CheckRow(stringResource(R.string.pref_pen_button_hover), prefs.penButtonHover) {
-            update(prefs.copy(penButtonHover = it))
-        }
-    }
-    // Some ROMs never draw the stylus pointer (HyperOS, for one), so the app draws its own.
-    CheckRow(stringResource(R.string.pref_stylus_hover_preview), prefs.stylusHoverPreview) {
-        update(prefs.copy(stylusHoverPreview = it))
-    }
-    if (prefs.stylusHoverPreview) {
-        // Uses the pen's own hover-distance axis, so the cursor brightens and grows as it nears.
-        CheckRow(stringResource(R.string.pref_stylus_hover_distance), prefs.stylusHoverDistance) {
-            update(prefs.copy(stylusHoverDistance = it))
-        }
-    }
     val tapOptions = tapGestureOptions.map { (id, res) -> id to stringResource(res) }
     FieldLabel(stringResource(R.string.pref_two_finger_tap))
     OptionDropdown(tapOptions, prefs.twoFingerTap) { update(prefs.copy(twoFingerTap = it)) }
     FieldLabel(stringResource(R.string.pref_three_finger_tap))
     OptionDropdown(tapOptions, prefs.threeFingerTap) { update(prefs.copy(threeFingerTap = it)) }
-    FieldLabel(stringResource(R.string.pref_stylus_double_tap))
-    OptionDropdown(tapOptions, prefs.stylusDoubleTap) { update(prefs.copy(stylusDoubleTap = it)) }
-    FieldLabel(stringResource(R.string.pref_stylus_button_tap))
-    OptionDropdown(tapOptions, prefs.stylusButtonTap) { update(prefs.copy(stylusButtonTap = it)) }
     CheckRow(stringResource(R.string.pref_volume_keys_turn_pages), prefs.volumeKeysTurnPages) { update(prefs.copy(volumeKeysTurnPages = it)) }
 }
 
@@ -1375,7 +1353,7 @@ internal fun CheckChip(label: String, on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
+internal fun Chip(label: String, selected: Boolean, onClick: () -> Unit) {
     val palette = LocalPalette.current
     Box(
         Modifier
