@@ -64,8 +64,8 @@ object LocalNoteStore {
 
     fun isNote(name: String) = NOTE_EXTENSIONS.any { name.endsWith(it, ignoreCase = true) }
 
-    /** Notes and canvases, plus the read-only kinds (Markdown, Office, CSV, PDF) the reader opens. */
-    fun isSynced(name: String) = isNote(name) || ReaderKind.isReadable(name)
+    /** Notes, canvases and PDFs, plus the read-only kinds (Markdown, Office, CSV, images) the reader opens. */
+    fun isSynced(name: String) = ReaderKind.isListed(name)
 
     fun listNotes(context: Context, treeUri: String): List<LocalEntry> = listTree(context, treeUri).files
 

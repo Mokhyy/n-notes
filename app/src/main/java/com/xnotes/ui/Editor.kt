@@ -4680,18 +4680,16 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
      */
     private fun thumbKey(uri: String, name: String?, modified: Long): String =
         if (DocumentKind.ofName(name.orEmpty()) == DocumentKind.PDF) "$uri@$modified" else uri
-    /** A read-only PDF's, Markdown file's or image's first page (memory-cached only); null for the other reader kinds, which tile as text. */
+    /** A Markdown file's or image's first page (memory-cached only); null for the other reader kinds, which tile as text. */
     private suspend fun readerThumbnail(uri: String, name: String): ImageBitmap? {
         val kind = com.xnotes.core.util.ReaderKind.ofName(name)
-        if (kind != com.xnotes.core.util.ReaderKind.PDF && kind != com.xnotes.core.util.ReaderKind.MARKDOWN && kind != com.xnotes.core.util.ReaderKind.IMAGE) return null
+        if (kind != com.xnotes.core.util.ReaderKind.MARKDOWN && kind != com.xnotes.core.util.ReaderKind.IMAGE) return null
         val key = "reader|$uri"
         synchronized(noteThumbs) { noteThumbs.get(key)?.let { return it } }
         return withContext(thumbDispatcher) {
             delay(150)
             if (!isActive) return@withContext null
-            val bmp = if (kind == com.xnotes.core.util.ReaderKind.PDF) {
-                com.xnotes.platform.ReaderPdf.renderFirstPage(appContext, android.net.Uri.parse(uri), pageThumbPx)
-            } else {
+            val bmp = run {
                 // Printed the way the reader shows it, then its first page drawn like a PDF's.
                 val pdf = java.io.File.createTempFile("preview", ".pdf", appContext.cacheDir)
                 try {

@@ -1393,15 +1393,11 @@ private fun ExplorerSection(
             }
         }
     }
-    // PDFs go in as they are; the other reader files are printed to PDF first so the note looks like the reader.
+    // Images go in as they are; the other reader files are printed to PDF first so the note looks like the reader.
     fun convertToNote(e: BrowseEntry) {
         opError = null
         val name = e.name.substringBeforeLast('.')
         val title = context.getString(R.string.convert_to_note)
-        if (ReaderKind.ofName(e.name) == ReaderKind.PDF) {
-            editor.requestImport(ImportKind.PDF, name, e.documentUri, e.name, "application/pdf", e.parentDocId, title)
-            return
-        }
         if (ReaderKind.ofName(e.name) == ReaderKind.IMAGE) {
             editor.requestImport(ImportKind.IMAGE, name, e.documentUri, e.name, "", e.parentDocId, title)
             return
