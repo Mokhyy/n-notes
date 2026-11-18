@@ -99,8 +99,32 @@ class DocumentCodecTest {
         return out
     }
 
-    @Test fun markupsRideTheirOwnEntryJustBeforeTheManifest() {
+    @Test fun bakingTiltDropsTheAngleOnANote() {
         val doc = Document(dpi = 150)
+        doc.pages += Page(1240.0, 1754.0)
+        val original = Stroke(
+            Tool.PEN,
+            ToolConfig(baseWidth = 6.0, tiltStrength = 0.7),
+            (0 until 40).map { i ->
+                val u = i * 0.2
+                Sample(u * 8.0, kotlin.math.sin(u) * 12.0, 0.3 + 0.05 * (i % 5), tilt = 0.2 + 0.02 * i)
+            },
+        )
+        doc.pages[0].items.add(original)
+        val baking = DocumentCodec(FakeImageCodec(), FakeTextMeasurer(), storeTiltAngle = { false })
+        val out = ByteArrayOutputStream()
+        baking.write(doc, out)
+        val back = baking.read(ByteArrayInputStream(out.toByteArray()), imageDir = Files.createTempDirectory("xnotes-img").toFile())
+        val stroke = back.pages[0].items[0] as Stroke
+        assertTrue(stroke.samples.all { it.tilt == 0.0 })
+        assertTrue(stroke.samples.all { it.widthFactor > 0.0 })
+        val want = original.geometry()
+        val got = stroke.geometry()
+        assertEquals(want.pointCount, got.pointCount)
+        assertArrayEquals(want.halfWidths, got.halfWidths, 1e-2f)
+    }
+
+    @Test fun markupsRideTheirOwnEntryJustBeforeTheManifest() {        val doc = Document(dpi = 150)
         doc.pages += Page(1240.0, 1754.0)
         doc.pages += Page(1240.0, 1754.0)
         val m = com.xnotes.core.model.TextMarkup(

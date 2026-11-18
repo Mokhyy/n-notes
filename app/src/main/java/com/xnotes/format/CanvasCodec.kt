@@ -47,6 +47,7 @@ import com.xnotes.core.tools.ToolConfig
 import com.xnotes.core.tools.ToolDefaults
 import com.xnotes.core.util.Svg
 import com.xnotes.core.vector.PathFlattener
+import com.xnotes.stylus.StylusTilt
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -77,7 +78,12 @@ class XCanvasFormatException(message: String) : Exception(message)
  * model defaults, and new optional fields are written only when set so older readers stay
  * compatible. Strokes stay editable vector samples; nothing is flattened.
  */
-class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: TextMeasurer) {
+class CanvasCodec(
+    private val imageCodec: ImageCodec,
+    private val textMeasurer: TextMeasurer,
+    /** Whether a sample's tilt is kept as its own channel; false bakes it into the width instead. */
+    private val storeTiltAngle: () -> Boolean = { true },
+) {
 
     /** Thrown out of [write] when [isCancelled] turns true mid-copy, so the caller can discard the partial file. */
     class WriteCancelled : Exception()
@@ -221,9 +227,13 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
     }
 
     private fun writeStroke(j: JsonWrite, s: Stroke) {
-        // Per-sample time and kept width are only meaningful to the speed pen, so they're written as
-        // optional 4th and 5th elements only then; every other stroke serializes without them.
+        // Per-sample time and kept width belong to the speed pen. Tilt is either kept as its own
+        // channel or, when the user turned angle storage off, baked into that width channel: the
+        // ink loads identically, without the sixth value.
         val withTime = s.config.speedStrength > 0.0
+        val tilted = s.config.tiltStrength > 0.0 && s.samples.any { it.tilt > 0.0 }
+        val keepTilt = tilted && storeTiltAngle()
+        val bakeTilt = tilted && !keepTilt
         j.beginObject()
         j.name("kind").value(Stroke.KIND)
         j.name("tool").value(s.tool.id)
@@ -242,6 +252,7 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
             j.name("taper_enabled").value(true)
             j.name("taper_min_factor").value(s.config.taperMinFactor)
         }
+        if (s.config.tiltStrength != 0.0) j.name("tilt_strength").value(s.config.tiltStrength)
         if (s.config.neon) {
             j.name("neon").value(true)
             j.name("neon_strength").value(s.config.neonStrength)
@@ -259,7 +270,20 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
         // content px and 0.001 pressure are far below anything visible. Rounding is idempotent,
         // so re-saving an untouched canvas stays byte-stable.
         j.name("samples").beginArray()
-        for (sm in s.samples) j.samplePoint(sm.x, sm.y, sm.pressure, if (withTime) sm.t else null, sm.widthFactor.takeIf { withTime && it > 0.0 })
+        for (sm in s.samples) {
+            val width = when {
+                bakeTilt -> StylusTilt.bakedWidthFactor(sm.tilt, s.config.tiltStrength, if (sm.widthFactor > 0.0) sm.widthFactor else 1.0)
+                withTime -> sm.widthFactor.takeIf { it > 0.0 }
+                keepTilt -> 0.0 // the angle slot needs a width slot ahead of it
+                else -> null
+            }
+            j.samplePoint(
+                sm.x, sm.y, sm.pressure,
+                if (withTime) sm.t else if (width != null) 0.0 else null,
+                width,
+                if (keepTilt) sm.tilt.takeIf { it > 0.0 } else null,
+            )
+        }
         j.endArray()
         if (withTime) j.name("speed_scale").value(s.speedScale)
         // The zoom the stroke was drawn at, as the scale on the ink low-pass lengths, so it
@@ -829,6 +853,7 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
         var dashGap: Double? = null
         var highlighterAlpha: Double? = null
         var highlighterInverse: Boolean? = null
+        var tiltStrength: Double? = null
     }
 
     private fun parseItem(p: JsonPull, items: MutableList<CanvasItem>, pending: MutableList<Pending>, glue: GlueRead) {
@@ -960,13 +985,14 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
             taperMinFactor = c?.taperMinFactor ?: ToolDefaults.LEGACY_TAPER_TIP,
             neon = c?.neon ?: def.neon,
             neonStrength = c?.neonStrength ?: def.neonStrength,
+            tiltStrength = c?.tiltStrength ?: def.tiltStrength,
             dashLength = c?.dashLength ?: def.dashLength,
             dashGap = c?.dashGap ?: def.dashGap,
             highlighterAlpha = c?.highlighterAlpha ?: def.highlighterAlpha,
             highlighterInverse = c?.highlighterInverse ?: def.highlighterInverse,
         )
         val stroke = Stroke(tool, config, emptyList(), s.speedScale, s.straight, s.smoothScale)
-        s.samples?.let { stroke.setSamples(it.xs, it.ys, it.ps, it.ts, it.n, it.ws) }
+        s.samples?.let { stroke.setSamples(it.xs, it.ys, it.ps, it.ts, it.n, it.ws, it.ls) }
         // Speed ink saved before its widths were kept works them out once, as it is drawn now.
         stroke.freezeSpeedWidths()
         stroke.cuts = s.cuts
@@ -1177,6 +1203,7 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
                 "dash_gap" -> c.dashGap = doubleOrNull(p)
                 "highlighter_alpha" -> c.highlighterAlpha = doubleOrNull(p)
                 "highlighter_inverse" -> c.highlighterInverse = boolOrNull(p)
+                "tilt_strength" -> c.tiltStrength = doubleOrNull(p)
                 else -> p.skipValue()
             }
         }
@@ -1190,7 +1217,7 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
             return null
         }
         val out = RawSamples()
-        val tuple = DoubleArray(5)
+        val tuple = DoubleArray(6)
         p.beginArray()
         while (p.hasNext()) {
             if (p.peek() != JsonPull.Token.BEGIN_ARRAY) {
@@ -1207,6 +1234,7 @@ class CanvasCodec(private val imageCodec: ImageCodec, private val textMeasurer: 
                 if (tuple[2].isNaN()) 1.0 else tuple[2],
                 if (tuple[3].isNaN()) 0.0 else tuple[3],
                 if (tuple[4].isNaN()) 0.0 else tuple[4],
+                if (tuple[5].isNaN()) 0.0 else tuple[5],
             )
         }
         p.endArray()

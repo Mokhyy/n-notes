@@ -137,6 +137,8 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
     var pressure by remember(tool) { mutableStateOf(base.pressureEnabled) }
     var sensitivity by remember(tool) { mutableStateOf(ToolConversions.minFactorToSensitivity(base.pressureMinFactor).toFloat()) }
     var multiplier by remember(tool) { mutableStateOf(ToolConversions.directionStrengthToMultiplier(base.directionStrength).toFloat()) }
+    var tilt by remember(tool) { mutableStateOf(base.tiltStrength > 0.0) }
+    var tiltStrength by remember(tool) { mutableStateOf((base.tiltStrength * 100.0).toFloat()) }
     var speed by remember(tool) { mutableStateOf(ToolConversions.strengthToSpeed(base.speedStrength).toFloat()) }
     var smoothing by remember(tool) { mutableStateOf(ToolConversions.blurToSmoothing(base.speedSmoothing).toFloat()) }
     var topSpeed by remember(tool) { mutableStateOf(ToolConversions.dpPerMsToTopSpeed(base.speedTop).toFloat()) }
@@ -187,6 +189,7 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
                 stabilize = steady,
                 stabilizeTrail = ToolConversions.strengthToTrail(steadyStrength.toDouble()),
                 stabilizeCrossover = ToolConversions.crossoverToDpPerS(crossover.toDouble()),
+                tiltStrength = if (tilt) tiltStrength.toDouble() / 100.0 else 0.0,
             ),
         )
     }
@@ -223,6 +226,16 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
             if (hasPressure) {
                 ToggleRow(stringResource(R.string.caption_pressure), pressure) { pressure = it; emit() }
                 SliderRow(stringResource(R.string.caption_sensitivity), sensitivity, 0f..100f, enabled = pressure) { sensitivity = it; emit() }
+                // Tilt width is its own width channel, independent of pressure, so it stays
+                // available whether pressure response is on or off.
+                ToggleRow(stringResource(R.string.caption_tilt), tilt) {
+                    if (it && tiltStrength <= 0f) tiltStrength = 60f // a visible default the first time
+                    tilt = it
+                    emit()
+                }
+                if (tilt) {
+                    SliderRow(stringResource(R.string.caption_strength), tiltStrength, 0f..100f) { tiltStrength = it; emit() }
+                }
             }
             if (tool == Tool.CALLIGRAPHY) {
                 SliderRow(stringResource(R.string.caption_multiplier), multiplier, 1f..5f) { multiplier = it; emit() }

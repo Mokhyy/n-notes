@@ -97,6 +97,8 @@ import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolConfig
 import com.xnotes.core.tools.ToolConversions
 import com.xnotes.core.tools.ToolDefaults
+import com.xnotes.stylus.StylusCurve
+import com.xnotes.stylus.StylusTilt
 import com.xnotes.ui.theme.Palette
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -804,6 +806,10 @@ class InteractionController(
             }
         }
 
+    /** Shapes pressure and tilt before they are stored, so a stroke keeps the feel it was drawn with. */
+    var pressureCurve: StylusCurve = StylusCurve.IDENTITY
+    var tiltCurve: StylusCurve = StylusCurve.IDENTITY
+
     /** The hovering pen's distance as a fraction of its device's maximum: 0 at the glass, 1 far. */
     private var hoverDistance = 0.0
 
@@ -924,8 +930,11 @@ class InteractionController(
     }
 
     private fun handleDown(e: MotionEvent) {
+        // The hovering pointer gives way to contact: drop its cursor and repaint now, so the ring
+        // vanishes on the down event itself instead of waiting for the gesture's first move.
         hoverCursor = null
         hoverDistance = 0.0
+        requestRender()
         if (hoverActionTool != null) endHoverAction() // a hovering side-button gesture yields to contact
         downStoppedFling = flinging // captured before stopping: a tap that only halts a glide must not dismiss
         stopFling() // a new touch halts any in-progress glide
@@ -1077,7 +1086,7 @@ class InteractionController(
         }
         when {
             effectiveTool == Tool.PAN -> beginPan(vx, vy, fromPenButton = buttonHeld && buttonTool == Tool.PAN)
-            effectiveTool.isStroke -> beginDraw(content, resolvePressure(e, 0, toolType), effectiveTool, e.eventTime, Pt(vx, vy))
+            effectiveTool.isStroke -> beginDraw(content, resolvePressure(e, 0, toolType), tiltOf(e, 0), effectiveTool, e.eventTime, Pt(vx, vy))
             effectiveTool == Tool.ERASER -> {
                 clearSelection()
                 erasingWithFinger = toolType == MotionEvent.TOOL_TYPE_FINGER
@@ -1357,7 +1366,7 @@ class InteractionController(
 
     // --- DRAW ---
 
-    private fun beginDraw(content: Pt, pressure: Double, drawTool: Tool, timeMs: Long, downViewport: Pt) {
+    private fun beginDraw(content: Pt, pressure: Double, tilt: Double, drawTool: Tool, timeMs: Long, downViewport: Pt) {
         val pageIndex = state.pageIndexAtContent(content) ?: return
         // Reaching here with a live selection means the press landed off it (on it the stylus would
         // have grabbed it): dismiss it. A bare tap that only dismissed is dropped in endDraw.
@@ -1406,7 +1415,9 @@ class InteractionController(
         snapPenViewport = null
         val down = state.viewportToContent(magnetize(downViewport))
         val first = state.toPageSpace(pageIndex, down)
-        stroke.addSample(Sample(first.x, first.y, pressure)) // first sample: t = 0
+        val shapedPressure = if (drawingIsStylus) pressureCurve.valueAt(pressure.coerceIn(0.0, 1.0)) else pressure
+        val shapedTilt = if (drawingIsStylus) tiltCurve.valueAt(tilt.coerceIn(0.0, 1.0)) else 0.0
+        stroke.addSample(Sample(first.x, first.y, shapedPressure, tilt = shapedTilt)) // first sample: t = 0
         steadier = Stabilizer.forStroke(cfg.stabilize && !straight, cfg.stabilizeTrail, cfg.stabilizeCrossover, speedScale)
         steadier?.start(down.x, down.y, 0.0)
         tracing = measureSteadying()
@@ -1435,20 +1446,26 @@ class InteractionController(
                 if (drawingIsStylus) e.getHistoricalPressure(idx, h).toDouble() else 1.0,
                 e.getHistoricalEventTime(h),
                 force = false,
+                tilt = tiltOf(e, idx, h),
             )
         }
         addStrokePoint(
             e.getX(idx).toDouble(), e.getY(idx).toDouble(),
             if (drawingIsStylus) e.getPressure(idx).toDouble() else 1.0, e.eventTime, force = false,
+            tilt = tiltOf(e, idx),
         )
         frontInk?.wet(liveStroke, strokePageIndex)
         requestRender()
     }
 
-    private fun addStrokePoint(vx: Double, vy: Double, pressure: Double, timeMs: Long, force: Boolean) {
+    private fun addStrokePoint(vx: Double, vy: Double, pressure: Double, timeMs: Long, force: Boolean, tilt: Double = 0.0) {
         val stroke = liveStroke ?: return
         val pi = strokePageIndex ?: return
         if (state.pageRects.getOrNull(pi) == null) return
+        // Shape the pen's raw input with the user's response curves before it is stored, so the
+        // stroke carries the same feel on reload without needing the curve itself.
+        val p = if (drawingIsStylus) pressureCurve.valueAt(pressure.coerceIn(0.0, 1.0)) else pressure
+        val tl = if (drawingIsStylus) tiltCurve.valueAt(tilt.coerceIn(0.0, 1.0)) else 0.0
         val vp = magnetize(Pt(vx, vy))
         // Once the ruler grabs the stroke it is a line, so hold-to-shape stays off until pen-up.
         if (dwellEligible && snapEngaged) {
@@ -1477,8 +1494,8 @@ class InteractionController(
         if (!stroke.straight) {
             val onPage = state.pageIndexAtContent(content)
             if (onPage != null && onPage != pi) {
-                handOverStroke(stroke, pi, onPage, content, pressure, t)
-                if (steady != null && !force) showTip(nib, pressure, steady.tipTime)
+                handOverStroke(stroke, pi, onPage, content, p, tl, t)
+                if (steady != null && !force) showTip(nib, p, tl, steady.tipTime)
                 return
             }
         }
@@ -1489,7 +1506,7 @@ class InteractionController(
             // it snaps flat like a dragged line, unless the ruler is already steering the angle.
             val start = stroke.samples.firstOrNull()
             val end = if (start != null && !ruler.visible) ResizeMath.snapAxis(Pt(start.x, start.y), local) else local
-            stroke.setStraightEnd(Sample(end.x, end.y, pressure.coerceIn(0.0, 1.0), t))
+            stroke.setStraightEnd(Sample(end.x, end.y, p.coerceIn(0.0, 1.0), t, tilt = tl))
             return
         }
         val last = stroke.samples.lastOrNull()
@@ -1499,9 +1516,9 @@ class InteractionController(
         // zoomed in, so strokes drawn while zoomed faceted into ~zoom-px chords.
         val gate = (MIN_SAMPLE_DIST / state.zoom).coerceAtMost(MIN_SAMPLE_DIST)
         if (force || last == null || Pt(last.x, last.y).manhattanTo(local) >= gate) {
-            stroke.addSample(Sample(local.x, local.y, pressure.coerceIn(0.0, 1.0), t))
+            stroke.addSample(Sample(local.x, local.y, p.coerceIn(0.0, 1.0), t, tilt = tl))
         }
-        if (steady != null && !force) showTip(nib, pressure, steady.tipTime)
+        if (steady != null && !force) showTip(nib, p, tl, steady.tipTime)
         // Real movement restarts the hold-to-snap clock; staying within the slop lets it mature,
         // so the snap fires only once the pen has actually come to rest. (Sub-slop jitter is ignored
         // even when a sample is decimated out above, so a trembling-but-still pen still triggers.)
@@ -1512,11 +1529,11 @@ class InteractionController(
     }
 
     /** Draw the live stroke on to the nib at [content], where its steadied samples have not reached yet. */
-    private fun showTip(content: Pt, pressure: Double, t: Double) {
+    private fun showTip(content: Pt, pressure: Double, tilt: Double, t: Double) {
         val stroke = liveStroke ?: return
         val pi = strokePageIndex ?: return
         val local = state.toPageSpace(pi, content)
-        stroke.setTip(Sample(local.x, local.y, pressure.coerceIn(0.0, 1.0), t))
+        stroke.setTip(Sample(local.x, local.y, pressure.coerceIn(0.0, 1.0), t, tilt = tilt))
     }
 
     /**
@@ -1534,6 +1551,7 @@ class InteractionController(
         toPage: Int,
         content: Pt,
         pressure: Double,
+        tilt: Double,
         t: Double,
     ) {
         // A stroke long enough to reach the next page is a line, not a held shape.
@@ -1550,10 +1568,10 @@ class InteractionController(
         next.finished = false
         if (last != null) {
             val bridge = state.toPageSpace(toPage, state.fromPageSpace(fromPage, Pt(last.x, last.y)))
-            next.addSample(Sample(bridge.x, bridge.y, last.pressure, last.t))
+            next.addSample(Sample(bridge.x, bridge.y, last.pressure, last.t, tilt = last.tilt))
         }
         val local = state.toPageSpace(toPage, content)
-        next.addSample(Sample(local.x, local.y, pressure.coerceIn(0.0, 1.0), t))
+        next.addSample(Sample(local.x, local.y, pressure.coerceIn(0.0, 1.0), t, tilt = tilt))
         liveStroke = next
         strokePageIndex = toPage
         requestRender()
@@ -1617,6 +1635,7 @@ class InteractionController(
         addStrokePoint(
             e.getX(idx).toDouble(), e.getY(idx).toDouble(),
             if (drawingIsStylus) e.getPressure(idx).toDouble() else 1.0, e.eventTime, force = true,
+            tilt = tiltOf(e, idx),
         )
         // A mid-stroke snap already committed a shape and cleared liveStroke, so this block is
         // skipped and the freehand stroke is intentionally not also committed.
@@ -5421,6 +5440,17 @@ class InteractionController(
 
     private fun resolvePressure(e: MotionEvent, pointerIndex: Int, toolType: Int): Double =
         if (toolType == MotionEvent.TOOL_TYPE_STYLUS) e.getPressure(pointerIndex).toDouble().coerceIn(0.0, 1.0) else 1.0
+
+    /** The pen's tilt as a normalized lay (0 upright, 1 flat), or 0 for a finger or no tilt axis. */
+    private fun tiltOf(e: MotionEvent, pointerIndex: Int, historyPos: Int = -1): Double {
+        if (!drawingIsStylus) return 0.0
+        val radians = if (historyPos >= 0) {
+            e.getHistoricalAxisValue(MotionEvent.AXIS_TILT, pointerIndex, historyPos)
+        } else {
+            e.getAxisValue(MotionEvent.AXIS_TILT, pointerIndex)
+        }.toDouble()
+        return StylusTilt.normalized(radians)
+    }
 
     // --- overlay ---
 

@@ -513,10 +513,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     }
     private val textMeasurer = AndroidTextMeasurer()
     private val imageCodec = AndroidImageCodec()
-    private val codec = DocumentCodec(imageCodec, textMeasurer) { doc, pdfPage ->
-        pdfSource?.takeIf { doc.pdfFile != null && it.file == doc.pdfFile }?.pageGeometry(pdfPage)
-    }
-    private val canvasCodec = com.xnotes.format.CanvasCodec(imageCodec, textMeasurer)
+    private val codec = DocumentCodec(
+        imageCodec, textMeasurer,
+        storeTiltAngle = { settings.prefs.stylusStoreTiltAngle },
+        pdfGeometry = { doc, pdfPage -> pdfSource?.takeIf { doc.pdfFile != null && it.file == doc.pdfFile }?.pageGeometry(pdfPage) },
+    )
+    private val canvasCodec = com.xnotes.format.CanvasCodec(imageCodec, textMeasurer) { settings.prefs.stylusStoreTiltAngle }
 
     /** One flow layout + snapshot: repainted from cache threads, so only the published frame is read. */
     private class PublishedFlow(val frame: FlowFrame, val indexOf: Map<Page, Int>)
@@ -3157,10 +3159,14 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         controller.hoverDistancePreview = p.stylusHoverDistance
         controller.hoverPreviewFor = { id -> previewForPen(id) }
         controller.hoverDistancePreviewFor = { id -> distanceForPen(id) }
+        controller.pressureCurve = p.stylusPressureCurve
+        controller.tiltCurve = p.stylusTiltCurve
         infiniteOrNull?.interaction?.hoverPreview = p.stylusHoverPreview
         infiniteOrNull?.interaction?.hoverDistancePreview = p.stylusHoverDistance
         infiniteOrNull?.interaction?.hoverPreviewFor = { id -> previewForPen(id) }
         infiniteOrNull?.interaction?.hoverDistancePreviewFor = { id -> distanceForPen(id) }
+        infiniteOrNull?.interaction?.pressureCurve = p.stylusPressureCurve
+        infiniteOrNull?.interaction?.tiltCurve = p.stylusTiltCurve
         state.sideMargin = p.sideMargin
         state.pageBorders = !p.hidePageBorders
         controller.showMargins = p.showMargins
@@ -11259,11 +11265,15 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private fun penToolOf(id: String): Tool? =
         if (id == "none") null else (Tool.fromId(id) ?: Tool.ERASER)
 
+    /** While the stylus lab is open, raw key events go here instead of the canvas. */
+    var stylusKeyTap: ((android.view.KeyEvent) -> Boolean)? = null
+
     /** Feeder C entry point: route stylus side-button key presses (Bluetooth/USI pens) to the
      *  controller's held latch, and the vendor double-tap/click keycodes to their gesture handlers;
      *  a held key that can also be clicked goes to both. Returns true when consumed, so the host
      *  swallows the key. */
     fun onStylusButtonKey(e: android.view.KeyEvent): Boolean {
+        stylusKeyTap?.let { if (it(e)) return true }
         val stylus = stylusFor(e.deviceId)
         if (e.keyCode == stylus.doubleTapKeycode) return onPenDoubleTapKey(e, stylus)
         if (stylus.isTapButton(e.keyCode)) return onPenButtonTapKey(e, stylus)
@@ -11281,10 +11291,23 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     // Pens with no side button (e.g. Huawei M-Pencil) report a barrel double-tap as a vendor key
     // code with no standard mapping (718). One physical double-tap arrives as two quick presses, so
-    // a pair within the window fires the mapped gesture once. Consumed only when the gesture is set.
+    // a pair within the window fires the mapped gesture once. A pen whose profile names a dedicated
+    // keycode (Xiaomi Focus Pen Pro -> BUTTON_8) sends one event per gesture; debounce it in case a
+    // firmware repeats it. Consumed only when the gesture is set.
     private var lastPenTapMs = 0L
+    private var lastDedicatedPenTapMs = 0L
     private fun onPenDoubleTapKey(e: android.view.KeyEvent, stylus: EffectiveStylusSettings): Boolean {
         if (stylus.doubleTapAction == "none") return false
+        if (stylus.doubleTapKeycode != com.xnotes.stylus.StylusKeys.BARREL_DOUBLE_TAP) {
+            if (e.action == android.view.KeyEvent.ACTION_DOWN && e.repeatCount == 0) {
+                val t = e.eventTime
+                if (lastDedicatedPenTapMs == 0L || t - lastDedicatedPenTapMs > stylus.barrelDoubleTapWindowMs) {
+                    lastDedicatedPenTapMs = t
+                    dispatchTapGesture(stylus.doubleTapAction)
+                }
+            }
+            return true
+        }
         if (e.action == android.view.KeyEvent.ACTION_DOWN) {
             val t = e.eventTime
             if (lastPenTapMs != 0L && t - lastPenTapMs <= stylus.barrelDoubleTapWindowMs) {

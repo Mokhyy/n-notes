@@ -98,6 +98,71 @@ class CanvasCodecTest {
 
     // --- round trip ---
 
+    @Test fun tiltWidthRoundTrips() {
+        val doc = InfiniteDocument(dpi = 150)
+        doc.add(
+            Stroke(
+                Tool.PEN,
+                ToolConfig(baseWidth = 4.0, tiltStrength = 0.8),
+                mutableListOf(Sample(0.0, 0.0, 0.5, tilt = 0.25), Sample(10.0, 0.0, 0.5, tilt = 1.0)),
+            ),
+        )
+        val stroke = roundTrip(doc).items[0] as Stroke
+        assertEquals(0.8, stroke.config.tiltStrength, 1e-9)
+        assertEquals(0.25, stroke.samples[0].tilt, 1e-9)
+        assertEquals(1.0, stroke.samples[1].tilt, 1e-9)
+    }
+
+    @Test fun bakingTiltKeepsTheInkAndDropsTheAngle() {
+        val original = Stroke(
+            Tool.PEN,
+            ToolConfig(baseWidth = 6.0, tiltStrength = 0.7),
+            (0 until 40).map { i ->
+                val u = i * 0.2
+                Sample(u * 8.0, kotlin.math.sin(u) * 12.0, 0.3 + 0.05 * (i % 5), tilt = 0.2 + 0.02 * i)
+            },
+        )
+        val doc = InfiniteDocument(dpi = 150)
+        doc.add(original)
+        val baking = CanvasCodec(FakeImageCodec(), FakeTextMeasurer()) { false }
+        val back = baking.read(
+            ByteArrayInputStream(ByteArrayOutputStream().also { baking.write(doc, it) }.toByteArray()),
+            imageDir = Files.createTempDirectory("xnotes-canvas-img").toFile(),
+        )
+        val stroke = back.items[0] as Stroke
+        assertTrue(stroke.samples.all { it.tilt == 0.0 })
+        assertTrue(stroke.samples.all { it.widthFactor > 0.0 })
+        val want = original.geometry()
+        val got = stroke.geometry()
+        assertEquals(want.pointCount, got.pointCount)
+        assertArrayEquals(want.halfWidths, got.halfWidths, 1e-2f)
+    }
+
+    @Test fun bakingSpeedAndTiltKeepsBothCurves() {
+        val original = Stroke(
+            Tool.SPEED,
+            ToolConfig(baseWidth = 6.0, speedStrength = 0.4, tiltStrength = 0.7),
+            (0 until 40).map { i ->
+                val u = i * 0.2
+                Sample(u * 8.0, kotlin.math.sin(u) * 12.0, 0.5, t = i * 12.0, tilt = 0.2 + 0.02 * i)
+            },
+        )
+        original.freezeSpeedWidths()
+        val doc = InfiniteDocument(dpi = 150)
+        doc.add(original)
+        val baking = CanvasCodec(FakeImageCodec(), FakeTextMeasurer()) { false }
+        val back = baking.read(
+            ByteArrayInputStream(ByteArrayOutputStream().also { baking.write(doc, it) }.toByteArray()),
+            imageDir = Files.createTempDirectory("xnotes-canvas-img").toFile(),
+        )
+        val stroke = back.items[0] as Stroke
+        assertTrue(stroke.samples.all { it.tilt == 0.0 })
+        val want = original.geometry()
+        val got = stroke.geometry()
+        assertEquals(want.pointCount, got.pointCount)
+        assertArrayEquals(want.halfWidths, got.halfWidths, 1e-2f)
+    }
+
     @Test fun fullRoundTrip() {
         val doc = InfiniteDocument(dpi = 150)
         doc.add(

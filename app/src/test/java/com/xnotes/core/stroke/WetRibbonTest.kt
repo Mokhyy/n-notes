@@ -50,6 +50,7 @@ class WetRibbonTest {
             smoothScale = smoothScale,
             speedTop = config.speedTop,
             speedSmoothing = config.speedSmoothing,
+            tiltStrength = config.tiltStrength,
         )
 
     private fun build(
@@ -74,6 +75,7 @@ class WetRibbonTest {
         smoothScale = smoothScale,
         speedTop = config.speedTop,
         speedSmoothing = config.speedSmoothing,
+        tiltStrength = config.tiltStrength,
     )
 
     /** Grow a ribbon over [samples], checking it against the batch build at every single length. */
@@ -87,7 +89,7 @@ class WetRibbonTest {
         val ribbon = ribbonFor(config, tool, smoothScale, speedScale)
         for (n in 1..samples.size) {
             val s = samples[n - 1]
-            ribbon.append(s.x, s.y, s.pressure, s.t)
+            ribbon.append(s.x, s.y, s.pressure, s.t, s.tilt)
             val want = build(config, tool, samples.subList(0, n), smoothScale, speedScale)
             assertEquals("$tool point count at n=$n", want.pointCount, ribbon.pointCount)
             for (i in 0 until want.pointCount) {
@@ -117,6 +119,15 @@ class WetRibbonTest {
 
     @Test fun speedMatchesTheBatchEngine() {
         assertMatchesAtEveryLength(Tool.SPEED, path(140))
+    }
+
+    @Test fun tiltMatchesTheBatchEngineWithPressureOff() {
+        val samples = path(90).mapIndexed { i, s -> s.copy(tilt = 0.5 + 0.5 * sin(i * 0.17)) }
+        assertMatchesAtEveryLength(
+            Tool.PEN,
+            samples,
+            config = ToolConfig(baseWidth = 6.0, pressureEnabled = false, tiltStrength = 0.9),
+        )
     }
 
     @Test fun dashedMatchesTheBatchEngine() {
@@ -292,7 +303,7 @@ class WetRibbonTest {
             var worst = 0
             val samples = path(600)
             for ((i, s) in samples.withIndex()) {
-                ribbon.append(s.x, s.y, s.pressure, s.t)
+            ribbon.append(s.x, s.y, s.pressure, s.t, s.tilt)
                 if (i >= 40) worst = maxOf(worst, ribbon.pointCount - ribbon.settledCount)
             }
             assertTrue("$tool left a tail of $worst points", worst <= 32)

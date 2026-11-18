@@ -7,6 +7,8 @@ import com.xnotes.core.tools.InkPalette
 import com.xnotes.core.tools.SelectKind as K
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolbarLayout
+import com.xnotes.stylus.StylusCurve
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -212,6 +214,18 @@ class SettingsTest {
         assertFalse(Settings.fromJson(JSONObject()).prefs.disableFrontBuffering)
         val back = Settings.fromJson(Settings(prefs = Preferences(disableFrontBuffering = true)).toJson()).prefs
         assertTrue(back.disableFrontBuffering)
+    }
+
+    @Test fun stylusResponseCurvesRoundTrip() {
+        val back = Settings.fromJson(
+            Settings(prefs = Preferences(stylusPressureCurve = StylusCurve.SOFT, stylusTiltCurve = StylusCurve.FIRM)).toJson(),
+        ).prefs
+        assertEquals(StylusCurve.SOFT.points, back.stylusPressureCurve.points)
+        assertEquals(StylusCurve.FIRM.points, back.stylusTiltCurve.points)
+        assertEquals(StylusCurve.IDENTITY.points, Settings.fromJson(JSONObject()).prefs.stylusTiltCurve.points)
+        // Curves saved by the first fixed-five-knot version still load.
+        val legacy = JSONObject().put("stylus_pressure_curve", JSONArray(listOf(0.0, 0.25, 0.5, 0.75, 1.0)))
+        assertEquals(0.25, Preferences.fromJson(legacy).stylusPressureCurve.valueAt(0.25), 1e-9)
     }
 
     @Test fun headingBookmarksAreOnUntilTurnedOff() {

@@ -1,6 +1,7 @@
 package com.xnotes.core.stroke
 
 import com.xnotes.core.geometry.Rect
+import com.xnotes.stylus.StylusTilt
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -55,6 +56,7 @@ class WetRibbon(
     private val smoothScale: Double,
     private val speedTop: Double = StrokeEngine.SPEED_HI,
     speedSmoothing: Double = StrokeEngine.DEFAULT_SPEED_SMOOTHING,
+    private val tiltStrength: Double = 0.0,
 ) : RibbonPoints {
     /** Samples taken so far; one ribbon point each. */
     override var pointCount = 0
@@ -75,6 +77,9 @@ class WetRibbon(
     private var sp = EMPTY_D
     private var tx = EMPTY_D
     private var ty = EMPTY_D
+
+    /** How far the nib is laid down per sample (0 upright, 1 flat), when tilt width is on. */
+    private var tl = EMPTY_D
 
     /** Elapsed ms, cumulative *raw* travel and cumulative moving time: the speed pen's window reads them. */
     private var times = EMPTY_D
@@ -213,9 +218,9 @@ class WetRibbon(
     // --- growing the ribbon ---
 
     /** Take one more sample: extend every causal channel by a step, then redraw the live tail. */
-    fun append(x: Double, y: Double, pressure: Double, t: Double) {
+    fun append(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0) {
         dropTip()
-        grow(x, y, pressure, t)
+        grow(x, y, pressure, t, tilt)
     }
 
     // --- the tip ---
@@ -254,11 +259,11 @@ class WetRibbon(
      * Draw one more point at ([x], [y]) exactly as the next sample would, without taking it. It only
      * writes past the samples or into the tail, so it comes off by putting the carried state back.
      */
-    fun setTip(x: Double, y: Double, pressure: Double, t: Double) {
+    fun setTip(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0) {
         if (pointCount == 0) return
         dropTip()
         keep()
-        grow(x, y, pressure, t)
+        grow(x, y, pressure, t, tilt)
         tipped = true
         settledCount = kept.settled
         minX = kept.minX
@@ -330,7 +335,7 @@ class WetRibbon(
         k.maxY = maxY
     }
 
-    private fun grow(x: Double, y: Double, pressure: Double, t: Double) {
+    private fun grow(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0) {
         val i = pointCount
         ensure(i + 1)
         val step = if (i == 0) 0.0 else hypot(x - lastRawX, y - lastRawY)
@@ -338,6 +343,7 @@ class WetRibbon(
             sx[0] = x
             sy[0] = y
             sp[0] = pressure
+            if (tiltStrength > 0.0) tl[0] = tilt
             if (timed) {
                 times[0] = t
                 tau[0] = 0.0
@@ -354,6 +360,7 @@ class WetRibbon(
             sx[i] = if (smooth) StrokeEngine.emaStep(sx[i - 1], lastRawX, x, step, smoothLen) else x
             sy[i] = if (smooth) StrokeEngine.emaStep(sy[i - 1], lastRawY, y, step, smoothLen) else y
             sp[i] = StrokeEngine.emaStep(sp[i - 1], lastRawP, pressure, step, smoothLen)
+            if (tiltStrength > 0.0) tl[i] = tilt
             arc += hypot(sx[i] - sx[i - 1], sy[i] - sy[i - 1])
             if (timed) {
                 times[i] = t
@@ -479,6 +486,7 @@ class WetRibbon(
             val pressure = if (held) StrokeEngine.heldPressureAt(sp, n, i) else sp[i]
             var h = StrokeEngine.halfWidth(baseWidth, pressureEnabled, m, ds, pressure, dir)
             if (timed) h *= StrokeEngine.blurAt(fSpeed, pathArc, n, i, sigma, blurScratch)
+            if (tiltStrength > 0.0) h *= StylusTilt.widthFactor(tl[i], tiltStrength)
             if (n == 1) {
                 halfWidths[0] = h.toFloat()
                 centerline[0] = sx[0].toFloat()
@@ -565,6 +573,7 @@ class WetRibbon(
         sp = sp.copyOf(c)
         tx = tx.copyOf(c)
         ty = ty.copyOf(c)
+        if (tiltStrength > 0.0) tl = tl.copyOf(c)
         if (timed) {
             times = times.copyOf(c)
             tau = tau.copyOf(c)

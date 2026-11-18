@@ -6,12 +6,14 @@ import com.xnotes.core.model.PageSizeChoice
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.util.NameTemplate
 import com.xnotes.stylus.StylusGeneralSettings
+import com.xnotes.stylus.StylusCurve
 import com.xnotes.stylus.StylusJson
 import com.xnotes.stylus.StylusPresets
 import com.xnotes.stylus.StylusProfile
 import com.xnotes.stylus.StylusSettings
 import com.xnotes.sync.CloudService
 import com.xnotes.sync.CloudServices
+import org.json.JSONArray
 import org.json.JSONObject
 
 /** What a swipe on Home can do: show or hide the sidebar, step up a folder, or back into the one just left. */
@@ -70,6 +72,16 @@ data class Preferences(
      * that grows as the pen nears the page. Pens without a distance axis keep a full cursor.
      */
     val stylusHoverDistance: Boolean = true,
+    /**
+     * Keep each sample's pen tilt in the stroke file, so reloaded ink can be re-derived by a future
+     * brush model. Off bakes the tilt into the width channel instead: same look, smaller file, but
+     * the angle itself is gone.
+     */
+    val stylusStoreTiltAngle: Boolean = true,
+    /** Shapes pressure before it reaches the ink: five knots from light to full press. */
+    val stylusPressureCurve: StylusCurve = StylusCurve.IDENTITY,
+    /** Shapes tilt lay before it scales the width: five knots from upright to flat. */
+    val stylusTiltCurve: StylusCurve = StylusCurve.IDENTITY,
     /** Action mapped to a clean two-finger tap; "none" (default) disables it. */
     val twoFingerTap: String = "none",
     /** Action mapped to a clean three-finger tap; "none" (default) disables it. */
@@ -238,6 +250,9 @@ data class Preferences(
         .put("pen_button_hover", penButtonHover)
         .put("stylus_hover_preview", stylusHoverPreview)
         .put("stylus_hover_distance", stylusHoverDistance)
+        .put("stylus_store_tilt_angle", stylusStoreTiltAngle)
+        .apply { if (!stylusPressureCurve.isIdentity) put("stylus_pressure_curve", stylusPressureCurve.points.toJson()) }
+        .apply { if (!stylusTiltCurve.isIdentity) put("stylus_tilt_curve", stylusTiltCurve.points.toJson()) }
         .put("two_finger_tap", twoFingerTap)
         .put("three_finger_tap", threeFingerTap)
         .put("stylus_double_tap", stylusDoubleTap)
@@ -407,6 +422,9 @@ data class Preferences(
                 penButtonHover = o.optBoolean("pen_button_hover", false),
                 stylusHoverPreview = o.optBoolean("stylus_hover_preview", true),
                 stylusHoverDistance = o.optBoolean("stylus_hover_distance", true),
+                stylusStoreTiltAngle = o.optBoolean("stylus_store_tilt_angle", true),
+                stylusPressureCurve = stylusCurve(o, "stylus_pressure_curve"),
+                stylusTiltCurve = stylusCurve(o, "stylus_tilt_curve"),
                 twoFingerTap = tapAction("two_finger_tap"),
                 threeFingerTap = tapAction("three_finger_tap"),
                 stylusDoubleTap = tapAction("stylus_double_tap"),
@@ -486,3 +504,26 @@ data class Preferences(
 
 /** A cloud folder picked for sync: the service's folder id and the path shown in preferences. */
 data class CloudFolder(val id: String, val name: String)
+
+private fun List<StylusCurve.Point>.toJson(): JSONArray = JSONArray().apply {
+    forEach { put(JSONArray().put(it.x).put(it.y)) }
+}
+
+/** A saved response curve, or the identity when the key is absent or malformed. Flat lists are
+ *  the previous fixed-knot format and map to evenly spaced x. */
+private fun stylusCurve(o: JSONObject, key: String): StylusCurve {
+    val arr = o.optJSONArray(key) ?: return StylusCurve.IDENTITY
+    if (arr.length() < 2) return StylusCurve.IDENTITY
+    val pairs = (0 until arr.length()).mapNotNull { i ->
+        arr.optJSONArray(i)?.let { p -> StylusCurve.Point(p.optDouble(0, 0.0), p.optDouble(1, 0.0)) }
+    }
+    val points = if (pairs.size == arr.length()) {
+        pairs
+    } else {
+        val flat = (0 until arr.length()).map { arr.optDouble(it, 0.0) }
+        val last = flat.lastIndex
+        flat.mapIndexed { i, y -> StylusCurve.Point(i.toDouble() / last, y) }
+    }.map { StylusCurve.Point(it.x.coerceIn(0.0, 1.0), it.y.coerceIn(0.0, 1.0)) }
+    return runCatching { StylusCurve(points.sortedBy { it.x }.distinctBy { kotlin.math.round(it.x * 1000) }) }
+        .getOrDefault(StylusCurve.IDENTITY)
+}

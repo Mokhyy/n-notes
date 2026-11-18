@@ -1,5 +1,6 @@
 package com.xnotes.core.stroke
 
+import com.xnotes.stylus.StylusTilt
 import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.ln
@@ -658,6 +659,7 @@ object StrokeEngine {
         smoothScale: Double = 1.0,
         speedTop: Double = SPEED_HI,
         speedSmoothing: Double = DEFAULT_SPEED_SMOOTHING,
+        tiltStrength: Double = 0.0,
     ): StrokeGeometry {
         val n = samples.size
         if (n == 0) return StrokeGeometry.EMPTY
@@ -666,6 +668,7 @@ object StrokeEngine {
         val rawP = DoubleArray(n)
         var timed = false
         var widths = true
+        var tilted = false
         for (i in 0 until n) {
             val s = samples[i]
             rawX[i] = s.x
@@ -673,13 +676,15 @@ object StrokeEngine {
             rawP[i] = s.pressure
             if (s.t != 0.0) timed = true
             if (s.widthFactor <= 0.0) widths = false
+            if (s.tilt > 0.0) tilted = true
         }
         val rawT = if (timed) DoubleArray(n) { samples[it].t } else null
         val rawF = if (widths) DoubleArray(n) { samples[it].widthFactor } else null
+        val rawL = if (tilted) DoubleArray(n) { samples[it].tilt } else null
         return build(
             rawX, rawY, rawP, rawT, baseWidth, pressureEnabled, m, ds, speedStrength,
             taperEnabled, taperMinFactor, speedScale, smooth, holdEnds, finished, smoothScale,
-            speedTop, speedSmoothing, rawF,
+            speedTop, speedSmoothing, rawF, tiltStrength, rawL,
         )
     }
 
@@ -709,6 +714,9 @@ object StrokeEngine {
         speedTop: Double = SPEED_HI,
         speedSmoothing: Double = DEFAULT_SPEED_SMOOTHING,
         rawF: DoubleArray? = null,
+        /** Extra width at full lay; tilt is normalized 0 (upright) .. 1 (flat) per sample. */
+        tiltStrength: Double = 0.0,
+        rawTilt: DoubleArray? = null,
     ): StrokeGeometry {
         val n = rawX.size
         if (n == 0) return StrokeGeometry.EMPTY
@@ -735,7 +743,8 @@ object StrokeEngine {
         // 3. Single sample -> a filled dot: one swept disc at the pure-pressure half-width. A
         //    finished calligraphy tap takes the dot width (past the broad face) so it stays visible.
         if (n == 1) {
-            val h = hw(0, if (finished && ds > 0.0) DOT_DIR_Y else 0.0)
+            var h = hw(0, if (finished && ds > 0.0) DOT_DIR_Y else 0.0)
+            if (tiltStrength > 0.0 && rawTilt != null) h *= StylusTilt.widthFactor(rawTilt[0], tiltStrength)
             return StrokeGeometry(
                 floatArrayOf(sx[0].toFloat(), sy[0].toFloat()),
                 floatArrayOf(h.toFloat()),
@@ -780,12 +789,14 @@ object StrokeEngine {
             }
         }
 
-        // Optional width multipliers: speed thins fast travel, taper points the ends. Neither pen is
-        // the common one, so the arrays are built only for the strokes that use them.
+        // Optional width multipliers: speed thins fast travel, taper points the ends, and a saved
+        // stroke may carry its tilt baked into the same channel. A stroke that already has factors
+        // (frozen speed widths, baked tilt, or both) uses them as they are; only the speed pen with
+        // live timing derives them here.
         val sf = when {
-            !speedOn -> null
             rawF != null -> rawF
-            else -> speedFactorsOver(rawT, steps, cum, n, speedStrength, speedTop, speedSmoothing * baseWidth, speedScale)
+            speedOn -> speedFactorsOver(rawT, steps, cum, n, speedStrength, speedTop, speedSmoothing * baseWidth, speedScale)
+            else -> null
         }
         val tf = if (taperEnabled) taperFactors(cum, taperMinFactor, smoothScale) else null
 
@@ -826,6 +837,7 @@ object StrokeEngine {
             var h = hw(i, dir)
             if (sf != null) h *= sf[i]
             if (tf != null) h *= tf[i]
+            if (tiltStrength > 0.0 && rawTilt != null) h *= StylusTilt.widthFactor(rawTilt[i], tiltStrength)
             writePoint(centerline, halfWidths, leftRail, rightRail, i, sx[i], sy[i], tx[i], ty[i], h)
         }
         return StrokeGeometry(centerline, halfWidths, leftRail, rightRail)

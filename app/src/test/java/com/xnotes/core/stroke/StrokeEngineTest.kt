@@ -1,5 +1,6 @@
 package com.xnotes.core.stroke
 
+import com.xnotes.stylus.StylusTilt
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -210,6 +211,40 @@ class StrokeEngineTest {
         assertEquals(9.6, width(6.0, true, 0.40, 0.60, 1.0, 1.0), 1e-9)   // thickest
         val ratio = width(6.0, true, 0.40, 0.60, 1.0, 1.0) / width(6.0, true, 0.40, 0.60, 1.0, -1.0)
         assertEquals(4.0, ratio, 1e-9) // direction-only ratio
+    }
+
+    @Test fun tiltScalesIndependentlyOfPressure() {
+        assertEquals(1.0, StylusTilt.widthFactor(0.0, 1.0), 1e-12) // upright: no change
+        assertEquals(1.0, StylusTilt.widthFactor(1.0, 0.0), 1e-12) // feature off: no change
+        assertEquals(2.0, StylusTilt.widthFactor(1.0, 1.0), 1e-12) // flat: double width
+        assertEquals(1.5, StylusTilt.widthFactor(0.5, 1.0), 1e-12) // half-lay: half the extra
+        assertEquals(1.0, StylusTilt.widthFactor(3.0, 1.0) - 1.0, 1e-12) // clamped flat
+        // Pressure and tilt multiply: a light upright stroke and a full-pressure flat one differ,
+        // but a tilted stroke keeps its pressure response instead of being flattened to full width.
+        val upright = StrokeEngine.build(
+            listOf(Sample(0.0, 0.0, 0.4), Sample(10.0, 0.0, 0.4)),
+            10.0, true, 0.35, 0.0, smooth = false, tiltStrength = 1.0,
+        )
+        val flat = StrokeEngine.build(
+            listOf(Sample(0.0, 0.0, 0.4, tilt = 1.0), Sample(10.0, 0.0, 0.4, tilt = 1.0)),
+            10.0, true, 0.35, 0.0, smooth = false, tiltStrength = 1.0,
+        )
+        assertEquals(upright.halfWidths[0] * 2.0, flat.halfWidths[0].toDouble(), 1e-5)
+        val pressed = StrokeEngine.build(
+            listOf(Sample(0.0, 0.0, 0.8, tilt = 1.0), Sample(10.0, 0.0, 0.8, tilt = 1.0)),
+            10.0, true, 0.35, 0.0, smooth = false, tiltStrength = 1.0,
+        )
+        assertTrue(pressed.halfWidths[0] > flat.halfWidths[0])
+        // With pressure off the base width is constant, but tilt must still widen it.
+        val uprightOff = StrokeEngine.build(
+            listOf(Sample(0.0, 0.0, 1.0), Sample(10.0, 0.0, 1.0)),
+            10.0, false, 0.35, 0.0, smooth = false, tiltStrength = 1.0,
+        )
+        val flatOff = StrokeEngine.build(
+            listOf(Sample(0.0, 0.0, 1.0, tilt = 1.0), Sample(10.0, 0.0, 1.0, tilt = 1.0)),
+            10.0, false, 0.35, 0.0, smooth = false, tiltStrength = 1.0,
+        )
+        assertEquals(uprightOff.halfWidths[0] * 2.0, flatOff.halfWidths[0].toDouble(), 1e-5)
     }
 
     @Test fun pressureDisabledIsFullWidth() {

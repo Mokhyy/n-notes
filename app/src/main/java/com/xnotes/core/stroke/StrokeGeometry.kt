@@ -7,6 +7,8 @@ import com.xnotes.core.geometry.Pt
  * milliseconds elapsed since the stroke's first sample (0 for that first one),
  * used only by velocity-aware tools (the speed pen); 0 everywhere else.
  * [widthFactor] is the speed pen's width kept at pen-up, 0 when there is none.
+ * [tilt] is how far the nib is laid down, 0 upright and 1 flat, and is applied independently of
+ * [pressure]; 0 when the pen has no tilt axis or tilt width is off.
  */
 data class Sample(
     val x: Double,
@@ -14,6 +16,7 @@ data class Sample(
     val pressure: Double,
     val t: Double = 0.0,
     val widthFactor: Double = 0.0,
+    val tilt: Double = 0.0,
 ) {
     val pos: Pt get() = Pt(x, y)
 }

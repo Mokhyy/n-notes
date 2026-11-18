@@ -47,6 +47,8 @@ import com.xnotes.core.tools.ShapeConfig
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolConfig
 import com.xnotes.core.tools.ToolConversions
+import com.xnotes.stylus.StylusCurve
+import com.xnotes.stylus.StylusTilt
 import kotlin.math.exp
 
 /** What the current gesture is doing. */
@@ -186,6 +188,10 @@ class InfiniteInteraction(
 
     /** Fade and shrink the hover cursor with the pen's distance axis; pens without one stay full. */
     var hoverDistancePreview: Boolean = true
+
+    /** Shapes pressure and tilt before they are stored, so a stroke keeps the feel it was drawn with. */
+    var pressureCurve: StylusCurve = StylusCurve.IDENTITY
+    var tiltCurve: StylusCurve = StylusCurve.IDENTITY
 
     /** Per-pen override for [hoverPreview], by the event's device id; null uses the general value. */
     var hoverPreviewFor: ((Int) -> Boolean)? = null
@@ -497,13 +503,18 @@ class InfiniteInteraction(
         endLift()
         onWetStroke(null)
         onLiftSelection(emptyList(), LiftTransform.NONE)
+        onEraserCursor(null, 0.0)
+        onHoverCursor(null, 0.0, 0.0)
         stylusButtons.reset()
     }
 
     // --- pointer handling ---
 
     private fun handleDown(e: MotionEvent) {
-        onEraserCursor(null, 0.0) // the hovering pointer gives way to contact
+        // The hovering pointer gives way to contact: both its cursors go at the first down event,
+        // rather than lingering until the pen lifts and the hover stream finally exits.
+        onEraserCursor(null, 0.0)
+        onHoverCursor(null, 0.0, 0.0)
         stopFling() // a new touch halts any in-progress glide
         panMayCommit = false
         dismissPressAt = null
@@ -848,7 +859,11 @@ class InfiniteInteraction(
         setInteractive(false, false)
         strokeStartTimeMs = e.eventTime
         val p = viewport.viewportToContent(Pt(vx, vy))
-        stroke.addSample(Sample(p.x, p.y, pressureOf(e, 0)))
+        val rawPressure = pressureOf(e, 0)
+        val rawTilt = tiltOf(e, 0)
+        val shapedPressure = if (drawingIsStylus) pressureCurve.valueAt(rawPressure.coerceIn(0.0, 1.0)) else rawPressure
+        val shapedTilt = if (drawingIsStylus) tiltCurve.valueAt(rawTilt.coerceIn(0.0, 1.0)) else 0.0
+        stroke.addSample(Sample(p.x, p.y, shapedPressure, tilt = shapedTilt))
         steadier = Stabilizer.forStroke(config.stabilize && !straight, config.stabilizeTrail, config.stabilizeCrossover, speedScale)
         steadier?.start(p.x, p.y, 0.0)
         tracing = measureSteadying()
@@ -875,11 +890,13 @@ class InfiniteInteraction(
                 if (drawingIsStylus) e.getHistoricalPressure(idx, h).toDouble() else 1.0,
                 e.getHistoricalEventTime(h),
                 force = false,
+                tilt = tiltOf(e, idx, h),
             )
         }
         addStrokePoint(
             e.getX(idx).toDouble(), e.getY(idx).toDouble(),
             pressureOf(e, idx), e.eventTime, force = false,
+            tilt = tiltOf(e, idx),
         )
         onWetStroke(liveStroke)
         // Real movement restarts the clock; holding within the slop lets it mature, so the snap
@@ -891,12 +908,14 @@ class InfiniteInteraction(
         requestRender()
     }
 
-    private fun addStrokePoint(vx: Double, vy: Double, pressure: Double, timeMs: Long, force: Boolean) {
+    private fun addStrokePoint(vx: Double, vy: Double, pressure: Double, timeMs: Long, force: Boolean, tilt: Double = 0.0) {
         val stroke = liveStroke ?: return
+        val shapedP = if (drawingIsStylus) pressureCurve.valueAt(pressure.coerceIn(0.0, 1.0)) else pressure
+        val shapedT = if (drawingIsStylus) tiltCurve.valueAt(tilt.coerceIn(0.0, 1.0)) else 0.0
         val nib = viewport.viewportToContent(Pt(vx, vy))
         var t = (timeMs - strokeStartTimeMs).toDouble()
         if (stroke.straight) {
-            stroke.setStraightEnd(Sample(nib.x, nib.y, pressure.coerceIn(0.0, 1.0), t))
+            stroke.setStraightEnd(Sample(nib.x, nib.y, shapedP.coerceIn(0.0, 1.0), t, tilt = shapedT))
             return
         }
         // A steadied stroke takes the point the filter has reached and draws on to the nib as a
@@ -920,9 +939,9 @@ class InfiniteInteraction(
         val gate = (InteractionController.MIN_SAMPLE_DIST / viewport.zoom)
             .coerceAtMost(InteractionController.MIN_SAMPLE_DIST)
         if (force || last == null || Pt(last.x, last.y).manhattanTo(p) >= gate) {
-            stroke.addSample(Sample(p.x, p.y, pressure.coerceIn(0.0, 1.0), t))
+            stroke.addSample(Sample(p.x, p.y, shapedP.coerceIn(0.0, 1.0), t, tilt = shapedT))
         }
-        if (steady != null && !force) stroke.setTip(Sample(nib.x, nib.y, pressure.coerceIn(0.0, 1.0), steady.tipTime))
+        if (steady != null && !force) stroke.setTip(Sample(nib.x, nib.y, shapedP.coerceIn(0.0, 1.0), steady.tipTime, tilt = shapedT))
     }
 
     private fun endDraw(e: MotionEvent) {
@@ -932,6 +951,7 @@ class InfiniteInteraction(
         addStrokePoint(
             e.getX(idx).toDouble(), e.getY(idx).toDouble(),
             pressureOf(e, idx), e.eventTime, force = true,
+            tilt = tiltOf(e, idx),
         )
         val stroke = liveStroke
         liveStroke = null
@@ -2025,6 +2045,13 @@ class InfiniteInteraction(
 
     private fun pressureOf(e: MotionEvent, index: Int): Double =
         if (drawingIsStylus) e.getPressure(index).toDouble() else 1.0
+
+    /** The pen's tilt as a normalized lay (0 upright, 1 flat), or 0 for a finger or no tilt axis. */
+    private fun tiltOf(e: MotionEvent, index: Int, historyPos: Int = -1): Double = when {
+        !drawingIsStylus -> 0.0
+        historyPos >= 0 -> StylusTilt.normalized(e.getHistoricalAxisValue(MotionEvent.AXIS_TILT, index, historyPos))
+        else -> StylusTilt.normalized(e.getAxisValue(MotionEvent.AXIS_TILT, index))
+    }
 
     // --- pan ---
 

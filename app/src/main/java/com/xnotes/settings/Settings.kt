@@ -430,6 +430,7 @@ data class Settings(
             .put("stabilize", c.stabilize)
             .put("stabilize_trail", c.stabilizeTrail)
             .put("stabilize_crossover", c.stabilizeCrossover)
+            .put("tilt_strength", c.tiltStrength)
             .put("taper_enabled", c.taperEnabled)
             .put("taper_min_factor", c.taperMinFactor)
             .put("neon", c.neon)
@@ -481,6 +482,7 @@ data class Settings(
                 stabilize = o.optBoolean("stabilize", d.stabilize),
                 stabilizeTrail = o.optDouble("stabilize_trail", d.stabilizeTrail),
                 stabilizeCrossover = o.optDouble("stabilize_crossover", d.stabilizeCrossover),
+                tiltStrength = o.optDouble("tilt_strength", d.tiltStrength),
                 taperEnabled = o.optBoolean("taper_enabled", d.taperEnabled),
                 taperMinFactor = o.optDouble("taper_min_factor", d.taperMinFactor),
                 neon = o.optBoolean("neon", d.neon),

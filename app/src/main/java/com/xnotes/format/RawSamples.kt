@@ -25,10 +25,14 @@ internal class RawSamples {
     var ws: DoubleArray? = null
         private set
 
+    /** How far the nib was laid down per sample (0 upright, 1 flat), once tilt width is recorded. */
+    var ls: DoubleArray? = null
+        private set
+
     var n = 0
         private set
 
-    fun add(x: Double, y: Double, pressure: Double, time: Double, width: Double = 0.0) {
+    fun add(x: Double, y: Double, pressure: Double, time: Double, width: Double = 0.0, tilt: Double = 0.0) {
         if (n == xs.size) {
             val c = n * 2
             xs = xs.copyOf(c)
@@ -36,6 +40,7 @@ internal class RawSamples {
             ps = ps.copyOf(c)
             ts = ts?.copyOf(c)
             ws = ws?.copyOf(c)
+            ls = ls?.copyOf(c)
         }
         xs[n] = x
         ys[n] = y
@@ -44,6 +49,8 @@ internal class RawSamples {
         ts?.set(n, time)
         if (width > 0.0 && ws == null) ws = DoubleArray(xs.size) // earlier samples had none, so none are kept
         ws?.set(n, width)
+        if (tilt > 0.0 && ls == null) ls = DoubleArray(xs.size) // earlier samples were upright
+        ls?.set(n, tilt)
         n++
     }
 

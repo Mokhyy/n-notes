@@ -69,6 +69,7 @@
     <string name="caption_pressure">Pressure</string>
     <string name="caption_sensitivity">Sensitivity</string>
     <string name="caption_multiplier">Multiplier</string>
+    <string name="caption_tilt">Tilt width</string>
     <string name="caption_thinning">Thinning</string>
     <string name="caption_smoothing">Smoothing</string>
     <string name="caption_top_speed">Top speed</string>
@@ -444,6 +445,16 @@
     <string name="pref_pen_button_hover">Activate during hover (no need to touch the screen)</string>
     <string name="pref_stylus_hover_preview">Hover preview</string>
     <string name="pref_stylus_hover_distance">Hover distance</string>
+    <string name="pref_stylus_store_tilt">Store pen tilt (off bakes it into width)</string>
+    <string name="pref_stylus_pressure_curve">Pressure response</string>
+    <string name="pref_stylus_tilt_curve">Tilt response</string>
+    <string name="curve_linear">Linear</string>
+    <string name="curve_soft">Soft</string>
+    <string name="curve_firm">Firm</string>
+    <string name="curve_s_curve">S-curve</string>
+    <string name="curve_axis_pressure">pressure</string>
+    <string name="curve_axis_tilt">tilt</string>
+    <string name="curve_axis_strength">strength</string>
     <string name="pref_two_finger_tap">Two-finger tap</string>
     <string name="pref_three_finger_tap">Three-finger tap</string>
     <string name="pref_stylus_double_tap">Stylus double-tap</string>
