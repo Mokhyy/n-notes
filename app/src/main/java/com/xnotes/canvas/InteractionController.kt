@@ -4751,6 +4751,11 @@ class InteractionController(
         onSelectionMenu(if (selection.isNotEmpty() && mode == PointerMode.IDLE) selectionBoundsViewport() else null)
     }
 
+    /** Re-anchor the selection menu after a pan or zoom so it moves with the selection. */
+    fun followSelectionMenu() {
+        if (selection.isNotEmpty() && (mode == PointerMode.IDLE || mode == PointerMode.PAN || mode == PointerMode.PINCH)) onSelectionMenu(selectionBoundsViewport())
+    }
+
     private fun selectionBoundsViewport(): Rect? {
         val content = selectionBoundsContent() ?: return null
         val tl = state.contentToViewport(content.topLeft)

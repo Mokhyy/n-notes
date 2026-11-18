@@ -3404,6 +3404,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         warmVisibleLinks(pageIndex)
         if (controller.isEditingText) editingField = controller.editingField()
         refreshTextBar()
+        controller.followSelectionMenu()
     }
 
     /** Proactively parse the current page's PDF links off-thread (coalesce + cancel-stale) so a tap
