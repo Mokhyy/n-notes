@@ -49,10 +49,12 @@ object StylusPresets {
             id = "xiaomi-focus-pen",
             name = "Xiaomi Focus Pen Pro",
             match = StylusDeviceMatch(nameContains = "Focus Pen"),
-            heldKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_PINCH),
-            clickableHeldKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_PINCH),
+            heldKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_PINCH, StylusKeys.FOCUS_PEN_PRO_SQUEEZE),
+            clickOnlyKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_SENSING_TAP),
+            clickableHeldKeycodes = setOf(StylusKeys.FOCUS_PEN_PRO_PINCH, StylusKeys.FOCUS_PEN_PRO_SQUEEZE),
             doubleTapKeycode = StylusKeys.FOCUS_PEN_PRO_DOUBLE_TAP,
-            notes = "Pressure, tilt, orientation. Pinch/hold = BUTTON_7; barrel double-tap = BUTTON_8.",
+            notes = "Squeeze = F19 (hold = button tool, click = tap action); tap on sensing area = keypad Enter; " +
+                "double-barrel tap = BUTTON_8 on firmware that sends it.",
         ),
     )
 

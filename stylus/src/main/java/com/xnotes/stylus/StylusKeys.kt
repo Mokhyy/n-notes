@@ -32,11 +32,20 @@ object StylusKeys {
     /** OnePlus Pad Go 2 Stylo reports a held side button as F21. */
     val VENDOR_HELD: Int = KeyEvent.KEYCODE_F21
 
-    /** Xiaomi Focus Pen Pro has no button and sends its pinch as BUTTON_7. */
+    /** Xiaomi Focus Pen Pro has no button and sends its pinch as BUTTON_7 on some firmware. */
     val FOCUS_PEN_PRO_PINCH: Int = KeyEvent.KEYCODE_BUTTON_7
 
     /** Xiaomi Focus Pen Pro sends one barrel double-tap as BUTTON_8. */
     val FOCUS_PEN_PRO_DOUBLE_TAP: Int = KeyEvent.KEYCODE_BUTTON_8
+
+    /**
+     * The Focus Pen Pro's squeeze on firmware that reports it as HID keyboard usage 0x6e (F19)
+     * rather than BUTTON_7. Held while squeezed, released when let go.
+     */
+    val FOCUS_PEN_PRO_SQUEEZE: Int = KeyEvent.KEYCODE_F19
+
+    /** A tap on the Focus Pen Pro's sensing area, which its HID interface sends as keypad Enter. */
+    val FOCUS_PEN_PRO_SENSING_TAP: Int = KeyEvent.KEYCODE_NUMPAD_ENTER
 
     /** Huawei M-Pencil's barrel double-tap arrives as this vendor keycode. */
     const val BARREL_DOUBLE_TAP: Int = 718
@@ -48,10 +57,11 @@ object StylusKeys {
     val PAGE_KEYS: Set<Int> = setOf(KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_PAGE_DOWN)
 
     /** Held buttons whose hardware also reports a quick click, so click and hold can both work. */
-    val CLICKABLE_HELD: Set<Int> = setOf(KeyEvent.KEYCODE_F21, KeyEvent.KEYCODE_BUTTON_7)
+    val CLICKABLE_HELD: Set<Int> = setOf(KeyEvent.KEYCODE_F21, KeyEvent.KEYCODE_BUTTON_7, KeyEvent.KEYCODE_F19)
 
     /** The held keys a generic pen may send. */
-    val DEFAULT_HELD: Set<Int> = STANDARD_HELD + VENDOR_HELD + FOCUS_PEN_PRO_PINCH
+    val DEFAULT_HELD: Set<Int> =
+        STANDARD_HELD + VENDOR_HELD + FOCUS_PEN_PRO_PINCH + FOCUS_PEN_PRO_SQUEEZE
 
     /** The click/tap keys a generic pen may send. */
     val DEFAULT_CLICK_ONLY: Set<Int> = VENDOR_CLICK_ONLY + PAGE_KEYS
