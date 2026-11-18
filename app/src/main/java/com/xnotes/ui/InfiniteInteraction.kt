@@ -174,6 +174,14 @@ class InfiniteInteraction(
 
     private fun penToolAt(deviceId: Int): Tool? = penButtonToolFor?.invoke(deviceId) ?: penButtonTool
 
+    /** Draw an app-owned cursor for a hovering stylus. Some ROMs never draw the system pointer, so
+     *  the pen is otherwise invisible until it touches the canvas. Turning it off clears any ring. */
+    var hoverPreview: Boolean = true
+        set(value) {
+            field = value
+            if (!value) onEraserCursor(null, 0.0)
+        }
+
     /** Zoom lock: a pinch pans without changing the zoom, mirroring the paged canvas. */
     var zoomLocked: Boolean = false
 
@@ -479,6 +487,7 @@ class InfiniteInteraction(
     // --- pointer handling ---
 
     private fun handleDown(e: MotionEvent) {
+        onEraserCursor(null, 0.0) // the hovering pointer gives way to contact
         stopFling() // a new touch halts any in-progress glide
         panMayCommit = false
         dismissPressAt = null
@@ -1790,6 +1799,20 @@ class InfiniteInteraction(
 
     /** A hovering pen lights the connection point under it while a connector is armed. */
     fun onHover(e: MotionEvent): Boolean {
+        val stylus = e.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+        if (stylus) {
+            if (hoverPreview && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
+                val width = if (tool.isStroke) configFor(tool).baseWidth * viewport.zoom else 0.0
+                val radius = if (width > 0.0) {
+                    (width / 2).coerceAtLeast(InteractionController.HOVER_MIN_RADIUS_DP * devicePxPerDp())
+                } else {
+                    InteractionController.HOVER_POINTER_RADIUS_DP * devicePxPerDp()
+                }
+                onEraserCursor(Pt(e.x.toDouble(), e.y.toDouble()), radius)
+            } else if (e.actionMasked == MotionEvent.ACTION_HOVER_EXIT) {
+                onEraserCursor(null, 0.0)
+            }
+        }
         val hovering = connecting && mode == CanvasPointerMode.IDLE && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT
         val hot = if (hovering) listOfNotNull(glueHitAt(viewport.viewportToContent(Pt(e.x.toDouble(), e.y.toDouble())))?.point?.at) else emptyList()
         if (hot != connectHot) {

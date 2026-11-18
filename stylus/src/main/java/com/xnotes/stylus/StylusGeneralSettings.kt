@@ -29,4 +29,9 @@ data class StylusGeneralSettings(
     val doubleTapKeycode: Int = StylusKeys.BARREL_DOUBLE_TAP,
     /** Longest gap between the two presses of a barrel double-tap, in ms. */
     val barrelDoubleTapWindowMs: Long = 600L,
+    /**
+     * Draw an app-owned cursor while the pen hovers, standing in for the system pointer that some
+     * ROMs (HyperOS, for one) never show. Works on any pen; Android still delivers the hover events.
+     */
+    val hoverPreview: Boolean = true,
 )

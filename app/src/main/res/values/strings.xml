@@ -442,6 +442,7 @@
     <string name="pref_detect_shapes">Snap held strokes to shapes (hold the pen still)</string>
     <string name="pref_pen_button_hold">Stylus/Pen side button (hold)</string>
     <string name="pref_pen_button_hover">Activate during hover (no need to touch the screen)</string>
+    <string name="pref_stylus_hover_preview">Show a pen cursor while hovering</string>
     <string name="pref_two_finger_tap">Two-finger tap</string>
     <string name="pref_three_finger_tap">Three-finger tap</string>
     <string name="pref_stylus_double_tap">Stylus double-tap</string>

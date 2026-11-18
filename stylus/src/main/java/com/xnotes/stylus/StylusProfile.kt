@@ -59,6 +59,8 @@ data class StylusProfile(
     val doubleTapKeycode: Int? = null,
     /** Longest gap between the two presses of a barrel double-tap on this pen, in ms. */
     val barrelDoubleTapWindowMs: Long? = null,
+    /** Whether this pen shows the app-drawn hover cursor; null inherits the general setting. */
+    val hoverPreview: Boolean? = null,
 ) {
     fun matches(device: StylusDevice): Boolean = enabled && match.matches(device)
 }

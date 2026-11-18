@@ -42,6 +42,7 @@ object StylusJson {
         .apply { p.clickableHeldKeycodes?.let { put("clickable_held_keycodes", keysToJson(it)) } }
         .apply { p.doubleTapKeycode?.let { put("double_tap_keycode", it) } }
         .apply { p.barrelDoubleTapWindowMs?.let { put("barrel_double_tap_window_ms", it) } }
+        .apply { p.hoverPreview?.let { put("hover_preview", it) } }
 
     private fun profileFromJson(o: JSONObject): StylusProfile? {
         val id = o.optString("id", "").ifEmpty { return null }
@@ -68,6 +69,7 @@ object StylusJson {
             clickableHeldKeycodes = o.optJSONArray("clickable_held_keycodes")?.let { keysFromJson(it) },
             doubleTapKeycode = o.optIntOrNull("double_tap_keycode"),
             barrelDoubleTapWindowMs = o.optLongOrNull("barrel_double_tap_window_ms"),
+            hoverPreview = o.optBooleanOrNull("hover_preview"),
         )
     }
 

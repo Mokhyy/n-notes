@@ -21,6 +21,8 @@ data class EffectiveStylusSettings(
     val clickableHeldKeycodes: Set<Int>,
     val doubleTapKeycode: Int,
     val barrelDoubleTapWindowMs: Long,
+    /** Whether the app draws the hovering pen's cursor. */
+    val hoverPreview: Boolean,
 ) {
     /** Whether [keyCode] is a held side button on this pen. */
     fun isHeldButton(keyCode: Int): Boolean = keyCode in heldKeycodes
@@ -73,6 +75,7 @@ data class StylusSettings(
             clickableHeldKeycodes = general.clickableHeldKeycodes + (p?.clickableHeldKeycodes ?: emptySet()),
             doubleTapKeycode = p?.doubleTapKeycode ?: general.doubleTapKeycode,
             barrelDoubleTapWindowMs = p?.barrelDoubleTapWindowMs ?: general.barrelDoubleTapWindowMs,
+            hoverPreview = p?.hoverPreview ?: general.hoverPreview,
         )
     }
 }

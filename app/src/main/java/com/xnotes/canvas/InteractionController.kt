@@ -451,6 +451,8 @@ class InteractionController(
     /** Filled shapes whose fill alone this erase took, with the fill each had. */
     private val eraseUnfilled = mutableListOf<RefillShapes.Entry>()
     private var eraserCursor: Pt? = null // viewport pixels
+    /** The hovering pen's own cursor (viewport pixels), or null when it is not above the screen. */
+    private var hoverCursor: Pt? = null
     /** Tool armed just before the eraser was selected, for the "switch back after erasing" option. */
     private var toolBeforeEraser: Tool? = null
     /** Tool armed just before the select tool, for the "switch back after a selection action" option. */
@@ -690,6 +692,7 @@ class InteractionController(
         clearSelection()
         clearScreenshot()
         eraserCursor = null
+        hoverCursor = null
         previousTool = tool
         tool = t
         onToolChanged(t)
@@ -777,9 +780,32 @@ class InteractionController(
         requestRender()
     }
 
+    /** When true, a hovering stylus gets an app-drawn cursor; ROMs that never draw the system
+     *  pointer (HyperOS, for one) otherwise leave the pen invisible until it touches the screen. */
+    var hoverPreview: Boolean = true
+        set(value) {
+            field = value
+            if (!value) {
+                hoverCursor = null
+                requestRender()
+            }
+        }
+
     fun onHover(e: MotionEvent): Boolean {
         if (handleHoverAction(e)) return true
         if (hoverConnect(e)) return true
+        val stylusHover = e.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+        if (stylusHover) {
+            val next = if (hoverPreview && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
+                Pt(e.x.toDouble(), e.y.toDouble())
+            } else {
+                null
+            }
+            if (next != hoverCursor) {
+                hoverCursor = next
+                requestRender()
+            }
+        }
         if (tool == Tool.INSERT_SPACE && mode == PointerMode.IDLE) {
             val gone = e.actionMasked == MotionEvent.ACTION_HOVER_EXIT
             val v = Pt(e.x.toDouble(), e.y.toDouble())
@@ -787,7 +813,7 @@ class InteractionController(
             return true
         }
         val isEraserPointer = e.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
-        if (tool != Tool.ERASER && !isEraserPointer) return false
+        if (tool != Tool.ERASER && !isEraserPointer) return stylusHover && hoverCursor != null
         eraserCursor = if (e.actionMasked == MotionEvent.ACTION_HOVER_EXIT) {
             null
         } else {
@@ -861,6 +887,7 @@ class InteractionController(
     }
 
     private fun handleDown(e: MotionEvent) {
+        hoverCursor = null
         if (hoverActionTool != null) endHoverAction() // a hovering side-button gesture yields to contact
         downStoppedFling = flinging // captured before stopping: a tap that only halts a glide must not dismiss
         stopFling() // a new touch halts any in-progress glide
@@ -5495,13 +5522,33 @@ class InteractionController(
         if (tool == Tool.INSERT_SPACE || insertSpace.active) insertSpace.drawViewport(r)
 
         // Eraser cursor (viewport space, after the transform is restored).
-        eraserCursor?.let {
+        val eraser = eraserCursor
+        if (eraser != null) {
             val radius = eraserRadius() * state.zoom
-            r.strokeEllipse(it, radius, radius, Pen(state.palette.textDim, 1.3, cosmetic = true))
+            r.strokeEllipse(eraser, radius, radius, Pen(state.palette.textDim, 1.3, cosmetic = true))
+        } else {
+            // The hovering pen's cursor: the pen's own width and ink for a stroke tool, a small
+            // neutral ring for everything else. It follows the pen without touching the page.
+            hoverCursor?.let { drawHoverCursor(r, it) }
         }
 
         // Ruler (viewport space; floats above all content and the live stroke).
         if (ruler.visible) drawRuler(r)
+    }
+
+    /** A ring at the hovering pen's point: its real width and ink for a stroke tool, a small
+     *  neutral pointer ring for every other tool. Cosmetic pens keep it one size at any zoom. */
+    private fun drawHoverCursor(r: Renderer, at: Pt) {
+        if (!tool.isStroke) {
+            val radius = HOVER_POINTER_RADIUS_DP * state.devicePxPerDp
+            r.strokeEllipse(at, radius, radius, Pen(state.palette.textDim, 1.2, cosmetic = true))
+            return
+        }
+        val cfg = configFor(tool)
+        val color = cfg.colorOverride ?: inkColor
+        val radius = (cfg.baseWidth * state.zoom / 2).coerceAtLeast(HOVER_MIN_RADIUS_DP * state.devicePxPerDp)
+        r.fillCircle(at, HOVER_DOT_RADIUS_DP * state.devicePxPerDp, color)
+        r.strokeEllipse(at, radius, radius, Pen(color, 1.2, cosmetic = true))
     }
 
     /** The page the selection sits on, or null (the current page) when nothing is selected. */
@@ -5789,6 +5836,15 @@ class InteractionController(
             if (zoom.isFinite() && zoom > 0.0) (1.0 / zoom).coerceAtMost(1.0) else 1.0
 
         const val MOVE_EPS = 0.01
+
+        /** Radius of the neutral hover pointer ring, in dp. */
+        const val HOVER_POINTER_RADIUS_DP = 5.0
+
+        /** Floor for a stroke tool's hover ring, in dp, so a hairline pen still shows a cursor. */
+        const val HOVER_MIN_RADIUS_DP = 4.0
+
+        /** Radius of the dot at the centre of a stroke tool's hover ring, in dp. */
+        const val HOVER_DOT_RADIUS_DP = 1.5
 
         /** How close (viewport px) a moved selection must come to a margin or centre line to snap. */
         const val MARGIN_SNAP_PX = 10.0

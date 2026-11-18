@@ -1022,6 +1022,10 @@ internal fun InputControls(prefs: Preferences, update: (Preferences) -> Unit) {
             update(prefs.copy(penButtonHover = it))
         }
     }
+    // Some ROMs never draw the stylus pointer (HyperOS, for one), so the app draws its own.
+    CheckRow(stringResource(R.string.pref_stylus_hover_preview), prefs.stylusHoverPreview) {
+        update(prefs.copy(stylusHoverPreview = it))
+    }
     val tapOptions = tapGestureOptions.map { (id, res) -> id to stringResource(res) }
     FieldLabel(stringResource(R.string.pref_two_finger_tap))
     OptionDropdown(tapOptions, prefs.twoFingerTap) { update(prefs.copy(twoFingerTap = it)) }

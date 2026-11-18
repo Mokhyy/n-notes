@@ -60,6 +60,11 @@ data class Preferences(
     val penButtonTool: String = "eraser",
     /** Whether the side-button tool also activates during hover (no contact needed); eraser/pan only. */
     val penButtonHover: Boolean = false,
+    /**
+     * Draw an app-owned pen cursor while a stylus hovers, standing in for the system pointer some
+     * ROMs (HyperOS, for one) never show. The pen itself still reports hover events.
+     */
+    val stylusHoverPreview: Boolean = true,
     /** Action mapped to a clean two-finger tap; "none" (default) disables it. */
     val twoFingerTap: String = "none",
     /** Action mapped to a clean three-finger tap; "none" (default) disables it. */
@@ -201,6 +206,7 @@ data class Preferences(
             buttonTapAction = stylusButtonTap,
             button1TapAction = stylusButton1Tap,
             button2TapAction = stylusButton2Tap,
+            hoverPreview = stylusHoverPreview,
         ),
         profiles = stylusProfiles,
         activeProfileId = stylusActiveProfile,
@@ -224,6 +230,7 @@ data class Preferences(
         .put("ocr_language", ocrLanguage)
         .put("pen_button_tool", penButtonTool)
         .put("pen_button_hover", penButtonHover)
+        .put("stylus_hover_preview", stylusHoverPreview)
         .put("two_finger_tap", twoFingerTap)
         .put("three_finger_tap", threeFingerTap)
         .put("stylus_double_tap", stylusDoubleTap)
@@ -391,6 +398,7 @@ data class Preferences(
                 ocrLanguage = o.optString("ocr_language", "cs").ifEmpty { "cs" },
                 penButtonTool = o.optString("pen_button_tool", "eraser").ifEmpty { "eraser" },
                 penButtonHover = o.optBoolean("pen_button_hover", false),
+                stylusHoverPreview = o.optBoolean("stylus_hover_preview", true),
                 twoFingerTap = tapAction("two_finger_tap"),
                 threeFingerTap = tapAction("three_finger_tap"),
                 stylusDoubleTap = tapAction("stylus_double_tap"),
