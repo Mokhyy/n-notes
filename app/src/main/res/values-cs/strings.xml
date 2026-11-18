@@ -472,6 +472,8 @@
     <string name="pref_max_cache_px">"Max. rozlišení mezipaměti  %1$d px"</string>
     <string name="pref_hidden_shapes">Tvary a spojnice v nástroji Tvar</string>
     <string name="pref_hidden_shapes_help">Odškrtnutím stránky skryješ všechny její čipy, klepnutím na čip skryješ jen ten jeden. Pořadí změníš přetažením stránky za úchyt nebo dlouhým stisknutím a přetažením čipu.</string>
+    <string name="pref_shapes_heading">Tvary</string>
+    <string name="pref_connectors_heading">Spojnice</string>
     <string name="reset_order">Obnovit pořadí</string>
     <string name="pref_toolbar_colours_n">"Barvy na panelu nástrojů  %1$d"</string>
 

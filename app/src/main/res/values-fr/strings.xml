@@ -472,6 +472,8 @@
     <string name="pref_max_cache_px">"Résolution max. du cache  %1$d px"</string>
     <string name="pref_hidden_shapes">Formes et connecteurs de l\'outil de formes</string>
     <string name="pref_hidden_shapes_help">Décochez une page pour masquer toutes ses puces, ou touchez une puce pour masquer uniquement celle-ci. Faites glisser une page par sa poignée, ou appuyez longuement sur une puce et faites-la glisser, pour changer l\'ordre.</string>
+    <string name="pref_shapes_heading">Formes</string>
+    <string name="pref_connectors_heading">Connecteurs</string>
     <string name="reset_order">Réinitialiser l\'ordre</string>
     <string name="pref_toolbar_colours_n">"Couleurs dans la barre d\'outils  %1$d"</string>
 

@@ -492,6 +492,8 @@
     <string name="pref_max_cache_px">"Max cache resolution  %1$d px"</string>
     <string name="pref_hidden_shapes">Shapes and connectors in the shape tool</string>
     <string name="pref_hidden_shapes_help">Untick a page to hide all of its chips, or tap a chip to hide just that one. Drag a page by its handle, or long-press a chip and drag it, to change the order.</string>
+    <string name="pref_shapes_heading">Shapes</string>
+    <string name="pref_connectors_heading">Connectors</string>
     <string name="reset_order">Reset order</string>
     <string name="pref_toolbar_colours_n">"Colours on the toolbar  %1$d"</string>
 

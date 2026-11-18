@@ -1145,12 +1145,15 @@ internal fun ToolbarSettings(editor: Editor, prefs: Preferences, updateHome: (Pr
             if (reorder.slotIn(pageKeys) == pageKeys.size) PageDropLine()
         }
     }
+    FieldLabel(stringResource(R.string.pref_shapes_heading))
     val shapePages = ShapePresets.ordered(prefs.shapeOrder)
     ShapePageRows(shapePages.map { it.key }, { stringResource(pageLabel(shapePages[it])) }) { i ->
         shapePages[i].presets.map { p ->
             p.key to @Composable { KindChip(ShapeIcons.of(p), chipLabel(p), selected = p.key !in prefs.hiddenShapes, latex = chipLatex(p)) { toggleHidden(p.key) } }
         }
     }
+    HorizontalDivider(color = palette.border.toComposeColor())
+    FieldLabel(stringResource(R.string.pref_connectors_heading))
     val connectorPages = ConnectorPresets.ordered(prefs.shapeOrder)
     ShapePageRows(connectorPages.map { it.key }, { stringResource(connectorPageLabel(connectorPages[it])) }) { i ->
         connectorPages[i].presets.map { p ->

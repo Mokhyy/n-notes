@@ -472,6 +472,8 @@
     <string name="pref_max_cache_px">"Resolución máxima de caché  %1$d px"</string>
     <string name="pref_hidden_shapes">Formas y conectores de la herramienta de formas</string>
     <string name="pref_hidden_shapes_help">Desmarca una página para ocultar todos sus chips, o toca un chip para ocultar solo ese. Arrastra una página por su asa, o mantén pulsado un chip y arrástralo, para cambiar el orden.</string>
+    <string name="pref_shapes_heading">Formas</string>
+    <string name="pref_connectors_heading">Conectores</string>
     <string name="reset_order">Restablecer orden</string>
     <string name="pref_toolbar_colours_n">"Colores en la barra de herramientas  %1$d"</string>
 
