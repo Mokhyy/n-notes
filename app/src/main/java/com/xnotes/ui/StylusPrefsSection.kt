@@ -126,6 +126,9 @@ private fun StylusGeneralSection(
     CheckRow(stringResource(R.string.pref_stylus_store_tilt), prefs.stylusStoreTiltAngle) {
         update(prefs.copy(stylusStoreTiltAngle = it))
     }
+    CheckRow(stringResource(R.string.pref_stylus_store_orientation), prefs.stylusStoreOrientation) {
+        update(prefs.copy(stylusStoreOrientation = it))
+    }
     FieldLabel(stringResource(R.string.pref_stylus_pressure_curve))
     StylusCurveEditor(
         prefs.stylusPressureCurve,

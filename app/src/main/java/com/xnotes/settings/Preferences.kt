@@ -78,6 +78,9 @@ data class Preferences(
      * the angle itself is gone.
      */
     val stylusStoreTiltAngle: Boolean = true,
+    /** Keep each sample's pen orientation (its turn around its own axis) in the stroke file. Off
+     *  drops the angle channel on save; old files simply carry no orientation. */
+    val stylusStoreOrientation: Boolean = true,
     /** Shapes pressure before it reaches the ink: five knots from light to full press. */
     val stylusPressureCurve: StylusCurve = StylusCurve.IDENTITY,
     /** Shapes tilt lay before it scales the width: five knots from upright to flat. */
@@ -251,6 +254,7 @@ data class Preferences(
         .put("stylus_hover_preview", stylusHoverPreview)
         .put("stylus_hover_distance", stylusHoverDistance)
         .put("stylus_store_tilt_angle", stylusStoreTiltAngle)
+        .put("stylus_store_orientation", stylusStoreOrientation)
         .apply { if (!stylusPressureCurve.isIdentity) put("stylus_pressure_curve", stylusPressureCurve.points.toJson()) }
         .apply { if (!stylusTiltCurve.isIdentity) put("stylus_tilt_curve", stylusTiltCurve.points.toJson()) }
         .put("two_finger_tap", twoFingerTap)
@@ -423,6 +427,7 @@ data class Preferences(
                 stylusHoverPreview = o.optBoolean("stylus_hover_preview", true),
                 stylusHoverDistance = o.optBoolean("stylus_hover_distance", true),
                 stylusStoreTiltAngle = o.optBoolean("stylus_store_tilt_angle", true),
+                stylusStoreOrientation = o.optBoolean("stylus_store_orientation", true),
                 stylusPressureCurve = stylusCurve(o, "stylus_pressure_curve"),
                 stylusTiltCurve = stylusCurve(o, "stylus_tilt_curve"),
                 twoFingerTap = tapAction("two_finger_tap"),

@@ -139,6 +139,8 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
     var multiplier by remember(tool) { mutableStateOf(ToolConversions.directionStrengthToMultiplier(base.directionStrength).toFloat()) }
     var tilt by remember(tool) { mutableStateOf(base.tiltStrength > 0.0) }
     var tiltStrength by remember(tool) { mutableStateOf((base.tiltStrength * 100.0).toFloat()) }
+    var orientation by remember(tool) { mutableStateOf(base.orientationStrength > 0.0) }
+    var orientationStrength by remember(tool) { mutableStateOf((base.orientationStrength * 100.0).toFloat()) }
     var speed by remember(tool) { mutableStateOf(ToolConversions.strengthToSpeed(base.speedStrength).toFloat()) }
     var smoothing by remember(tool) { mutableStateOf(ToolConversions.blurToSmoothing(base.speedSmoothing).toFloat()) }
     var topSpeed by remember(tool) { mutableStateOf(ToolConversions.dpPerMsToTopSpeed(base.speedTop).toFloat()) }
@@ -190,6 +192,7 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
                 stabilizeTrail = ToolConversions.strengthToTrail(steadyStrength.toDouble()),
                 stabilizeCrossover = ToolConversions.crossoverToDpPerS(crossover.toDouble()),
                 tiltStrength = if (tilt) tiltStrength.toDouble() / 100.0 else 0.0,
+                orientationStrength = if (orientation) orientationStrength.toDouble() / 100.0 else 0.0,
             ),
         )
     }
@@ -235,6 +238,16 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
                 }
                 if (tilt) {
                     SliderRow(stringResource(R.string.caption_strength), tiltStrength, 0f..100f) { tiltStrength = it; emit() }
+                }
+                // A flat nib is broad when its edge crosses the stroke and thin when it runs along
+                // it. The factor follows the pen's own turn, so rotating the pen changes the line.
+                ToggleRow(stringResource(R.string.caption_orientation), orientation) {
+                    if (it && orientationStrength <= 0f) orientationStrength = 60f
+                    orientation = it
+                    emit()
+                }
+                if (orientation) {
+                    SliderRow(stringResource(R.string.caption_strength), orientationStrength, 0f..100f) { orientationStrength = it; emit() }
                 }
             }
             if (tool == Tool.CALLIGRAPHY) {

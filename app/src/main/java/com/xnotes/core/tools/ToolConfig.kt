@@ -168,6 +168,10 @@ data class ToolConfig(
      *  `[0, 1]`. Lying the nib down broadens a light stroke; upright writing is unchanged.
      *  0 = off. Only used where [pressureEnabled] is. */
     val tiltStrength: Double = 0.0,
+    /** Nib turn: how strongly the pen's orientation (its turn around its own axis) affects width.
+     *  A flat nib is broad when its edge crosses the stroke and thin when it runs along it.
+     *  0 = off, so pens without an orientation axis keep a round nib. */
+    val orientationStrength: Double = 0.0,
 ) {
     /** A finger's move turned into the view's move: locked axes drop out, the rest is scaled (1 -> 0.2x, 10 -> 3x). */
     fun panDelta(dx: Double, dy: Double): Pt {

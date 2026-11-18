@@ -1,6 +1,8 @@
 package com.xnotes.core.stroke
 
+import com.xnotes.stylus.StylusOrientation
 import com.xnotes.stylus.StylusTilt
+import kotlin.math.atan2
 import kotlin.math.exp
 import kotlin.math.hypot
 import kotlin.math.ln
@@ -660,6 +662,7 @@ object StrokeEngine {
         speedTop: Double = SPEED_HI,
         speedSmoothing: Double = DEFAULT_SPEED_SMOOTHING,
         tiltStrength: Double = 0.0,
+        orientationStrength: Double = 0.0,
     ): StrokeGeometry {
         val n = samples.size
         if (n == 0) return StrokeGeometry.EMPTY
@@ -669,6 +672,7 @@ object StrokeEngine {
         var timed = false
         var widths = true
         var tilted = false
+        var oriented = false
         for (i in 0 until n) {
             val s = samples[i]
             rawX[i] = s.x
@@ -677,14 +681,16 @@ object StrokeEngine {
             if (s.t != 0.0) timed = true
             if (s.widthFactor <= 0.0) widths = false
             if (s.tilt > 0.0) tilted = true
+            if (s.orientation > 0.0) oriented = true
         }
         val rawT = if (timed) DoubleArray(n) { samples[it].t } else null
         val rawF = if (widths) DoubleArray(n) { samples[it].widthFactor } else null
         val rawL = if (tilted) DoubleArray(n) { samples[it].tilt } else null
+        val rawO = if (oriented) DoubleArray(n) { samples[it].orientation } else null
         return build(
             rawX, rawY, rawP, rawT, baseWidth, pressureEnabled, m, ds, speedStrength,
             taperEnabled, taperMinFactor, speedScale, smooth, holdEnds, finished, smoothScale,
-            speedTop, speedSmoothing, rawF, tiltStrength, rawL,
+            speedTop, speedSmoothing, rawF, tiltStrength, rawL, orientationStrength, rawO,
         )
     }
 
@@ -717,6 +723,9 @@ object StrokeEngine {
         /** Extra width at full lay; tilt is normalized 0 (upright) .. 1 (flat) per sample. */
         tiltStrength: Double = 0.0,
         rawTilt: DoubleArray? = null,
+        /** Chisel width strength from the pen's turn; 0 leaves a round nib. */
+        orientationStrength: Double = 0.0,
+        rawOrientation: DoubleArray? = null,
     ): StrokeGeometry {
         val n = rawX.size
         if (n == 0) return StrokeGeometry.EMPTY
@@ -838,6 +847,9 @@ object StrokeEngine {
             if (sf != null) h *= sf[i]
             if (tf != null) h *= tf[i]
             if (tiltStrength > 0.0 && rawTilt != null) h *= StylusTilt.widthFactor(rawTilt[i], tiltStrength)
+            if (orientationStrength > 0.0 && rawOrientation != null) {
+                h *= StylusOrientation.widthFactor(rawOrientation[i], atan2(ty[i], tx[i]), orientationStrength)
+            }
             writePoint(centerline, halfWidths, leftRail, rightRail, i, sx[i], sy[i], tx[i], ty[i], h)
         }
         return StrokeGeometry(centerline, halfWidths, leftRail, rightRail)

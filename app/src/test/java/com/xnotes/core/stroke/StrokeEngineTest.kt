@@ -213,6 +213,17 @@ class StrokeEngineTest {
         assertEquals(4.0, ratio, 1e-9) // direction-only ratio
     }
 
+    @Test fun orientationTurnsAFlatNib() {
+        fun widthFor(turn: Double) = StrokeEngine.build(
+            listOf(Sample(0.0, 0.0, 1.0, orientation = turn), Sample(10.0, 0.0, 1.0, orientation = turn)),
+            10.0, false, 1.0, 0.0, smooth = false, orientationStrength = 1.0,
+        ).halfWidths[1].toDouble()
+
+        // Travelling east, a nib edge pointing north crosses the path; pointing east runs along it.
+        assertTrue(widthFor(0.25) > widthFor(0.5) * 5.0)
+        assertEquals(widthFor(0.25), widthFor(0.75), 1e-6)
+    }
+
     @Test fun tiltScalesIndependentlyOfPressure() {
         assertEquals(1.0, StylusTilt.widthFactor(0.0, 1.0), 1e-12) // upright: no change
         assertEquals(1.0, StylusTilt.widthFactor(1.0, 0.0), 1e-12) // feature off: no change

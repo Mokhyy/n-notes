@@ -98,6 +98,46 @@ class CanvasCodecTest {
 
     // --- round trip ---
 
+    @Test fun orientationRoundTrips() {
+        val doc = InfiniteDocument(dpi = 150)
+        val original = Stroke(
+            Tool.PEN,
+            ToolConfig(baseWidth = 4.0, orientationStrength = 0.7),
+            mutableListOf(
+                Sample(0.0, 0.0, 0.5, orientation = 0.25),
+                Sample(10.0, 0.0, 0.5, orientation = 0.75),
+            ),
+        )
+        doc.add(original)
+        val stroke = roundTrip(doc).items[0] as Stroke
+        assertEquals(0.7, stroke.config.orientationStrength, 1e-9)
+        assertEquals(0.25, stroke.samples[0].orientation, 1e-9)
+        assertEquals(0.75, stroke.samples[1].orientation, 1e-9)
+        assertArrayEquals(original.geometry().halfWidths, stroke.geometry().halfWidths, 1e-2f)
+    }
+
+    @Test fun orientationStorageCanBeDropped() {
+        val doc = InfiniteDocument(dpi = 150)
+        val original = Stroke(
+            Tool.PEN,
+            ToolConfig(baseWidth = 4.0, tiltStrength = 0.7, orientationStrength = 0.7),
+            mutableListOf(
+                Sample(0.0, 0.0, 0.5, tilt = 0.3, orientation = 0.25),
+                Sample(10.0, 0.0, 0.5, tilt = 0.6, orientation = 0.75),
+            ),
+        )
+        doc.add(original)
+        val codec = CanvasCodec(FakeImageCodec(), FakeTextMeasurer(), storeOrientation = { false })
+        val back = codec.read(
+            ByteArrayInputStream(ByteArrayOutputStream().also { codec.write(doc, it) }.toByteArray()),
+            imageDir = Files.createTempDirectory("xnotes-canvas-img").toFile(),
+        )
+        val stroke = back.items[0] as Stroke
+        assertTrue(stroke.samples.all { it.orientation == 0.0 })
+        assertEquals(0.3, stroke.samples[0].tilt, 1e-6) // tilt storage is independent
+        assertArrayEquals(original.geometry().halfWidths, stroke.geometry().halfWidths, 1e-2f)
+    }
+
     @Test fun tiltWidthRoundTrips() {
         val doc = InfiniteDocument(dpi = 150)
         doc.add(

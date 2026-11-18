@@ -47,6 +47,7 @@ import com.xnotes.core.tools.ToolConfig
 import com.xnotes.core.tools.ToolDefaults
 import com.xnotes.core.util.Svg
 import com.xnotes.core.vector.PathFlattener
+import com.xnotes.stylus.StylusOrientation
 import com.xnotes.stylus.StylusTilt
 import java.io.File
 import java.io.FileInputStream
@@ -81,6 +82,8 @@ class XCanvasFormatException(message: String) : Exception(message)
 class CanvasCodec(
     private val imageCodec: ImageCodec,
     private val textMeasurer: TextMeasurer,
+    /** Whether a sample's orientation turn is kept as its own channel, or dropped on save. */
+    private val storeOrientation: () -> Boolean = { true },
     /** Whether a sample's tilt is kept as its own channel; false bakes it into the width instead. */
     private val storeTiltAngle: () -> Boolean = { true },
 ) {
@@ -234,6 +237,18 @@ class CanvasCodec(
         val tilted = s.config.tiltStrength > 0.0 && s.samples.any { it.tilt > 0.0 }
         val keepTilt = tilted && storeTiltAngle()
         val bakeTilt = tilted && !keepTilt
+        val keepOrientation = storeOrientation() && s.samples.any { it.orientation > 0.0 }
+        val bakeOrientation = s.config.orientationStrength > 0.0 && !keepOrientation && s.samples.any { it.orientation > 0.0 }
+        val bakedOrientation = if (bakeOrientation) {
+            val n = s.samples.size
+            val g = s.geometry()
+            StylusOrientation.bakedWidthFactors(
+                DoubleArray(n) { g.cx(it) },
+                DoubleArray(n) { g.cy(it) },
+                DoubleArray(n) { s.samples[it].orientation },
+                s.config.orientationStrength,
+            )
+        } else null
         j.beginObject()
         j.name("kind").value(Stroke.KIND)
         j.name("tool").value(s.tool.id)
@@ -253,6 +268,7 @@ class CanvasCodec(
             j.name("taper_min_factor").value(s.config.taperMinFactor)
         }
         if (s.config.tiltStrength != 0.0) j.name("tilt_strength").value(s.config.tiltStrength)
+        if (s.config.orientationStrength != 0.0) j.name("orientation_strength").value(s.config.orientationStrength)
         if (s.config.neon) {
             j.name("neon").value(true)
             j.name("neon_strength").value(s.config.neonStrength)
@@ -270,18 +286,28 @@ class CanvasCodec(
         // content px and 0.001 pressure are far below anything visible. Rounding is idempotent,
         // so re-saving an untouched canvas stays byte-stable.
         j.name("samples").beginArray()
-        for (sm in s.samples) {
+        for ((index, sm) in s.samples.withIndex()) {
             val width = when {
-                bakeTilt -> StylusTilt.bakedWidthFactor(sm.tilt, s.config.tiltStrength, if (sm.widthFactor > 0.0) sm.widthFactor else 1.0)
+                bakeTilt || bakeOrientation -> {
+                    var f = if (sm.widthFactor > 0.0) sm.widthFactor else 1.0
+                    if (bakeTilt) f *= StylusTilt.widthFactor(sm.tilt, s.config.tiltStrength)
+                    if (bakedOrientation != null) f *= bakedOrientation[index]
+                    f
+                }
                 withTime -> sm.widthFactor.takeIf { it > 0.0 }
-                keepTilt -> 0.0 // the angle slot needs a width slot ahead of it
+                keepTilt || keepOrientation -> 0.0 // the angle slots need a width slot ahead of them
                 else -> null
             }
             j.samplePoint(
                 sm.x, sm.y, sm.pressure,
                 if (withTime) sm.t else if (width != null) 0.0 else null,
                 width,
-                if (keepTilt) sm.tilt.takeIf { it > 0.0 } else null,
+                when {
+                    keepTilt -> sm.tilt
+                    keepOrientation -> 0.0 // placeholder so orientation lands in the seventh slot
+                    else -> null
+                },
+                if (keepOrientation) sm.orientation else null,
             )
         }
         j.endArray()
@@ -854,6 +880,7 @@ class CanvasCodec(
         var highlighterAlpha: Double? = null
         var highlighterInverse: Boolean? = null
         var tiltStrength: Double? = null
+        var orientationStrength: Double? = null
     }
 
     private fun parseItem(p: JsonPull, items: MutableList<CanvasItem>, pending: MutableList<Pending>, glue: GlueRead) {
@@ -986,13 +1013,14 @@ class CanvasCodec(
             neon = c?.neon ?: def.neon,
             neonStrength = c?.neonStrength ?: def.neonStrength,
             tiltStrength = c?.tiltStrength ?: def.tiltStrength,
+            orientationStrength = c?.orientationStrength ?: def.orientationStrength,
             dashLength = c?.dashLength ?: def.dashLength,
             dashGap = c?.dashGap ?: def.dashGap,
             highlighterAlpha = c?.highlighterAlpha ?: def.highlighterAlpha,
             highlighterInverse = c?.highlighterInverse ?: def.highlighterInverse,
         )
         val stroke = Stroke(tool, config, emptyList(), s.speedScale, s.straight, s.smoothScale)
-        s.samples?.let { stroke.setSamples(it.xs, it.ys, it.ps, it.ts, it.n, it.ws, it.ls) }
+        s.samples?.let { stroke.setSamples(it.xs, it.ys, it.ps, it.ts, it.n, it.ws, it.ls, it.os) }
         // Speed ink saved before its widths were kept works them out once, as it is drawn now.
         stroke.freezeSpeedWidths()
         stroke.cuts = s.cuts
@@ -1204,6 +1232,7 @@ class CanvasCodec(
                 "highlighter_alpha" -> c.highlighterAlpha = doubleOrNull(p)
                 "highlighter_inverse" -> c.highlighterInverse = boolOrNull(p)
                 "tilt_strength" -> c.tiltStrength = doubleOrNull(p)
+                "orientation_strength" -> c.orientationStrength = doubleOrNull(p)
                 else -> p.skipValue()
             }
         }
@@ -1217,7 +1246,7 @@ class CanvasCodec(
             return null
         }
         val out = RawSamples()
-        val tuple = DoubleArray(6)
+        val tuple = DoubleArray(7)
         p.beginArray()
         while (p.hasNext()) {
             if (p.peek() != JsonPull.Token.BEGIN_ARRAY) {
@@ -1235,6 +1264,7 @@ class CanvasCodec(
                 if (tuple[3].isNaN()) 0.0 else tuple[3],
                 if (tuple[4].isNaN()) 0.0 else tuple[4],
                 if (tuple[5].isNaN()) 0.0 else tuple[5],
+                if (tuple[6].isNaN()) 0.0 else tuple[6],
             )
         }
         p.endArray()

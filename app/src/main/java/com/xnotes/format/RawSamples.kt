@@ -29,10 +29,14 @@ internal class RawSamples {
     var ls: DoubleArray? = null
         private set
 
+    /** The pen's twisted nib per sample, a 0..1 turn, once orientation is recorded. */
+    var os: DoubleArray? = null
+        private set
+
     var n = 0
         private set
 
-    fun add(x: Double, y: Double, pressure: Double, time: Double, width: Double = 0.0, tilt: Double = 0.0) {
+    fun add(x: Double, y: Double, pressure: Double, time: Double, width: Double = 0.0, tilt: Double = 0.0, orientation: Double = 0.0) {
         if (n == xs.size) {
             val c = n * 2
             xs = xs.copyOf(c)
@@ -41,6 +45,7 @@ internal class RawSamples {
             ts = ts?.copyOf(c)
             ws = ws?.copyOf(c)
             ls = ls?.copyOf(c)
+            os = os?.copyOf(c)
         }
         xs[n] = x
         ys[n] = y
@@ -51,6 +56,8 @@ internal class RawSamples {
         ws?.set(n, width)
         if (tilt > 0.0 && ls == null) ls = DoubleArray(xs.size) // earlier samples were upright
         ls?.set(n, tilt)
+        if (orientation > 0.0 && os == null) os = DoubleArray(xs.size) // earlier samples reported none
+        os?.set(n, orientation)
         n++
     }
 

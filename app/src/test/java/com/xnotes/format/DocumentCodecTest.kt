@@ -99,6 +99,47 @@ class DocumentCodecTest {
         return out
     }
 
+    @Test fun orientationRoundTripsOnANote() {
+        val doc = Document(dpi = 150)
+        doc.pages += Page(1240.0, 1754.0)
+        val original = Stroke(
+            Tool.PEN,
+            ToolConfig(baseWidth = 4.0, orientationStrength = 0.7),
+            mutableListOf(
+                Sample(0.0, 0.0, 0.5, orientation = 0.25),
+                Sample(10.0, 0.0, 0.5, orientation = 0.75),
+            ),
+        )
+        doc.pages[0].items.add(original)
+        val stroke = roundTrip(doc).pages[0].items[0] as Stroke
+        assertEquals(0.7, stroke.config.orientationStrength, 1e-9)
+        assertEquals(0.25, stroke.samples[0].orientation, 1e-9)
+        assertEquals(0.75, stroke.samples[1].orientation, 1e-9)
+        assertArrayEquals(original.geometry().halfWidths, stroke.geometry().halfWidths, 1e-2f)
+    }
+
+    @Test fun orientationStorageCanBeDroppedOnANote() {
+        val doc = Document(dpi = 150)
+        doc.pages += Page(1240.0, 1754.0)
+        val original = Stroke(
+            Tool.PEN,
+            ToolConfig(baseWidth = 4.0, tiltStrength = 0.7, orientationStrength = 0.7),
+            mutableListOf(
+                Sample(0.0, 0.0, 0.5, tilt = 0.3, orientation = 0.25),
+                Sample(10.0, 0.0, 0.5, tilt = 0.6, orientation = 0.75),
+            ),
+        )
+        doc.pages[0].items.add(original)
+        val codec = DocumentCodec(FakeImageCodec(), FakeTextMeasurer(), storeOrientation = { false })
+        val out = ByteArrayOutputStream()
+        codec.write(doc, out)
+        val back = codec.read(ByteArrayInputStream(out.toByteArray()), imageDir = Files.createTempDirectory("xnotes-img").toFile())
+        val stroke = back.pages[0].items[0] as Stroke
+        assertTrue(stroke.samples.all { it.orientation == 0.0 })
+        assertEquals(0.3, stroke.samples[0].tilt, 1e-6)
+        assertArrayEquals(original.geometry().halfWidths, stroke.geometry().halfWidths, 1e-2f)
+    }
+
     @Test fun bakingTiltDropsTheAngleOnANote() {
         val doc = Document(dpi = 150)
         doc.pages += Page(1240.0, 1754.0)

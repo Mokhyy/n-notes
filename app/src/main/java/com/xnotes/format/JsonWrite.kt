@@ -15,8 +15,8 @@ internal class JsonWrite(private val out: Writer) {
     private var depth = 0
     private var afterName = false
 
-    /** Scratch for [samplePoint]; big enough for five numbers, their separators and the brackets. */
-    private val buf = CharArray(128)
+    /** Scratch for [samplePoint]; big enough for seven numbers, their separators and the brackets. */
+    private val buf = CharArray(160)
 
     fun beginObject(): JsonWrite {
         element()
@@ -84,8 +84,9 @@ internal class JsonWrite(private val out: Writer) {
 
     /**
      * One stroke sample as `[x,y,p]`, `[x,y,p,t]` when [time] is given, `[x,y,p,t,w]` with the
-     * speed pen's [width] factor, or `[x,y,p,t,w,l]` with the normalized [tilt] lay too, rounded on
-     * the way out: 0.01 content px, 0.001 pressure, width and tilt, all far below anything visible.
+     * speed pen's [width] factor, `[x,y,p,t,w,l]` with the normalized [tilt] lay too, or
+     * `[x,y,p,t,w,l,o]` with the normalized [orientation] turn, rounded on the way out: 0.01
+     * content px, 0.001 pressure, width, tilt and orientation, all far below anything visible.
      *
      * Its own method because samples are ~97% of a dense manifest and the general path spends ~8
      * [Writer.write] calls and three [Double.toString]s on each one. A rounded coordinate is an
@@ -94,9 +95,18 @@ internal class JsonWrite(private val out: Writer) {
      * fixed-point form cannot reproduce: a magnitude where [Double.toString] turns to scientific
      * notation, or a fractional time.
      */
-    fun samplePoint(x: Double, y: Double, pressure: Double, time: Double?, width: Double? = null, tilt: Double? = null): JsonWrite {
+    fun samplePoint(
+        x: Double,
+        y: Double,
+        pressure: Double,
+        time: Double?,
+        width: Double? = null,
+        tilt: Double? = null,
+        orientation: Double? = null,
+    ): JsonWrite {
         val w = if (time != null) width else null
         val l = if (w != null) tilt else null
+        val o = if (l != null) orientation else null
         var n = 0
         n = fixed(n, x, 100L)
         if (n >= 0) n = fixed(n, y, 100L)
@@ -104,18 +114,20 @@ internal class JsonWrite(private val out: Writer) {
         if (n >= 0 && time != null) n = whole(n, time)
         if (n >= 0 && w != null) n = fixed(n, w, 1000L)
         if (n >= 0 && l != null) n = fixed(n, l, 1000L)
-        if (n < 0) return samplePointSlow(x, y, pressure, time, w, l)
+        if (n >= 0 && o != null) n = fixed(n, o, 1000L)
+        if (n < 0) return samplePointSlow(x, y, pressure, time, w, l, o)
         element()
         buf[n++] = ']'
         out.write(buf, 0, n)
         return this
     }
 
-    private fun samplePointSlow(x: Double, y: Double, pressure: Double, time: Double?, width: Double?, tilt: Double?): JsonWrite {
+    private fun samplePointSlow(x: Double, y: Double, pressure: Double, time: Double?, width: Double?, tilt: Double?, orientation: Double?): JsonWrite {
         beginArray().value(round(x, 100.0)).value(round(y, 100.0)).value(round(pressure, 1000.0))
         if (time != null) value(time)
         if (width != null) value(round(width, 1000.0))
         if (tilt != null) value(round(tilt, 1000.0))
+        if (orientation != null) value(round(orientation, 1000.0))
         return endArray()
     }
 

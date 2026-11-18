@@ -1,7 +1,9 @@
 package com.xnotes.core.stroke
 
 import com.xnotes.core.geometry.Rect
+import com.xnotes.stylus.StylusOrientation
 import com.xnotes.stylus.StylusTilt
+import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -57,6 +59,7 @@ class WetRibbon(
     private val speedTop: Double = StrokeEngine.SPEED_HI,
     speedSmoothing: Double = StrokeEngine.DEFAULT_SPEED_SMOOTHING,
     private val tiltStrength: Double = 0.0,
+    private val orientationStrength: Double = 0.0,
 ) : RibbonPoints {
     /** Samples taken so far; one ribbon point each. */
     override var pointCount = 0
@@ -80,6 +83,12 @@ class WetRibbon(
 
     /** How far the nib is laid down per sample (0 upright, 1 flat), when tilt width is on. */
     private var tl = EMPTY_D
+
+    /** The pen's turn per sample (0..1), when nib turn is on and the pen reports one. */
+    private var ol = EMPTY_D
+
+    /** Once any sample reports orientation; a pen without the axis stays a round nib. */
+    private var hasOrientation = false
 
     /** Elapsed ms, cumulative *raw* travel and cumulative moving time: the speed pen's window reads them. */
     private var times = EMPTY_D
@@ -218,9 +227,9 @@ class WetRibbon(
     // --- growing the ribbon ---
 
     /** Take one more sample: extend every causal channel by a step, then redraw the live tail. */
-    fun append(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0) {
+    fun append(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0, orientation: Double = 0.0) {
         dropTip()
-        grow(x, y, pressure, t, tilt)
+        grow(x, y, pressure, t, tilt, orientation)
     }
 
     // --- the tip ---
@@ -259,11 +268,11 @@ class WetRibbon(
      * Draw one more point at ([x], [y]) exactly as the next sample would, without taking it. It only
      * writes past the samples or into the tail, so it comes off by putting the carried state back.
      */
-    fun setTip(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0) {
+    fun setTip(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0, orientation: Double = 0.0) {
         if (pointCount == 0) return
         dropTip()
         keep()
-        grow(x, y, pressure, t, tilt)
+        grow(x, y, pressure, t, tilt, orientation)
         tipped = true
         settledCount = kept.settled
         minX = kept.minX
@@ -335,15 +344,17 @@ class WetRibbon(
         k.maxY = maxY
     }
 
-    private fun grow(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0) {
+    private fun grow(x: Double, y: Double, pressure: Double, t: Double, tilt: Double = 0.0, orientation: Double = 0.0) {
         val i = pointCount
         ensure(i + 1)
+        if (orientation > 0.0) hasOrientation = true
         val step = if (i == 0) 0.0 else hypot(x - lastRawX, y - lastRawY)
         if (i == 0) {
             sx[0] = x
             sy[0] = y
             sp[0] = pressure
             if (tiltStrength > 0.0) tl[0] = tilt
+            if (orientationStrength > 0.0) ol[0] = orientation
             if (timed) {
                 times[0] = t
                 tau[0] = 0.0
@@ -361,6 +372,7 @@ class WetRibbon(
             sy[i] = if (smooth) StrokeEngine.emaStep(sy[i - 1], lastRawY, y, step, smoothLen) else y
             sp[i] = StrokeEngine.emaStep(sp[i - 1], lastRawP, pressure, step, smoothLen)
             if (tiltStrength > 0.0) tl[i] = tilt
+            if (orientationStrength > 0.0) ol[i] = orientation
             arc += hypot(sx[i] - sx[i - 1], sy[i] - sy[i - 1])
             if (timed) {
                 times[i] = t
@@ -487,6 +499,9 @@ class WetRibbon(
             var h = StrokeEngine.halfWidth(baseWidth, pressureEnabled, m, ds, pressure, dir)
             if (timed) h *= StrokeEngine.blurAt(fSpeed, pathArc, n, i, sigma, blurScratch)
             if (tiltStrength > 0.0) h *= StylusTilt.widthFactor(tl[i], tiltStrength)
+            if (orientationStrength > 0.0 && hasOrientation && n > 1) {
+                h *= StylusOrientation.widthFactor(ol[i], atan2(ty[i], tx[i]), orientationStrength)
+            }
             if (n == 1) {
                 halfWidths[0] = h.toFloat()
                 centerline[0] = sx[0].toFloat()
@@ -574,6 +589,7 @@ class WetRibbon(
         tx = tx.copyOf(c)
         ty = ty.copyOf(c)
         if (tiltStrength > 0.0) tl = tl.copyOf(c)
+        if (orientationStrength > 0.0) ol = ol.copyOf(c)
         if (timed) {
             times = times.copyOf(c)
             tau = tau.copyOf(c)

@@ -136,6 +136,7 @@ class Stroke(
     fun pAt(i: Int): Double = pts.pa[i].toDouble()
     fun tAt(i: Int): Double = pts.ta?.get(i)?.toDouble() ?: 0.0
     fun tiltAt(i: Int): Double = pts.la?.get(i)?.toDouble() ?: 0.0
+    fun orientationAt(i: Int): Double = pts.oa?.get(i)?.toDouble() ?: 0.0
 
     fun sampleAt(i: Int): Sample = pts.sample(i)
 
@@ -172,6 +173,7 @@ class Stroke(
         val ta = if (timed) FloatArray(m) else null
         val fa = if (widths) FloatArray(m) else null
         val la = if (list.any { it.tilt > 0.0 }) FloatArray(m) else null
+        val oa = if (list.any { it.orientation > 0.0 }) FloatArray(m) else null
         for (i in 0 until m) {
             val s = list[i]
             xa[i] = (s.x - ox).toFloat()
@@ -180,8 +182,9 @@ class Stroke(
             ta?.set(i, s.t.toFloat())
             fa?.set(i, s.widthFactor.toFloat())
             la?.set(i, s.tilt.toFloat())
+            oa?.set(i, s.orientation.toFloat())
         }
-        pts = Samples(ox, oy, xa, ya, pa, ta, fa, la, m)
+        pts = Samples(ox, oy, xa, ya, pa, ta, fa, la, oa, m)
         invalidate()
     }
 
@@ -190,7 +193,7 @@ class Stroke(
      * over: a dense note otherwise materializes one boxed [Sample] per point on the way in and then
      * walks the whole list again to pack it. Same result as [setSamples], one copy earlier.
      */
-    fun setSamples(xs: DoubleArray, ys: DoubleArray, ps: DoubleArray, ts: DoubleArray?, count: Int, ws: DoubleArray? = null, ls: DoubleArray? = null) {
+    fun setSamples(xs: DoubleArray, ys: DoubleArray, ps: DoubleArray, ts: DoubleArray?, count: Int, ws: DoubleArray? = null, ls: DoubleArray? = null, os: DoubleArray? = null) {
         if (count == 0) {
             pts = Samples.EMPTY
             invalidate()
@@ -206,13 +209,14 @@ class Stroke(
         val ta = if (timed) FloatArray(count) else null
         val fa = if (ws != null && (0 until count).all { ws[it] > 0.0 }) FloatArray(count) { ws[it].toFloat() } else null
         val la = if (ls != null && (0 until count).any { ls[it] > 0.0 }) FloatArray(count) { ls[it].toFloat() } else null
+        val oa = if (os != null && (0 until count).any { os[it] > 0.0 }) FloatArray(count) { os[it].toFloat() } else null
         for (i in 0 until count) {
             xa[i] = (xs[i] - ox).toFloat()
             ya[i] = (ys[i] - oy).toFloat()
             pa[i] = ps[i].toFloat()
             ta?.set(i, ts!![i].toFloat())
         }
-        pts = Samples(ox, oy, xa, ya, pa, ta, fa, la, count)
+        pts = Samples(ox, oy, xa, ya, pa, ta, fa, la, oa, count)
         invalidate()
     }
 
@@ -289,6 +293,11 @@ class Stroke(
             s.la != null || tip.tilt != 0.0 -> DoubleArray(m) { if (it < n) tiltAt(it) else tip.tilt }
             else -> null
         }
+        val ro = when {
+            tip == null -> s.oa?.let { src -> DoubleArray(n) { src[it].toDouble() } }
+            s.oa != null || tip.orientation != 0.0 -> DoubleArray(m) { if (it < n) orientationAt(it) else tip.orientation }
+            else -> null
+        }
         return StrokeEngine.build(
             rx, ry, rp, rt,
             config.baseWidth,
@@ -308,6 +317,8 @@ class Stroke(
             rawF = rf,
             tiltStrength = config.tiltStrength,
             rawTilt = rl,
+            orientationStrength = config.orientationStrength,
+            rawOrientation = ro,
         ).also { cachedGeometry = it }
     }
 
@@ -336,7 +347,7 @@ class Stroke(
     fun keepSpeedWidths(widths: DoubleArray) {
         val s = pts
         if (widths.size != s.n) return
-        pts = Samples(s.ox, s.oy, s.xa, s.ya, s.pa, s.ta, FloatArray(s.n) { widths[it].toFloat() }, s.la, s.n)
+        pts = Samples(s.ox, s.oy, s.xa, s.ya, s.pa, s.ta, FloatArray(s.n) { widths[it].toFloat() }, s.la, s.oa, s.n)
         cachedGeometry = null
     }
 
@@ -381,6 +392,7 @@ class Stroke(
         var pa = cur.pa
         var ta = cur.ta
         var la = cur.la
+        var oa = cur.oa
         if (xa.size < n + 1) { // grow by doubling, into arrays nothing else is holding
             var c = if (xa.isEmpty()) INITIAL_CAPACITY else xa.size
             while (c < n + 1) c *= 2
@@ -389,9 +401,11 @@ class Stroke(
             pa = pa.copyOf(c)
             ta = ta?.copyOf(c)
             la = la?.copyOf(c)
+            oa = oa?.copyOf(c)
         }
         if (s.t != 0.0 && ta == null) ta = FloatArray(xa.size)
         if (s.tilt > 0.0 && la == null) la = FloatArray(xa.size)
+        if (s.orientation > 0.0 && oa == null) oa = FloatArray(xa.size)
         // Index n only, which is past the count every published [Samples] carries, so filling the
         // slack a doubling left cannot disturb a reader holding the previous one.
         xa[n] = (s.x - ox).toFloat()
@@ -399,7 +413,8 @@ class Stroke(
         pa[n] = s.pressure.toFloat()
         ta?.set(n, s.t.toFloat())
         la?.set(n, s.tilt.toFloat())
-        pts = Samples(ox, oy, xa, ya, pa, ta, null, la, n + 1)
+        oa?.set(n, s.orientation.toFloat())
+        pts = Samples(ox, oy, xa, ya, pa, ta, null, la, oa, n + 1)
         val ribbon = wetOrStart()
         if (ribbon == null) {
             invalidate()
@@ -408,7 +423,7 @@ class Stroke(
         // Fed from the packed arrays, not from [s]: the samples are stored as floats, and the
         // ribbon has to see the same rounded numbers a rebuild would, or the ink would shift a
         // hair as the stroke crosses from one to the other.
-        ribbon.append(xAt(n), yAt(n), pAt(n), tAt(n), tiltAt(n))
+        ribbon.append(xAt(n), yAt(n), pAt(n), tAt(n), tiltAt(n), orientationAt(n))
         cachedGeometry = null
         cachedRawBounds = null
         cachedBounds = null
@@ -418,12 +433,12 @@ class Stroke(
     fun setTip(s: Sample) {
         val cur = pts
         if (cur.n == 0 || finished) return
-        val at = Sample(cur.ox + (s.x - cur.ox).toFloat(), cur.oy + (s.y - cur.oy).toFloat(), s.pressure.toFloat().toDouble(), s.t.toFloat().toDouble(), tilt = s.tilt.toFloat().toDouble())
+        val at = Sample(cur.ox + (s.x - cur.ox).toFloat(), cur.oy + (s.y - cur.oy).toFloat(), s.pressure.toFloat().toDouble(), s.t.toFloat().toDouble(), tilt = s.tilt.toFloat().toDouble(), orientation = s.orientation.toFloat().toDouble())
         tip = at
         cachedGeometry = null
         cachedBounds = null
         cachedClipped = null
-        liveRibbon()?.setTip(at.x, at.y, at.pressure, at.t, at.tilt)
+        liveRibbon()?.setTip(at.x, at.y, at.pressure, at.t, at.tilt, at.orientation)
     }
 
     /** Take the [tip] off, leaving the samples as they are. */
@@ -442,7 +457,7 @@ class Stroke(
         val w = wetOrStart() ?: return null
         val s = pts
         val i = s.n - 1
-        w.append(s.ox + s.xa[i], s.oy + s.ya[i], s.pa[i].toDouble(), s.t(i), tiltAt(i))
+        w.append(s.ox + s.xa[i], s.oy + s.ya[i], s.pa[i].toDouble(), s.t(i), tiltAt(i), orientationAt(i))
         return w
     }
 
@@ -468,10 +483,11 @@ class Stroke(
             speedTop = config.speedTop,
             speedSmoothing = config.speedSmoothing,
             tiltStrength = config.tiltStrength,
+            orientationStrength = config.orientationStrength,
         )
         // Everything before the sample being added; the caller appends that one itself.
         val s = pts
-        for (i in 0 until s.n - 1) w.append(s.ox + s.xa[i], s.oy + s.ya[i], s.pa[i].toDouble(), s.t(i), tiltAt(i))
+        for (i in 0 until s.n - 1) w.append(s.ox + s.xa[i], s.oy + s.ya[i], s.pa[i].toDouble(), s.t(i), tiltAt(i), orientationAt(i))
         return w.also { wet = it }
     }
 
@@ -484,7 +500,7 @@ class Stroke(
         val cur = pts
         // Dropping back to one sample means the next [addSample] rewrites index 1, which a reader
         // holding the two-sample tuple would be reading; hand it its own arrays instead.
-        if (cur.n > 1) pts = Samples(cur.ox, cur.oy, cur.xa.copyOf(2), cur.ya.copyOf(2), cur.pa.copyOf(2), cur.ta?.copyOf(2), null, cur.la?.copyOf(2), 1)
+        if (cur.n > 1) pts = Samples(cur.ox, cur.oy, cur.xa.copyOf(2), cur.ya.copyOf(2), cur.pa.copyOf(2), cur.ta?.copyOf(2), null, cur.la?.copyOf(2), cur.oa?.copyOf(2), 1)
         addSample(end)
     }
 
@@ -731,7 +747,7 @@ class Stroke(
     /** O(1): the samples are offsets, so moving the stroke only moves the origin they hang off. */
     override fun translate(dx: Double, dy: Double) {
         val s = pts
-        pts = Samples(s.ox + dx, s.oy + dy, s.xa, s.ya, s.pa, s.ta, s.fa, s.la, s.n)
+        pts = Samples(s.ox + dx, s.oy + dy, s.xa, s.ya, s.pa, s.ta, s.fa, s.la, s.oa, s.n)
         wet = null
         cachedGeometry = null
         cachedRawBounds = cachedRawBounds?.translate(dx, dy)
@@ -745,7 +761,7 @@ class Stroke(
 
     override fun snapshotGeometry(): GeometrySnapshot = pts.let {
         StrokeSnapshot(
-            it.ox, it.oy, it.xa.copyOf(it.n), it.ya.copyOf(it.n), it.pa.copyOf(it.n), it.ta?.copyOf(it.n), it.fa?.copyOf(it.n), it.la?.copyOf(it.n),
+            it.ox, it.oy, it.xa.copyOf(it.n), it.ya.copyOf(it.n), it.pa.copyOf(it.n), it.ta?.copyOf(it.n), it.fa?.copyOf(it.n), it.la?.copyOf(it.n), it.oa?.copyOf(it.n),
             config, cuts, smoothScale, speedScale,
         )
     }
@@ -754,7 +770,7 @@ class Stroke(
         if (snap !is StrokeSnapshot) return
         pts = Samples(
             snap.ox, snap.oy,
-            snap.xs.copyOf(), snap.ys.copyOf(), snap.ps.copyOf(), snap.ts?.copyOf(), snap.fs?.copyOf(), snap.ls?.copyOf(),
+            snap.xs.copyOf(), snap.ys.copyOf(), snap.ps.copyOf(), snap.ts?.copyOf(), snap.fs?.copyOf(), snap.ls?.copyOf(), snap.os?.copyOf(),
             snap.xs.size,
         )
         config = snap.config
@@ -781,7 +797,7 @@ class Stroke(
                 xa[i] = (p.x - first.x).toFloat()
                 ya[i] = (p.y - first.y).toFloat()
             }
-            pts = Samples(first.x, first.y, xa, ya, s.pa, s.ta, s.fa, s.la, s.n)
+            pts = Samples(first.x, first.y, xa, ya, s.pa, s.ta, s.fa, s.la, s.oa, s.n)
         }
         val k = t.linearScale
         if (k != 1.0) {
@@ -958,6 +974,7 @@ class Stroke(
             src.ta?.copyOfRange(from, to),
             src.fa?.copyOfRange(from, to),
             src.la?.copyOfRange(from, to),
+            src.oa?.copyOfRange(from, to),
             m,
         )
         s.cuts = cuts
@@ -1070,17 +1087,19 @@ private class Samples(
     /** How far the nib was laid down per sample, 0 upright and 1 flat; null for untilted ink, so
      *  ordinary strokes pay nothing for the channel. */
     val la: FloatArray?,
+    /** The pen's turned nib per sample as a 0..1 fraction, or null when the pen never reported it. */
+    val oa: FloatArray?,
     val n: Int,
 ) {
     fun t(i: Int): Double = ta?.get(i)?.toDouble() ?: 0.0
 
-    fun sample(i: Int): Sample = Sample(ox + xa[i], oy + ya[i], pa[i].toDouble(), t(i), fa?.get(i)?.toDouble() ?: 0.0, la?.get(i)?.toDouble() ?: 0.0)
+    fun sample(i: Int): Sample = Sample(ox + xa[i], oy + ya[i], pa[i].toDouble(), t(i), fa?.get(i)?.toDouble() ?: 0.0, la?.get(i)?.toDouble() ?: 0.0, oa?.get(i)?.toDouble() ?: 0.0)
 
     /** The same samples over arrays of exactly [n], shared with nothing. */
-    fun detached(): Samples = Samples(ox, oy, xa.copyOf(n), ya.copyOf(n), pa.copyOf(n), ta?.copyOf(n), fa?.copyOf(n), la?.copyOf(n), n)
+    fun detached(): Samples = Samples(ox, oy, xa.copyOf(n), ya.copyOf(n), pa.copyOf(n), ta?.copyOf(n), fa?.copyOf(n), la?.copyOf(n), oa?.copyOf(n), n)
 
     companion object {
-        val EMPTY = Samples(0.0, 0.0, FloatArray(0), FloatArray(0), FloatArray(0), null, null, null, 0)
+        val EMPTY = Samples(0.0, 0.0, FloatArray(0), FloatArray(0), FloatArray(0), null, null, null, null, 0)
     }
 }
 
@@ -1096,6 +1115,7 @@ private class StrokeSnapshot(
     val ts: FloatArray?,
     val fs: FloatArray?,
     val ls: FloatArray?,
+    val os: FloatArray?,
     val config: ToolConfig,
     val cuts: List<CutEdge>,
     val smoothScale: Double,

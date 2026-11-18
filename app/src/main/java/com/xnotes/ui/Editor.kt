@@ -516,9 +516,14 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private val codec = DocumentCodec(
         imageCodec, textMeasurer,
         storeTiltAngle = { settings.prefs.stylusStoreTiltAngle },
+        storeOrientation = { settings.prefs.stylusStoreOrientation },
         pdfGeometry = { doc, pdfPage -> pdfSource?.takeIf { doc.pdfFile != null && it.file == doc.pdfFile }?.pageGeometry(pdfPage) },
     )
-    private val canvasCodec = com.xnotes.format.CanvasCodec(imageCodec, textMeasurer) { settings.prefs.stylusStoreTiltAngle }
+    private val canvasCodec = com.xnotes.format.CanvasCodec(
+        imageCodec,
+        textMeasurer,
+        storeOrientation = { settings.prefs.stylusStoreOrientation },
+    ) { settings.prefs.stylusStoreTiltAngle }
 
     /** One flow layout + snapshot: repainted from cache threads, so only the published frame is read. */
     private class PublishedFlow(val frame: FlowFrame, val indexOf: Map<Page, Int>)

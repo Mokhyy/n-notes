@@ -70,6 +70,7 @@
     <string name="caption_sensitivity">Sensitivity</string>
     <string name="caption_multiplier">Multiplier</string>
     <string name="caption_tilt">Tilt width</string>
+    <string name="caption_orientation">Nib turn</string>
     <string name="caption_thinning">Thinning</string>
     <string name="caption_smoothing">Smoothing</string>
     <string name="caption_top_speed">Top speed</string>
@@ -484,6 +485,7 @@
     <string name="pref_stylus_hover_preview">Hover preview</string>
     <string name="pref_stylus_hover_distance">Hover distance</string>
     <string name="pref_stylus_store_tilt">Store pen tilt (off bakes it into width)</string>
+    <string name="pref_stylus_store_orientation">Store pen orientation (off drops it from the file)</string>
     <string name="pref_stylus_pressure_curve">Pressure response</string>
     <string name="pref_stylus_tilt_curve">Tilt response</string>
     <string name="curve_linear">Linear</string>

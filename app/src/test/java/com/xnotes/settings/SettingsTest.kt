@@ -110,6 +110,12 @@ class SettingsTest {
         assertEquals(0.9, back.speedTop, 1e-9)
     }
 
+    @Test fun nibTurnRoundTripsPerPen() {
+        val pen = com.xnotes.core.tools.ToolDefaults.configFor(Tool.PEN).copy(orientationStrength = 0.7)
+        val back = Settings.fromJson(Settings(tools = mapOf(Tool.PEN to pen)).toJson()).configFor(Tool.PEN)
+        assertEquals(0.7, back.orientationStrength, 1e-9)
+    }
+
     @Test fun stabilizationRoundTripsPerPen() {
         val pen = com.xnotes.core.tools.ToolDefaults.configFor(Tool.PEN).copy(stabilize = true, stabilizeTrail = 7.2, stabilizeCrossover = 30.0)
         val back = Settings.fromJson(Settings(tools = mapOf(Tool.PEN to pen)).toJson())
@@ -226,6 +232,12 @@ class SettingsTest {
         // Curves saved by the first fixed-five-knot version still load.
         val legacy = JSONObject().put("stylus_pressure_curve", JSONArray(listOf(0.0, 0.25, 0.5, 0.75, 1.0)))
         assertEquals(0.25, Preferences.fromJson(legacy).stylusPressureCurve.valueAt(0.25), 1e-9)
+    }
+
+    @Test fun stylusOrientationStorageRoundTrips() {
+        assertTrue(Settings.fromJson(JSONObject()).prefs.stylusStoreOrientation)
+        val back = Settings.fromJson(Settings(prefs = Preferences(stylusStoreOrientation = false)).toJson()).prefs
+        assertFalse(back.stylusStoreOrientation)
     }
 
     @Test fun headingBookmarksAreOnUntilTurnedOff() {
