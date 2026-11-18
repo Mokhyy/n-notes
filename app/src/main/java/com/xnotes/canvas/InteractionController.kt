@@ -2103,7 +2103,11 @@ class InteractionController(
         val pageIndex = state.pageIndexAtContent(content)
         if (pageIndex != null) {
             val local = state.toPageSpace(pageIndex, content)
-            val hit = state.document.pages[pageIndex].items.lastOrNull { !it.locked && it.contains(local) }
+            // A table is grabbed by its lines, so a press inside a cell can start a band over what's in it.
+            val slop = TAP_SLOP / state.zoom
+            val hit = state.document.pages[pageIndex].items.lastOrNull {
+                !it.locked && if (it is TableItem) it.intersectsCircle(local.x, local.y, slop) else it.contains(local)
+            }
             if (hit != null) {
                 if (selection.none { it.item === hit }) setSelection(listOf(Selected(pageIndex, hit)))
                 beginMove(content)
@@ -2498,31 +2502,7 @@ class InteractionController(
         requestRender()
     }
 
-    // --- TABLE_LINE (drag an interior row/column boundary of the selected table) ---
-
-    /** If [content] grabs an interior grid line of the single selected table, start dragging it. */
-    private fun tryGrabTableLine(content: Pt): Boolean {
-        val sel = selection.singleOrNull() ?: return false
-        val t = sel.item as? TableItem ?: return false
-        if (state.pageRects.getOrNull(sel.pageIndex) == null) return false
-        val local = state.toPageSpace(sel.pageIndex, content)
-        val tol = HANDLE_HIT / state.zoom
-        val col = t.columnLineNear(local, tol)
-        val row = t.rowLineNear(local, tol)
-        if (col < 0 && row < 0) return false
-        tableLineItem = t
-        tableLinePageIndex = sel.pageIndex
-        tableLineBefore = t.snapshotGeometry()
-        // When a press is near both a column and a row line, take the nearer one.
-        if (col >= 0 && (row < 0 || abs(local.x - t.colX(col)) <= abs(local.y - t.rowY(row)))) {
-            tableLineIsColumn = true; tableLineIndex = col
-        } else {
-            tableLineIsColumn = false; tableLineIndex = row
-        }
-        mode = PointerMode.TABLE_LINE
-        onSelectionMenu(null)
-        return true
-    }
+    // --- TABLE_LINE (drag one interior row/column line by its tick on the handle bar) ---
 
     private fun extendTableLine(content: Pt) {
         val t = tableLineItem ?: return
@@ -2651,7 +2631,7 @@ class InteractionController(
 
     /**
      * Handle a press on the selected table's chrome: a -/+ button, a bar-end grip (resize the picked
-     * columns or rows), the bar itself (pick columns or rows), or an interior line. Returns false when
+     * columns or rows), a line's tick on a bar (move that line), or the bar itself (pick columns or rows). Returns false when
      * the press missed all of them, so the caller moves or reselects as usual.
      */
     private fun beginTableChrome(content: Pt): Boolean {
@@ -2692,6 +2672,14 @@ class InteractionController(
             beginTableDrag(t, PointerMode.TABLE_GRIP)
             return true
         }
+        val tickCol = if (c.topBar.contains(local)) t.columnLineNear(Pt(local.x, t.rect.top), tol / 2) else -1
+        val tickRow = if (c.leftBar.contains(local)) t.rowLineNear(Pt(t.rect.left, local.y), tol / 2) else -1
+        if (tickCol >= 0 || tickRow >= 0) {
+            tableLineIsColumn = tickCol >= 0
+            tableLineIndex = if (tableLineIsColumn) tickCol else tickRow
+            beginTableDrag(t, PointerMode.TABLE_LINE)
+            return true
+        }
         if (c.topBar.contains(local) || c.leftBar.contains(local)) {
             tableLineIsColumn = c.topBar.contains(local)
             tablePickPrior = if (tableLineIsColumn) tableColPick else tableRowPick
@@ -2700,7 +2688,7 @@ class InteractionController(
             beginTableDrag(t, PointerMode.TABLE_PICK)
             return true
         }
-        return tryGrabTableLine(content)
+        return false
     }
 
     private fun beginTableDrag(t: TableItem, dragMode: PointerMode) {
@@ -2777,6 +2765,14 @@ class InteractionController(
         val tickPen = Pen(sel, 1.3, cosmetic = true)
         for (i in 0..t.cols) r.strokePolyline(listOf(at(Pt(t.colX(i), c.barY - tick)), at(Pt(t.colX(i), c.barY + tick))), tickPen)
         for (j in 0..t.rows) r.strokePolyline(listOf(at(Pt(c.barX - tick, t.rowY(j))), at(Pt(c.barX + tick, t.rowY(j)))), tickPen)
+        // Interior ticks drag their line, so they get a knob like the grips, only smaller.
+        for (i in 1 until t.cols) r.fillCircle(at(Pt(t.colX(i), c.barY)), grip * 0.85, sel)
+        for (j in 1 until t.rows) r.fillCircle(at(Pt(c.barX, t.rowY(j))), grip * 0.85, sel)
+        if (mode == PointerMode.TABLE_LINE && tableLineItem === t) {
+            val guide = Pen(sel, 2.0, cosmetic = true)
+            if (tableLineIsColumn) r.strokePolyline(listOf(at(Pt(t.colX(tableLineIndex), c.barY)), at(Pt(t.colX(tableLineIndex), t.rect.bottom))), guide)
+            else r.strokePolyline(listOf(at(Pt(c.barX, t.rowY(tableLineIndex))), at(Pt(t.rect.right, t.rowY(tableLineIndex)))), guide)
+        }
         r.strokePolyline(listOf(at(c.colStart), at(c.colEnd)), Pen(sel, 4.0, cosmetic = true))
         r.strokePolyline(listOf(at(c.rowStart), at(c.rowEnd)), Pen(sel, 4.0, cosmetic = true))
         for (p in listOf(c.colStart, c.colEnd, c.rowStart, c.rowEnd)) r.fillCircle(at(p), grip, sel)
