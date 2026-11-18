@@ -23,6 +23,8 @@ data class EffectiveStylusSettings(
     val barrelDoubleTapWindowMs: Long,
     /** Whether the app draws the hovering pen's cursor. */
     val hoverPreview: Boolean,
+    /** Whether that cursor fades and shrinks with the pen's hover distance. */
+    val hoverDistancePreview: Boolean,
 ) {
     /** Whether [keyCode] is a held side button on this pen. */
     fun isHeldButton(keyCode: Int): Boolean = keyCode in heldKeycodes
@@ -76,6 +78,7 @@ data class StylusSettings(
             doubleTapKeycode = p?.doubleTapKeycode ?: general.doubleTapKeycode,
             barrelDoubleTapWindowMs = p?.barrelDoubleTapWindowMs ?: general.barrelDoubleTapWindowMs,
             hoverPreview = p?.hoverPreview ?: general.hoverPreview,
+            hoverDistancePreview = p?.hoverDistancePreview ?: general.hoverDistancePreview,
         )
     }
 }

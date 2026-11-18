@@ -20,6 +20,7 @@ class StylusSettingsTest {
                 doubleTapAction = "undo",
                 buttonTapAction = "redo",
                 hoverPreview = false,
+                hoverDistancePreview = false,
             ),
             profiles = emptyList(),
         )
@@ -32,6 +33,7 @@ class StylusSettingsTest {
         assertEquals("undo", effective.doubleTapAction)
         assertEquals("redo", effective.buttonTapAction)
         assertFalse(effective.hoverPreview)
+        assertFalse(effective.hoverDistancePreview)
     }
 
     @Test
@@ -43,6 +45,7 @@ class StylusSettingsTest {
             penButtonTool = "eraser",
             doubleTapAction = "none",
             hoverPreview = false,
+            hoverDistancePreview = true,
         )
         val settings = StylusSettings(
             general = StylusGeneralSettings(penButtonTool = "pan", penButtonHover = true, doubleTapAction = "undo"),
@@ -55,6 +58,7 @@ class StylusSettingsTest {
         assertEquals("eraser", effective.penButtonTool)
         assertEquals("none", effective.doubleTapAction)
         assertFalse(effective.hoverPreview)
+        assertTrue(effective.hoverDistancePreview)
         assertTrue("unset fields inherit the general value", effective.penButtonHover)
     }
 
@@ -138,6 +142,7 @@ class StylusSettingsTest {
                 doubleTapKeycode = 718,
                 barrelDoubleTapWindowMs = 500L,
                 hoverPreview = true,
+                hoverDistancePreview = false,
             ),
             StylusProfile(id = "two", name = "Two"),
         )

@@ -107,6 +107,7 @@ class InfiniteCanvasView @JvmOverloads constructor(
 
     private var cursorAt: com.xnotes.core.geometry.Pt? = null
     private var cursorRadius = 0.0
+    private var cursorAlpha = 1.0
 
     /** Whether the minimap is shown, and the extent of what has been drawn. */
     var minimapVisible: Boolean = false
@@ -130,8 +131,18 @@ class InfiniteCanvasView @JvmOverloads constructor(
 
     /** Show the eraser cursor at [at] in viewport pixels with [radiusPx], or hide it when null. */
     fun setEraserCursor(at: com.xnotes.core.geometry.Pt?, radiusPx: Double) {
+        setCursor(at, radiusPx, 1.0)
+    }
+
+    /** Show the hovering pen's cursor at [at] with [radiusPx] and [alpha] (0..1), or hide it when null. */
+    fun setHoverCursor(at: com.xnotes.core.geometry.Pt?, radiusPx: Double, alpha: Double) {
+        setCursor(at, radiusPx, alpha.coerceIn(0.0, 1.0))
+    }
+
+    private fun setCursor(at: com.xnotes.core.geometry.Pt?, radiusPx: Double, alpha: Double) {
         cursorAt = at
         cursorRadius = radiusPx
+        cursorAlpha = alpha
         publish()
     }
 
@@ -160,6 +171,7 @@ class InfiniteCanvasView @JvmOverloads constructor(
             cursorY = cursorAt?.y ?: 0.0,
             cursorRadius = cursorRadius,
             cursorVisible = cursorAt != null && cursorRadius > 0.0,
+            cursorAlpha = cursorAlpha,
             minimapVisible = minimapVisible,
             contentBounds = contentBounds,
             accent = accent,

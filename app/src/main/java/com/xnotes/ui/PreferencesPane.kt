@@ -1026,6 +1026,12 @@ internal fun InputControls(prefs: Preferences, update: (Preferences) -> Unit) {
     CheckRow(stringResource(R.string.pref_stylus_hover_preview), prefs.stylusHoverPreview) {
         update(prefs.copy(stylusHoverPreview = it))
     }
+    if (prefs.stylusHoverPreview) {
+        // Uses the pen's own hover-distance axis, so the cursor brightens and grows as it nears.
+        CheckRow(stringResource(R.string.pref_stylus_hover_distance), prefs.stylusHoverDistance) {
+            update(prefs.copy(stylusHoverDistance = it))
+        }
+    }
     val tapOptions = tapGestureOptions.map { (id, res) -> id to stringResource(res) }
     FieldLabel(stringResource(R.string.pref_two_finger_tap))
     OptionDropdown(tapOptions, prefs.twoFingerTap) { update(prefs.copy(twoFingerTap = it)) }

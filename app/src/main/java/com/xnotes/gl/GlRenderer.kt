@@ -27,6 +27,8 @@ data class FrameState(
     val cursorY: Double = 0.0,
     val cursorRadius: Double = 0.0,
     val cursorVisible: Boolean = false,
+    /** Opacity of the cursor ring, 0..1: the eraser is solid, a hovering pen fades with distance. */
+    val cursorAlpha: Double = 1.0,
     /** Whether to draw the minimap, and what it should map. */
     val minimapVisible: Boolean = false,
     val contentBounds: com.xnotes.core.geometry.Rect? = null,
@@ -179,7 +181,7 @@ class GlRenderer : GLSurfaceView.Renderer {
 
         scene?.drawContent(f)
         if (f.cursorVisible) {
-            cursor?.draw(f.cursorX, f.cursorY, f.cursorRadius, cursorColor(f.paper), f.widthPx, f.heightPx)
+            cursor?.draw(f.cursorX, f.cursorY, f.cursorRadius, cursorColor(f.paper, f.cursorAlpha), f.widthPx, f.heightPx)
         }
         sampleFrame(started)
         // After the draw and before the swap, which is the earliest point at which this frame's
@@ -206,9 +208,14 @@ class GlRenderer : GLSurfaceView.Renderer {
     }
 
     /** A ring that reads against the paper it sits on, dark on light and light on dark. */
-    private fun cursorColor(paper: Rgba): Rgba {
+    private fun cursorColor(paper: Rgba, alphaScale: Double): Rgba {
         val luminance = (paper.r * 0.299 + paper.g * 0.587 + paper.b * 0.114) / 255.0
-        return if (luminance > 0.5) Rgba(0, 0, 0, 150) else Rgba(255, 255, 255, 170)
+        val base = if (luminance > 0.5) 150 else 170
+        return if (luminance > 0.5) {
+            Rgba(0, 0, 0, (base * alphaScale).toInt().coerceIn(0, 255))
+        } else {
+            Rgba(255, 255, 255, (base * alphaScale).toInt().coerceIn(0, 255))
+        }
     }
 
     companion object {

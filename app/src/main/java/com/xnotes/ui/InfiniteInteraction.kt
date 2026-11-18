@@ -87,6 +87,8 @@ class InfiniteInteraction(
     private val onEraseLifted: () -> Unit = {},
     /** Where the eraser cursor sits in viewport pixels, and how wide, or null to hide it. */
     private val onEraserCursor: (Pt?, Double) -> Unit = { _, _ -> },
+    /** Where the hovering pen's cursor sits, how wide, and how opaque, or null to hide it. */
+    private val onHoverCursor: (Pt?, Double, Double) -> Unit = { _, _, _ -> },
     /** The shape or connector being drawn, re-tessellated as it grows, or null to clear the preview. */
     private val onPendingShape: (CanvasItem?) -> Unit = {},
     /** A finished shape or connector: add it to the document and push the undo command. */
@@ -181,6 +183,20 @@ class InfiniteInteraction(
             field = value
             if (!value) onEraserCursor(null, 0.0)
         }
+
+    /** Fade and shrink the hover cursor with the pen's distance axis; pens without one stay full. */
+    var hoverDistancePreview: Boolean = true
+
+    /** Per-pen override for [hoverPreview], by the event's device id; null uses the general value. */
+    var hoverPreviewFor: ((Int) -> Boolean)? = null
+
+    /** Per-pen override for [hoverDistancePreview], by the event's device id. */
+    var hoverDistancePreviewFor: ((Int) -> Boolean)? = null
+
+    private fun hoverPreviewAt(deviceId: Int): Boolean = hoverPreviewFor?.invoke(deviceId) ?: hoverPreview
+
+    private fun hoverDistancePreviewAt(deviceId: Int): Boolean =
+        hoverDistancePreviewFor?.invoke(deviceId) ?: hoverDistancePreview
 
     /** Zoom lock: a pinch pans without changing the zoom, mirroring the paged canvas. */
     var zoomLocked: Boolean = false
@@ -1801,14 +1817,21 @@ class InfiniteInteraction(
     fun onHover(e: MotionEvent): Boolean {
         val stylus = e.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
         if (stylus) {
-            if (hoverPreview && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
+            if (hoverPreviewAt(e.deviceId) && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
+                val far = if (hoverDistancePreviewAt(e.deviceId)) {
+                    com.xnotes.stylus.StylusHover.distanceFraction(e)
+                } else {
+                    0.0
+                }
+                val shrink = com.xnotes.stylus.StylusHover.sizeScale(far)
+                val alpha = com.xnotes.stylus.StylusHover.alpha(far)
                 val width = if (tool.isStroke) configFor(tool).baseWidth * viewport.zoom else 0.0
                 val radius = if (width > 0.0) {
-                    (width / 2).coerceAtLeast(InteractionController.HOVER_MIN_RADIUS_DP * devicePxPerDp())
+                    (width / 2).coerceAtLeast(com.xnotes.stylus.StylusHover.MIN_STROKE_RADIUS_DP * devicePxPerDp())
                 } else {
-                    InteractionController.HOVER_POINTER_RADIUS_DP * devicePxPerDp()
+                    com.xnotes.stylus.StylusHover.POINTER_RADIUS_DP * devicePxPerDp()
                 }
-                onEraserCursor(Pt(e.x.toDouble(), e.y.toDouble()), radius)
+                onHoverCursor(Pt(e.x.toDouble(), e.y.toDouble()), radius * shrink, alpha)
             } else if (e.actionMasked == MotionEvent.ACTION_HOVER_EXIT) {
                 onEraserCursor(null, 0.0)
             }

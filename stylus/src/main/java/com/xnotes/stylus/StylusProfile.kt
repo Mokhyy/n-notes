@@ -7,10 +7,13 @@ data class StylusDeviceMatch(
     val nameContains: String? = null,
     /** Restrict the profile to a paired external pen (Bluetooth/USI) rather than a digitizer. */
     val bluetoothOnly: Boolean = false,
+    /** Exact Android input-device descriptor, which survives across reconnects. */
+    val descriptor: String? = null,
 ) {
     /** True when at least one identifying field is set, so a profile never matches every pen. */
     val isSpecific: Boolean
-        get() = vendorId != null || productId != null || nameContains != null || bluetoothOnly
+        get() = vendorId != null || productId != null || nameContains != null || bluetoothOnly ||
+            descriptor != null
 
     fun matches(device: StylusDevice): Boolean {
         if (!isSpecific) return false
@@ -18,6 +21,7 @@ data class StylusDeviceMatch(
         if (productId != null && productId != device.productId) return false
         if (nameContains != null && !device.name.contains(nameContains, ignoreCase = true)) return false
         if (bluetoothOnly && !device.bluetooth) return false
+        if (descriptor != null && !descriptor.equals(device.descriptor, ignoreCase = true)) return false
         return true
     }
 }
@@ -61,6 +65,13 @@ data class StylusProfile(
     val barrelDoubleTapWindowMs: Long? = null,
     /** Whether this pen shows the app-drawn hover cursor; null inherits the general setting. */
     val hoverPreview: Boolean? = null,
+    /** Whether this pen fades its hover cursor with distance; null inherits the general setting. */
+    val hoverDistancePreview: Boolean? = null,
+    /**
+     * Free-form description shown on the pen's settings page: what this pen supports and how it
+     * behaves. New profiles start from the detected capabilities, and the user can edit them.
+     */
+    val notes: String = "",
 ) {
     fun matches(device: StylusDevice): Boolean = enabled && match.matches(device)
 }

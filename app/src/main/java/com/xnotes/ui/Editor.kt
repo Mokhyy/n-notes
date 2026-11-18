@@ -3108,20 +3108,17 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         // The stylus general section plus each pen's own profile, resolved once per connected pen
         // when its device first appears rather than on every pen event.
         val stylusSettings = p.stylusSettings()
-        val penTools = HashMap<Int, Tool?>()
-        val penHovers = HashMap<Int, Boolean>()
-        fun toolForPen(deviceId: Int): Tool? {
-            if (!penTools.containsKey(deviceId)) {
-                penTools[deviceId] = penToolOf(stylusSettings.effectiveFor(StylusDevice.of(deviceId)).penButtonTool)
+        val penSettings = HashMap<Int, EffectiveStylusSettings>()
+        fun settingsForPen(deviceId: Int): EffectiveStylusSettings {
+            if (!penSettings.containsKey(deviceId)) {
+                penSettings[deviceId] = stylusSettings.effectiveFor(StylusDevice.of(deviceId))
             }
-            return penTools[deviceId]
+            return penSettings[deviceId]!!
         }
-        fun hoverForPen(deviceId: Int): Boolean {
-            if (!penHovers.containsKey(deviceId)) {
-                penHovers[deviceId] = stylusSettings.effectiveFor(StylusDevice.of(deviceId)).penButtonHover
-            }
-            return penHovers[deviceId] ?: false
-        }
+        fun toolForPen(deviceId: Int): Tool? = penToolOf(settingsForPen(deviceId).penButtonTool)
+        fun hoverForPen(deviceId: Int): Boolean = settingsForPen(deviceId).penButtonHover
+        fun previewForPen(deviceId: Int): Boolean = settingsForPen(deviceId).hoverPreview
+        fun distanceForPen(deviceId: Int): Boolean = settingsForPen(deviceId).hoverDistancePreview
         val fallbackPenTool = penToolOf(p.penButtonTool)
         infiniteOrNull?.applyPalette(palette)
         infiniteOrNull?.applyInputPrefs(
@@ -3157,7 +3154,13 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         controller.penButtonToolFor = { id -> toolForPen(id) }
         controller.penButtonHoverFor = { id -> hoverForPen(id) }
         controller.hoverPreview = p.stylusHoverPreview
+        controller.hoverDistancePreview = p.stylusHoverDistance
+        controller.hoverPreviewFor = { id -> previewForPen(id) }
+        controller.hoverDistancePreviewFor = { id -> distanceForPen(id) }
         infiniteOrNull?.interaction?.hoverPreview = p.stylusHoverPreview
+        infiniteOrNull?.interaction?.hoverDistancePreview = p.stylusHoverDistance
+        infiniteOrNull?.interaction?.hoverPreviewFor = { id -> previewForPen(id) }
+        infiniteOrNull?.interaction?.hoverDistancePreviewFor = { id -> distanceForPen(id) }
         state.sideMargin = p.sideMargin
         state.pageBorders = !p.hidePageBorders
         controller.showMargins = p.showMargins

@@ -24,12 +24,14 @@ object StylusJson {
     private fun profileToJson(p: StylusProfile): JSONObject = JSONObject()
         .put("id", p.id)
         .put("name", p.name)
+        .put("notes", p.notes)
         .put("enabled", p.enabled)
         .put("match", JSONObject()
             .apply { p.match.vendorId?.let { put("vendor_id", it) } }
             .apply { p.match.productId?.let { put("product_id", it) } }
             .apply { p.match.nameContains?.let { put("name_contains", it) } }
-            .apply { if (p.match.bluetoothOnly) put("bluetooth_only", true) })
+            .apply { if (p.match.bluetoothOnly) put("bluetooth_only", true) }
+            .apply { p.match.descriptor?.let { put("descriptor", it) } })
         .apply { p.penButtonTool?.let { put("pen_button_tool", it) } }
         .apply { p.penButtonHover?.let { put("pen_button_hover", it) } }
         .apply { p.doubleTapAction?.let { put("double_tap_action", it) } }
@@ -43,6 +45,7 @@ object StylusJson {
         .apply { p.doubleTapKeycode?.let { put("double_tap_keycode", it) } }
         .apply { p.barrelDoubleTapWindowMs?.let { put("barrel_double_tap_window_ms", it) } }
         .apply { p.hoverPreview?.let { put("hover_preview", it) } }
+        .apply { p.hoverDistancePreview?.let { put("hover_distance_preview", it) } }
 
     private fun profileFromJson(o: JSONObject): StylusProfile? {
         val id = o.optString("id", "").ifEmpty { return null }
@@ -50,11 +53,13 @@ object StylusJson {
         return StylusProfile(
             id = id,
             name = o.optString("name", id),
+            notes = o.optString("notes", ""),
             match = StylusDeviceMatch(
                 vendorId = match?.optIntOrNull("vendor_id"),
                 productId = match?.optIntOrNull("product_id"),
                 nameContains = match?.optString("name_contains", "")?.ifEmpty { null },
                 bluetoothOnly = match?.optBoolean("bluetooth_only", false) ?: false,
+                descriptor = match?.optString("descriptor", "")?.ifEmpty { null },
             ),
             enabled = o.optBoolean("enabled", true),
             penButtonTool = o.optString("pen_button_tool", "").ifEmpty { null },
@@ -70,6 +75,7 @@ object StylusJson {
             doubleTapKeycode = o.optIntOrNull("double_tap_keycode"),
             barrelDoubleTapWindowMs = o.optLongOrNull("barrel_double_tap_window_ms"),
             hoverPreview = o.optBooleanOrNull("hover_preview"),
+            hoverDistancePreview = o.optBooleanOrNull("hover_distance_preview"),
         )
     }
 

@@ -65,6 +65,11 @@ data class Preferences(
      * ROMs (HyperOS, for one) never show. The pen itself still reports hover events.
      */
     val stylusHoverPreview: Boolean = true,
+    /**
+     * Fade and shrink that cursor with the pen's reported hover distance, so it reads as a preview
+     * that grows as the pen nears the page. Pens without a distance axis keep a full cursor.
+     */
+    val stylusHoverDistance: Boolean = true,
     /** Action mapped to a clean two-finger tap; "none" (default) disables it. */
     val twoFingerTap: String = "none",
     /** Action mapped to a clean three-finger tap; "none" (default) disables it. */
@@ -207,6 +212,7 @@ data class Preferences(
             button1TapAction = stylusButton1Tap,
             button2TapAction = stylusButton2Tap,
             hoverPreview = stylusHoverPreview,
+            hoverDistancePreview = stylusHoverDistance,
         ),
         profiles = stylusProfiles,
         activeProfileId = stylusActiveProfile,
@@ -231,6 +237,7 @@ data class Preferences(
         .put("pen_button_tool", penButtonTool)
         .put("pen_button_hover", penButtonHover)
         .put("stylus_hover_preview", stylusHoverPreview)
+        .put("stylus_hover_distance", stylusHoverDistance)
         .put("two_finger_tap", twoFingerTap)
         .put("three_finger_tap", threeFingerTap)
         .put("stylus_double_tap", stylusDoubleTap)
@@ -399,6 +406,7 @@ data class Preferences(
                 penButtonTool = o.optString("pen_button_tool", "eraser").ifEmpty { "eraser" },
                 penButtonHover = o.optBoolean("pen_button_hover", false),
                 stylusHoverPreview = o.optBoolean("stylus_hover_preview", true),
+                stylusHoverDistance = o.optBoolean("stylus_hover_distance", true),
                 twoFingerTap = tapAction("two_finger_tap"),
                 threeFingerTap = tapAction("three_finger_tap"),
                 stylusDoubleTap = tapAction("stylus_double_tap"),

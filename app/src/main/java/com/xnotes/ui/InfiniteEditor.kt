@@ -123,6 +123,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         onEraseEnd = { commitErase(it) },
         onEraseLifted = { maybeSwitchBackAfterErase() },
         onEraserCursor = { at, radius -> view.setEraserCursor(at, radius) },
+        onHoverCursor = { at, radius, alpha -> view.setHoverCursor(at, radius, alpha) },
         onPendingShape = { publishPendingShape(it) },
         onCommitShape = { commitItem(it) },
         shapeConfig = { shapeConfig },

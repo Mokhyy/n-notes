@@ -34,4 +34,10 @@ data class StylusGeneralSettings(
      * ROMs (HyperOS, for one) never show. Works on any pen; Android still delivers the hover events.
      */
     val hoverPreview: Boolean = true,
+    /**
+     * Use the pen's reported hover distance ([android.view.MotionEvent.AXIS_DISTANCE]) to fade and
+     * shrink the hover cursor as it lifts away from the screen. A pen that reports no distance
+     * axis keeps a full-strength cursor either way.
+     */
+    val hoverDistancePreview: Boolean = true,
 )

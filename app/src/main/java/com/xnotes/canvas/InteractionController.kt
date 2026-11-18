@@ -693,6 +693,7 @@ class InteractionController(
         clearScreenshot()
         eraserCursor = null
         hoverCursor = null
+        hoverDistance = 0.0
         previousTool = tool
         tool = t
         onToolChanged(t)
@@ -787,22 +788,58 @@ class InteractionController(
             field = value
             if (!value) {
                 hoverCursor = null
+                hoverDistance = 0.0
                 requestRender()
             }
         }
+
+    /** Fade and shrink the hover cursor with the pen's distance axis, so it reads as a preview
+     *  that sharpens as the pen nears the page. A pen with no distance axis stays at full strength. */
+    var hoverDistancePreview: Boolean = true
+        set(value) {
+            field = value
+            if (!value) {
+                hoverDistance = 0.0
+                requestRender()
+            }
+        }
+
+    /** The hovering pen's distance as a fraction of its device's maximum: 0 at the glass, 1 far. */
+    private var hoverDistance = 0.0
+
+    /** The device the current hover cursor came from, so its per-pen overrides can be consulted. */
+    private var hoverDeviceId = 0
+
+    /** Per-pen override for [hoverPreview], by the event's device id; null uses the general value. */
+    var hoverPreviewFor: ((Int) -> Boolean)? = null
+
+    /** Per-pen override for [hoverDistancePreview], by the event's device id. */
+    var hoverDistancePreviewFor: ((Int) -> Boolean)? = null
+
+    private fun hoverPreviewAt(deviceId: Int): Boolean = hoverPreviewFor?.invoke(deviceId) ?: hoverPreview
+
+    private fun hoverDistancePreviewAt(deviceId: Int): Boolean =
+        hoverDistancePreviewFor?.invoke(deviceId) ?: hoverDistancePreview
 
     fun onHover(e: MotionEvent): Boolean {
         if (handleHoverAction(e)) return true
         if (hoverConnect(e)) return true
         val stylusHover = e.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
         if (stylusHover) {
-            val next = if (hoverPreview && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
+            val next = if (hoverPreviewAt(e.deviceId) && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
                 Pt(e.x.toDouble(), e.y.toDouble())
             } else {
                 null
             }
-            if (next != hoverCursor) {
+            val distance = if (next != null && hoverDistancePreviewAt(e.deviceId)) {
+                com.xnotes.stylus.StylusHover.distanceFraction(e)
+            } else {
+                0.0
+            }
+            if (next != hoverCursor || distance != hoverDistance) {
                 hoverCursor = next
+                hoverDistance = distance
+                hoverDeviceId = e.deviceId
                 requestRender()
             }
         }
@@ -888,6 +925,7 @@ class InteractionController(
 
     private fun handleDown(e: MotionEvent) {
         hoverCursor = null
+        hoverDistance = 0.0
         if (hoverActionTool != null) endHoverAction() // a hovering side-button gesture yields to contact
         downStoppedFling = flinging // captured before stopping: a tap that only halts a glide must not dismiss
         stopFling() // a new touch halts any in-progress glide
@@ -5537,17 +5575,25 @@ class InteractionController(
     }
 
     /** A ring at the hovering pen's point: its real width and ink for a stroke tool, a small
-     *  neutral pointer ring for every other tool. Cosmetic pens keep it one size at any zoom. */
+     *  neutral pointer ring for every other tool. Cosmetic pens keep it one size at any zoom.
+     *  With distance preview on, the ring fades and shrinks as the pen lifts away. */
     private fun drawHoverCursor(r: Renderer, at: Pt) {
+        val far = if (hoverDistancePreviewAt(hoverDeviceId)) hoverDistance else 0.0
+        val shrink = com.xnotes.stylus.StylusHover.sizeScale(far)
+        val fade = com.xnotes.stylus.StylusHover.alpha(far)
         if (!tool.isStroke) {
-            val radius = HOVER_POINTER_RADIUS_DP * state.devicePxPerDp
-            r.strokeEllipse(at, radius, radius, Pen(state.palette.textDim, 1.2, cosmetic = true))
+            val base = state.palette.textDim
+            val color = base.withAlpha((base.a * fade).toInt().coerceIn(0, 255))
+            val radius = com.xnotes.stylus.StylusHover.POINTER_RADIUS_DP * state.devicePxPerDp * shrink
+            r.strokeEllipse(at, radius, radius, Pen(color, 1.2, cosmetic = true))
             return
         }
         val cfg = configFor(tool)
-        val color = cfg.colorOverride ?: inkColor
-        val radius = (cfg.baseWidth * state.zoom / 2).coerceAtLeast(HOVER_MIN_RADIUS_DP * state.devicePxPerDp)
-        r.fillCircle(at, HOVER_DOT_RADIUS_DP * state.devicePxPerDp, color)
+        val base = cfg.colorOverride ?: inkColor
+        val color = base.withAlpha((base.a * fade).toInt().coerceIn(0, 255))
+        val radius = (cfg.baseWidth * state.zoom / 2)
+            .coerceAtLeast(com.xnotes.stylus.StylusHover.MIN_STROKE_RADIUS_DP * state.devicePxPerDp) * shrink
+        r.fillCircle(at, com.xnotes.stylus.StylusHover.DOT_RADIUS_DP * state.devicePxPerDp * shrink, color)
         r.strokeEllipse(at, radius, radius, Pen(color, 1.2, cosmetic = true))
     }
 
@@ -5836,15 +5882,6 @@ class InteractionController(
             if (zoom.isFinite() && zoom > 0.0) (1.0 / zoom).coerceAtMost(1.0) else 1.0
 
         const val MOVE_EPS = 0.01
-
-        /** Radius of the neutral hover pointer ring, in dp. */
-        const val HOVER_POINTER_RADIUS_DP = 5.0
-
-        /** Floor for a stroke tool's hover ring, in dp, so a hairline pen still shows a cursor. */
-        const val HOVER_MIN_RADIUS_DP = 4.0
-
-        /** Radius of the dot at the centre of a stroke tool's hover ring, in dp. */
-        const val HOVER_DOT_RADIUS_DP = 1.5
 
         /** How close (viewport px) a moved selection must come to a margin or centre line to snap. */
         const val MARGIN_SNAP_PX = 10.0
