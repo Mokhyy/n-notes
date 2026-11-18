@@ -774,6 +774,11 @@
     <string name="pref_backup">Backup</string>
     <string name="pref_backup_help">Your pens and tools, toolbars, colours, theme, gestures and stylus buttons, the defaults for new notes, canvases and tables, explorer views, imported fonts and code theme, in one file to carry to another device. The notes folder, pins, recents and this device’s performance settings stay behind.</string>
     <string name="export_settings">Export settings…</string>
+    <string name="export_settings_with_notes">Export settings and notes…</string>
+    <string name="import_settings_notes">Notes in this file are restored into a new folder, so nothing in your notes folder is changed.</string>
+    <string name="notes_restored">Notes restored to %1$s.</string>
+    <string name="err_restore_notes">Couldn’t restore all the notes.</string>
+    <string name="restored_folder">Restored %1$s</string>
     <string name="import_settings">Import settings…</string>
     <string name="import_settings_title">Import settings?</string>
     <string name="import_settings_confirm">Everything this file holds replaces what is set now. Anything it leaves out stays as it is.</string>

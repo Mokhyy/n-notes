@@ -632,6 +632,11 @@
     <string name="pref_backup">备份</string>
     <string name="pref_backup_help">你的笔和工具、工具栏、颜色、主题、手势和手写笔按键、新笔记、画布和表格的默认设置、浏览器视图、导入的字体和代码主题，打包成一个文件，带到另一台设备上。笔记文件夹、固定项、最近项和这台设备的性能设置不会带走。</string>
     <string name="export_settings">导出设置…</string>
+    <string name="export_settings_with_notes">导出设置和笔记…</string>
+    <string name="import_settings_notes">此文件中的笔记会恢复到一个新文件夹，笔记文件夹中的内容不会改变。</string>
+    <string name="notes_restored">笔记已恢复到 %1$s。</string>
+    <string name="err_restore_notes">无法恢复全部笔记。</string>
+    <string name="restored_folder">已恢复 %1$s</string>
     <string name="import_settings">导入设置…</string>
     <string name="import_settings_title">导入设置？</string>
     <string name="import_settings_confirm">此文件中的内容将替换当前的设置，文件中没有的内容保持不变。</string>

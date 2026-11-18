@@ -10376,6 +10376,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         internal val fonts: List<Pair<String, ByteArray>>,
         internal val codeTheme: Pair<String?, ByteArray>?,
         internal val keepsBuiltInCodeTheme: Boolean,
+        /** It also holds the notes folder's files, restored into a folder of their own. */
+        val hasNotes: Boolean,
     )
 
     /**
@@ -10383,7 +10385,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
      * recents, per-folder views or this device's performance switches, then the imported fonts and
      * the code theme as files. IO.
      */
-    fun exportSettings(out: OutputStream) {
+    fun exportSettings(out: OutputStream, withNotes: Boolean = false) {
         val json = com.xnotes.settings.SettingsBackup.portable(settings.toJson())
         val theme = settings.prefs.codeThemePath?.let { java.io.File(it) }?.takeIf { it.isFile }
         val root = org.json.JSONObject()
@@ -10406,7 +10408,40 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 theme.inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
+            val root = browseRoot
+            if (withNotes && root != null) {
+                for (file in com.xnotes.sync.LocalNoteStore.listTree(appContext, root).files) {
+                    zip.putNextEntry(java.util.zip.ZipEntry(com.xnotes.settings.SettingsBackup.NOTES_DIR + file.relativePath))
+                    appContext.contentResolver.openInputStream(android.net.Uri.parse(file.documentUri))?.use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
+            }
         }
+    }
+
+    /** Write the notes in the backup [input] into a new folder in the notes folder; its name, or null when nothing could be restored. IO. */
+    fun restoreNotes(input: InputStream): String? {
+        val root = browseRoot ?: return null
+        val folder = appContext.getString(
+            R.string.restored_folder,
+            java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH-mm")),
+        )
+        val temp = java.io.File.createTempFile("restore", null, appContext.cacheDir)
+        var failed = false
+        try {
+            java.util.zip.ZipInputStream(input).use { zis ->
+                while (true) {
+                    val entry = zis.nextEntry ?: break
+                    if (entry.isDirectory) continue
+                    val path = com.xnotes.settings.SettingsBackup.restoredPath(entry.name, folder) ?: continue
+                    temp.outputStream().use { zis.copyTo(it) }
+                    runCatching { com.xnotes.sync.LocalNoteStore.writeNote(appContext, root, path, temp) }.onFailure { failed = true }
+                }
+            }
+        } finally {
+            temp.delete()
+        }
+        return folder.takeIf { !failed }
     }
 
     /** The settings backup in [input], or null when it is not one. IO. */
@@ -10414,10 +10449,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         var root: org.json.JSONObject? = null
         val fonts = ArrayList<Pair<String, ByteArray>>()
         var theme: ByteArray? = null
+        var hasNotes = false
         java.util.zip.ZipInputStream(input).use { zis ->
             while (true) {
                 val entry = zis.nextEntry ?: break
                 val name = entry.name
+                if (name.startsWith(com.xnotes.settings.SettingsBackup.NOTES_DIR)) { hasNotes = true; continue }
                 val wanted = name == "settings.json" || name == "code-theme.toml" ||
                     (name.startsWith("fonts/") && name.count { it == '/' } == 1 && name.length > 6)
                 if (!wanted || entry.isDirectory) continue
@@ -10431,7 +10468,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         }
         val r = root?.takeIf { it.optString("format") == com.xnotes.settings.SettingsBackup.FORMAT } ?: return@runCatching null
         val json = r.optJSONObject("settings") ?: return@runCatching null
-        SettingsBackup(json, fonts, theme?.let { r.optString("code_theme_name").ifEmpty { null } to it }, !r.optBoolean("code_theme", true))
+        SettingsBackup(json, fonts, theme?.let { r.optString("code_theme_name").ifEmpty { null } to it }, !r.optBoolean("code_theme", true), hasNotes)
     }.getOrNull()
 
     /** Up to [max] bytes of the zip entry [zis] stands at, or null when it holds more. */

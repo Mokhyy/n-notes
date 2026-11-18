@@ -756,6 +756,11 @@
     <string name="pref_backup">Copia de seguridad</string>
     <string name="pref_backup_help">Tus plumas y herramientas, barras de herramientas, colores, tema, gestos y botones del lápiz, los valores predeterminados para notas, lienzos y tablas nuevos, las vistas del explorador, las fuentes importadas y el tema de código, en un solo archivo para llevar a otro dispositivo. La carpeta de notas, los anclados, los recientes y los ajustes de rendimiento de este dispositivo no se incluyen.</string>
     <string name="export_settings">Exportar ajustes…</string>
+    <string name="export_settings_with_notes">Exportar ajustes y notas…</string>
+    <string name="import_settings_notes">Las notas de este archivo se restauran en una carpeta nueva, así que no cambia nada en tu carpeta de notas.</string>
+    <string name="notes_restored">Notas restauradas en %1$s.</string>
+    <string name="err_restore_notes">No se pudieron restaurar todas las notas.</string>
+    <string name="restored_folder">Restaurado %1$s</string>
     <string name="import_settings">Importar ajustes…</string>
     <string name="import_settings_title">¿Importar ajustes?</string>
     <string name="import_settings_confirm">Todo lo que contiene este archivo reemplaza la configuración actual. Lo que no incluya se queda como está.</string>

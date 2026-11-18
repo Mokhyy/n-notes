@@ -747,6 +747,11 @@
     <string name="pref_backup">Sauvegarde</string>
     <string name="pref_backup_help">Vos stylos et outils, barres d\'outils, couleurs, thème, gestes et boutons du stylet, les valeurs par défaut des nouvelles notes, des canevas et des tableaux, les vues de l\'explorateur, les polices importées et le thème du code, dans un seul fichier à emporter sur un autre appareil. Le dossier de notes, les épingles, les éléments récents et les réglages de performances de cet appareil restent en place.</string>
     <string name="export_settings">Exporter les réglages…</string>
+    <string name="export_settings_with_notes">Exporter les réglages et les notes…</string>
+    <string name="import_settings_notes">Les notes de ce fichier sont restaurées dans un nouveau dossier, rien ne change dans votre dossier de notes.</string>
+    <string name="notes_restored">Notes restaurées dans %1$s.</string>
+    <string name="err_restore_notes">Impossible de restaurer toutes les notes.</string>
+    <string name="restored_folder">Restauré %1$s</string>
     <string name="import_settings">Importer les réglages…</string>
     <string name="import_settings_title">Importer les réglages ?</string>
     <string name="import_settings_confirm">Tout ce que contient ce fichier remplace les réglages actuels. Ce qu\'il ne contient pas reste inchangé.</string>

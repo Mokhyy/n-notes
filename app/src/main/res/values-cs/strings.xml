@@ -765,6 +765,11 @@
     <string name="pref_backup">Záloha</string>
     <string name="pref_backup_help">Tvoje pera a nástroje, panely nástrojů, barvy, motiv, gesta a tlačítka stylusu, výchozí nastavení nových poznámek, pláten a tabulek, zobrazení průzkumníka, importovaná písma a motiv kódu v jednom souboru, který přeneseš do jiného zařízení. Složka s poznámkami, připnuté a nedávné položky a nastavení výkonu tohoto zařízení zůstanou tady.</string>
     <string name="export_settings">Exportovat nastavení…</string>
+    <string name="export_settings_with_notes">Exportovat nastavení a poznámky…</string>
+    <string name="import_settings_notes">Poznámky z tohoto souboru se obnoví do nové složky, takže ve tvé složce s poznámkami se nic nezmění.</string>
+    <string name="notes_restored">Poznámky obnoveny do %1$s.</string>
+    <string name="err_restore_notes">Nepodařilo se obnovit všechny poznámky.</string>
+    <string name="restored_folder">Obnoveno %1$s</string>
     <string name="import_settings">Importovat nastavení…</string>
     <string name="import_settings_title">Importovat nastavení?</string>
     <string name="import_settings_confirm">Vše, co tento soubor obsahuje, nahradí aktuální nastavení. Co v něm chybí, zůstane beze změny.</string>

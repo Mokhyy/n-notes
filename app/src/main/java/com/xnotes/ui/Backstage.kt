@@ -215,7 +215,7 @@ fun Backstage(
     /** Preferences asked to import a font file. */
     onImportFont: () -> Unit = {},
     /** Preferences asked to export the settings ([export]) or import them. */
-    onBackup: (export: Boolean) -> Unit = {},
+    onBackup: (export: Boolean, withNotes: Boolean) -> Unit = { _, _ -> },
     /** Two picked files are to be opened together, one per pane of a split view. */
     onOpenSplit: (String, String) -> Unit = { _, _ -> },
     /** Several files are to be shared at once, as they are. */
@@ -308,7 +308,7 @@ private fun BackstageContent(
     onExitApp: () -> Unit,
     onImportCodeTheme: () -> Unit,
     onImportFont: () -> Unit,
-    onBackup: (Boolean) -> Unit,
+    onBackup: (Boolean, Boolean) -> Unit,
 ) {
     val palette = LocalPalette.current
     var createMode by remember { mutableStateOf(CreateMode.NONE) }
@@ -621,7 +621,7 @@ private fun BackstageMain(
     onCreateMode: (CreateMode) -> Unit,
     onImportCodeTheme: () -> Unit,
     onImportFont: () -> Unit,
-    onBackup: (Boolean) -> Unit,
+    onBackup: (Boolean, Boolean) -> Unit,
     link: ExplorerLink,
     onOpenPreferences: () -> Unit,
     onOpenAbout: () -> Unit,

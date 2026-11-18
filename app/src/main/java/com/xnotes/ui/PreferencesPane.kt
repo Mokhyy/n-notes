@@ -170,7 +170,7 @@ fun PreferencesPane(
     onImportFont: () -> Unit = {},
     focusSync: Boolean = false,
     onSyncFocused: () -> Unit = {},
-    onBackup: (export: Boolean) -> Unit = {},
+    onBackup: (export: Boolean, withNotes: Boolean) -> Unit = { _, _ -> },
     syncLogOpen: Boolean = false,
     onSyncLog: (Boolean) -> Unit = {},
     onOpenAbout: () -> Unit = {},
@@ -567,9 +567,10 @@ fun PreferencesPane(
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
                 SectionTitle(stringResource(R.string.pref_backup))
                 Text(stringResource(R.string.pref_backup_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { onBackup(true) }) { Text(stringResource(R.string.export_settings), fontSize = 13.sp) }
-                    TextButton(onClick = { onBackup(false) }) { Text(stringResource(R.string.import_settings), fontSize = 13.sp) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onBackup(true, false) }) { Text(stringResource(R.string.export_settings), fontSize = 13.sp) }
+                    TextButton(onClick = { onBackup(true, true) }) { Text(stringResource(R.string.export_settings_with_notes), fontSize = 13.sp) }
+                    TextButton(onClick = { onBackup(false, false) }) { Text(stringResource(R.string.import_settings), fontSize = 13.sp) }
                 }
             }
             if (shown(PrefCategory.CLOUD_SYNC)) {
