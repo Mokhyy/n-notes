@@ -7117,13 +7117,6 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private fun onViewSettingsChanged(prev: com.xnotes.canvas.ViewSettings, new: com.xnotes.canvas.ViewSettings) {
         val beforeOrigin = state.origin()
         state.freeMovement = new.freeMovement
-        if (state.freeHorizontalScroll != new.freeHorizontalScroll) {
-            // Carry the current (maybe centred) origin into the scroll so the page doesn't jump.
-            val ox = state.origin().x
-            state.freeHorizontalScroll = new.freeHorizontalScroll
-            state.scrollX = -(ox + state.flipOffsetX)
-            state.clampScroll()
-        }
         if (prev.mode != new.mode || prev.rotation != new.rotation || prev.verticalScroll != new.verticalScroll) {
             // Re-group / re-orient / re-flow the pages, keep the reader on the same page, and
             // re-fit a fit-width view to the new row width (a Double spread is about twice as

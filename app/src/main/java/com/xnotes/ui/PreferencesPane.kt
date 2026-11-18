@@ -444,8 +444,8 @@ fun PreferencesPane(
                 CheckRow(stringResource(R.string.pref_hide_page_borders), prefs.hidePageBorders) {
                     update(prefs.copy(hidePageBorders = it))
                 }
-                CheckRow(stringResource(R.string.caption_free_horizontal_scroll), editor.viewDefaults.freeHorizontalScroll) {
-                    editor.updateViewDefaults(editor.viewDefaults.copy(freeHorizontalScroll = it))
+                CheckRow(stringResource(R.string.caption_free_movement), editor.viewDefaults.freeMovement) {
+                    editor.updateViewDefaults(editor.viewDefaults.copy(freeMovement = it))
                 }
                 FieldLabel(stringResource(R.string.pref_side_margin_px, prefs.sideMargin.toInt()))
                 Slider(
