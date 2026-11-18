@@ -4538,6 +4538,19 @@ class InteractionController(
     /** The fills of the selected shapes that have one. */
     fun selectionFills(): List<Rgba> = selection.mapNotNull { (it.item as? ShapeItem)?.fillRgba }
 
+    fun selectionEffects(): com.xnotes.core.history.Effects = com.xnotes.core.history.RestyleEffects.effects(selection.map { it.item })
+
+    fun setSelectionEffects(dashed: Boolean?, neon: Boolean?, filled: Boolean?) {
+        val entries = com.xnotes.core.history.RestyleEffects.of(selection.map { it.item }, dashed, neon, filled)
+        if (entries.isEmpty()) return
+        val command = com.xnotes.core.history.RestyleEffects(entries)
+        command.redo()
+        history.push(command)
+        state.document.dirty = true
+        onContentChanged()
+        requestRender()
+    }
+
     /** The first selected tape's pattern, or null when no tape is selected. */
     fun selectionTapePattern(): TapePattern? = selection.firstNotNullOfOrNull { (it.item as? TapeItem)?.pattern }
 

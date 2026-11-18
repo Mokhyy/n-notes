@@ -181,6 +181,12 @@ interface SelectionMenuHost : SwatchHost {
     /** The fills of the selected shapes that have one, for the restyle popup to open on. */
     fun selectionFills(): List<Rgba>
 
+    /** Which of dashed, neon and filled the selection can take, and whether it already has them. */
+    fun selectionEffects(): com.xnotes.core.history.Effects
+
+    /** Turn the non-null of [dashed], [neon] and [filled] on or off across the selection, as one undo step. */
+    fun setSelectionEffects(dashed: Boolean? = null, neon: Boolean? = null, filled: Boolean? = null)
+
     /** The first selected tape's pattern, for the restyle popup to open on; null when no tape is selected. */
     fun selectionTapePattern(): com.xnotes.core.model.TapePattern?
 
@@ -842,7 +848,8 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
     var color by remember { mutableStateOf(shared ?: first?.color ?: Rgba(0, 0, 0)) }
     val sized = opened.firstOrNull { it.width != DrawStyle.NO_WIDTH }
     var width by remember { mutableStateOf((sized?.width ?: 1.0).toFloat()) }
-    val fills = remember { host.selectionFills() }
+    var effects by remember { mutableStateOf(host.selectionEffects()) }
+    val fills = remember(effects) { host.selectionFills() }
     // Only dropped colours selected: they have a fill and nothing else to restyle.
     val fillsOnly = first == null
     if (fillsOnly && fills.isEmpty()) return
@@ -886,6 +893,15 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
                         }
                     }
                 }
+            }
+            effects.dashed?.let { on ->
+                ToggleRow(stringResource(R.string.caption_dashed), on) { host.setSelectionEffects(dashed = it); effects = host.selectionEffects() }
+            }
+            effects.neon?.let { on ->
+                ToggleRow(stringResource(R.string.caption_neon), on) { host.setSelectionEffects(neon = it); effects = host.selectionEffects() }
+            }
+            effects.filled?.let { on ->
+                ToggleRow(stringResource(R.string.caption_fill), on) { host.setSelectionEffects(filled = it); effects = host.selectionEffects() }
             }
             if (fills.isNotEmpty()) {
                 var fill by remember { mutableStateOf<Rgba?>(fills.first().copy(a = 255)) }

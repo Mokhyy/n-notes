@@ -846,6 +846,20 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     /** The fills as a refill preview found them, so its settling call records them as one step. */
     private var refillBaseline: Map<ShapeItem, Rgba?>? = null
 
+    override fun selectionEffects() = com.xnotes.core.history.RestyleEffects.effects(selection.items)
+
+    override fun setSelectionEffects(dashed: Boolean?, neon: Boolean?, filled: Boolean?) {
+        val entries = com.xnotes.core.history.RestyleEffects.of(selection.items, dashed, neon, filled)
+        if (entries.isEmpty()) return
+        val command = com.xnotes.core.history.RestyleEffects(entries)
+        command.redo()
+        document.itemsChanged(entries.map { it.item })
+        history.push(OnCanvas(document, command, entries.map { it.item }))
+        markDirty()
+        refresh()
+        publishOverlay()
+    }
+
     override fun selectionTapePattern(): com.xnotes.core.model.TapePattern? =
         selection.items.firstNotNullOfOrNull { (it as? TapeItem)?.pattern }
 
