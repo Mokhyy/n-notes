@@ -8,7 +8,7 @@
 - **Maths keyboard**: a dedicated keyboard for equations and the formula editor.
 - **File import**: create notes from images, txt, rtf, html, epub, docx, xlsx and csv, on top of the PDF and Markdown import xnotes has.
 - **Import into a note**: import a file into an existing note, and add images or photos as pages.
-- **Read-only reader**: open md, docx, pptx, xlsx, csv and pdf files as they are, with LaTeX and HTML tags rendered in Markdown, or convert them to notes.
+- **Read-only reader**: open md, docx, pptx, xlsx, csv and image files as they are, with LaTeX and HTML tags rendered in Markdown, or convert them to notes.
 - **Reader mode**: a toolbar button that locks a note for reading, with only navigation, search and zoom left in the bar.
 - **Find**: search text in the reader and Preferences, where checkbox options are found too.
 - **Shape snapping**: held strokes also snap to squares, upright triangles, waves, parabolas, cubics, exponentials and logarithms; toggle it in the pen popup.
