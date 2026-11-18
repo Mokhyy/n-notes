@@ -448,7 +448,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private val pdfReplaced = com.xnotes.platform.PdfExports.Listener { uri, name, before, after ->
         pdfTails.remove(uri)
         if (knownStamps.containsKey(uri)) rememberStamp(uri) // the next save starts from the new file, not a fork
-        if (pane == Pane.PRIMARY) carryTile(uri, name, before, after)
+        if (pane == Pane.PRIMARY) {
+            carryTile(uri, name, before, after)
+            SyncManager.syncOnNoteExit(appContext, uri) // sync skipped it while its pages were behind
+        }
     }
 
     init {

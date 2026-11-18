@@ -9,6 +9,7 @@ class SyncPathsTest {
     @Test
     fun syncsNotesAndSidecarsButNotTemplatesOrConfig() {
         assertTrue(LocalNoteStore.syncsFile("Uni/Maths.xnote"))
+        assertTrue(LocalNoteStore.syncsFile("Uni/Paper.pdf"))
         assertTrue(LocalNoteStore.syncsFile(".xnote/colors.json"))
         assertTrue(LocalNoteStore.syncsFile("Uni/.xnote/colors.json"))
         assertTrue(LocalNoteStore.syncsFile(".xnote/pins.json"))

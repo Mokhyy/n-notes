@@ -1,6 +1,8 @@
 package com.xnotes.sync
 
 import android.content.Context
+import com.xnotes.core.util.DocumentKind
+import com.xnotes.platform.PdfExports
 import com.xnotes.sync.SyncConflict.Reason
 import com.xnotes.sync.merge.XnoteBundle
 import java.io.File
@@ -204,6 +206,21 @@ class SyncEngine(
     ) {
         // Only baselines can bring other paths here, such as the .xnote-config settings one, which SettingsSync owns.
         if (!LocalNoteStore.syncsFile(path)) return
+        if (loc == null || DocumentKind.ofName(path) != DocumentKind.PDF) return reconcileFile(path, loc, rem, state, summary, suppressDeletes)
+        // A PDF's pages are drawn again after its note closes: synced once that lands, and never while the export copies over it.
+        PdfExports.init(context)
+        if (PdfExports.isWaiting(loc.documentUri)) {
+            log("Skipped $path: its pages are still being drawn")
+            summary.skipped++
+            return
+        }
+        PdfExports.locked(loc.documentUri) { reconcileFile(path, loc, rem, state, summary, suppressDeletes) }
+    }
+
+    private fun reconcileFile(
+        path: String, loc: LocalNoteStore.LocalEntry?, rem: CloudStorage.RemoteFile?,
+        state: SyncState, summary: Summary, suppressDeletes: Boolean,
+    ) {
         val st = state.get(path)
         // An open note is never rewritten or deleted under its editor; it is picked up once it closes.
         val writesHere = loc != null && if (rem == null) st != null && loc.modified == st.localModified
