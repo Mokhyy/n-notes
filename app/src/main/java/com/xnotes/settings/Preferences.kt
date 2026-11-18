@@ -5,6 +5,11 @@ import com.xnotes.core.model.PageSize
 import com.xnotes.core.model.PageSizeChoice
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.util.NameTemplate
+import com.xnotes.stylus.StylusGeneralSettings
+import com.xnotes.stylus.StylusJson
+import com.xnotes.stylus.StylusPresets
+import com.xnotes.stylus.StylusProfile
+import com.xnotes.stylus.StylusSettings
 import com.xnotes.sync.CloudService
 import com.xnotes.sync.CloudServices
 import org.json.JSONObject
@@ -70,6 +75,13 @@ data class Preferences(
     val stylusButton1Tap: String = "none",
     /** Action mapped to the second page-key side button (keycode 93); "none" disables it. */
     val stylusButton2Tap: String = "none",
+    /**
+     * The dedicated section for each pen. The five pen-button fields above are the general
+     * section every profile inherits from; a profile stores only its own overrides.
+     */
+    val stylusProfiles: List<StylusProfile> = StylusPresets.profiles,
+    /** Pin one profile instead of matching the connected pen, or null to match by device. */
+    val stylusActiveProfile: String? = null,
     /** Whether the volume keys turn pages in a note (up for the previous page, down for the next). */
     val volumeKeysTurnPages: Boolean = false,
     /** Keep the screen from sleeping while the app is open. */
@@ -176,6 +188,24 @@ data class Preferences(
     val defaultPageChoice: PageSizeChoice
         get() = PageSizeChoice(defaultPageSize, defaultPageOrientation, customPageWidthMm, customPageHeightMm)
 
+    /**
+     * The `:stylus` module's settings: the general pen-button fields above plus the per-pen
+     * profiles. The module owns the defaults and the merge, so calling this is all the editor
+     * needs to get the effective settings for whichever pen is connected.
+     */
+    fun stylusSettings(): StylusSettings = StylusSettings(
+        general = StylusGeneralSettings(
+            penButtonTool = penButtonTool,
+            penButtonHover = penButtonHover,
+            doubleTapAction = stylusDoubleTap,
+            buttonTapAction = stylusButtonTap,
+            button1TapAction = stylusButton1Tap,
+            button2TapAction = stylusButton2Tap,
+        ),
+        profiles = stylusProfiles,
+        activeProfileId = stylusActiveProfile,
+    )
+
     fun toJson(): JSONObject = JSONObject()
         .put("ui_appearance", uiAppearance)
         .put("hide_window_decoration", hideWindowDecoration)
@@ -200,6 +230,8 @@ data class Preferences(
         .put("stylus_button_tap", stylusButtonTap)
         .put("stylus_button_1_tap", stylusButton1Tap)
         .put("stylus_button_2_tap", stylusButton2Tap)
+        .put("stylus_profiles", StylusJson.profilesToJson(stylusProfiles))
+        .apply { stylusActiveProfile?.let { put("stylus_active_profile", it) } }
         .put("volume_keys_turn_pages", volumeKeysTurnPages)
         .put("keep_screen_on", keepScreenOn)
         .put("check_updates_on_startup", checkUpdatesOnStartup)
@@ -365,6 +397,8 @@ data class Preferences(
                 stylusButtonTap = tapAction("stylus_button_tap"),
                 stylusButton1Tap = tapAction("stylus_button_1_tap"),
                 stylusButton2Tap = tapAction("stylus_button_2_tap"),
+                stylusProfiles = StylusJson.profilesFromJson(o.optJSONArray("stylus_profiles")),
+                stylusActiveProfile = o.optString("stylus_active_profile", "").ifEmpty { null },
                 volumeKeysTurnPages = o.optBoolean("volume_keys_turn_pages", false),
                 keepScreenOn = o.optBoolean("keep_screen_on", false),
                 checkUpdatesOnStartup = o.optBoolean("check_updates_on_startup", true),

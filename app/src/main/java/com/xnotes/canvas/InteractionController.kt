@@ -270,6 +270,13 @@ class InteractionController(
     /** Tool the stylus side button activates while held, or null to ignore the button. */
     var penButtonTool: Tool? = Tool.ERASER
 
+    /** The per-pen profile's side-button tool for the pen behind an event's deviceId; null falls
+     *  back to [penButtonTool]. Kept as a resolver so one connected pen's profile applies to its
+     *  events without the controller knowing about profiles. */
+    var penButtonToolFor: ((Int) -> Tool?)? = null
+
+    private fun penToolAt(deviceId: Int): Tool? = penButtonToolFor?.invoke(deviceId) ?: penButtonTool
+
     /** Reader mode: every pointer pans and follows links, and a long press only selects PDF text. */
     var readOnly: Boolean = false
 
@@ -279,6 +286,12 @@ class InteractionController(
 
     /** When true, the side-button tool also runs off the hover stream (no contact needed); eraser/pan only. */
     var penButtonHover: Boolean = false
+
+    /** The per-pen profile's hover switch for the pen behind an event's deviceId; null falls back
+     *  to [penButtonHover]. */
+    var penButtonHoverFor: ((Int) -> Boolean)? = null
+
+    private fun penHoverAt(deviceId: Int): Boolean = penButtonHoverFor?.invoke(deviceId) ?: penButtonHover
 
     /** The side-button tool currently running off the hover stream, or null when no hover gesture is live. */
     private var hoverActionTool: Tool? = null
@@ -788,22 +801,23 @@ class InteractionController(
      *  "activate during hover" is on, so the pen erases or pans without touching the screen. */
     private fun handleHoverAction(e: MotionEvent): Boolean {
         val buttonNow = e.actionMasked != MotionEvent.ACTION_HOVER_EXIT && stylusButtons.heldFor(e)
+        val buttonTool = penToolAt(e.deviceId)
         // A press that may still be a click waits, so a click never erases under the hovering pen.
-        val want = penButtonHover && buttonNow && !StylusButtonLatch.clicks.mayStillClick(e.eventTime) &&
-            (penButtonTool == Tool.ERASER && !readOnly || penButtonTool == Tool.PAN)
+        val want = penHoverAt(e.deviceId) && buttonNow && !StylusButtonLatch.clicks.mayStillClick(e.eventTime) &&
+            (buttonTool == Tool.ERASER && !readOnly || buttonTool == Tool.PAN)
         val vx = e.x.toDouble()
         val vy = e.y.toDouble()
         return when {
-            want && hoverActionTool == null -> { beginHoverAction(vx, vy); true }
+            want && hoverActionTool == null -> { beginHoverAction(vx, vy, buttonTool); true }
             want && hoverActionTool != null -> { extendHoverAction(vx, vy); true }
             hoverActionTool != null -> { endHoverAction(); true }
             else -> false
         }
     }
 
-    private fun beginHoverAction(vx: Double, vy: Double) {
-        hoverActionTool = penButtonTool
-        when (penButtonTool) {
+    private fun beginHoverAction(vx: Double, vy: Double, tool: Tool?) {
+        hoverActionTool = tool
+        when (tool) {
             Tool.ERASER -> { clearSelection(); beginErase(vx, vy) }
             Tool.PAN -> beginPan(vx, vy, fromPenButton = true)
             else -> hoverActionTool = null
@@ -870,10 +884,11 @@ class InteractionController(
         //  - a finger pans unless finger-draw is enabled;
         //  - otherwise the armed tool.
         val buttonHeld = stylusButtons.heldFor(e)
+        val buttonTool = penToolAt(e.deviceId)
         val effectiveTool: Tool = when {
             readOnly -> Tool.PAN
             toolType == MotionEvent.TOOL_TYPE_ERASER -> Tool.ERASER
-            buttonHeld && penButtonTool != null -> penButtonTool!!
+            buttonHeld && buttonTool != null -> buttonTool!!
             // While something is selected, the stylus grabs that selection (resize on a handle,
             // move on the body) instead of inking through it, matching the finger. Off the
             // selection a pen or tape draws and dismisses it (see beginDraw); the Shape tool only dismisses.
@@ -996,7 +1011,7 @@ class InteractionController(
             finishPolygonDraft()
         }
         when {
-            effectiveTool == Tool.PAN -> beginPan(vx, vy, fromPenButton = buttonHeld && penButtonTool == Tool.PAN)
+            effectiveTool == Tool.PAN -> beginPan(vx, vy, fromPenButton = buttonHeld && buttonTool == Tool.PAN)
             effectiveTool.isStroke -> beginDraw(content, resolvePressure(e, 0, toolType), effectiveTool, e.eventTime, Pt(vx, vy))
             effectiveTool == Tool.ERASER -> {
                 clearSelection()
@@ -5780,15 +5795,13 @@ class InteractionController(
 
         /** Vendor key some pens send for a genuinely held side button (OnePlus Pad Go 2 Stylo,
          *  which reports a real down/up pair with auto-repeat rather than a momentary click). */
-        const val VENDOR_HELD_BUTTON_KEYCODE = KeyEvent.KEYCODE_F21
+        val VENDOR_HELD_BUTTON_KEYCODE = com.xnotes.stylus.StylusKeys.VENDOR_HELD
 
         /** The Xiaomi Focus Pen Pro has no button and sends its pinch as a held key with auto-repeat. */
-        const val FOCUS_PEN_PRO_PINCH_KEYCODE = KeyEvent.KEYCODE_BUTTON_7
+        val FOCUS_PEN_PRO_PINCH_KEYCODE = com.xnotes.stylus.StylusKeys.FOCUS_PEN_PRO_PINCH
 
         /** Stylus side-button bits, widened past the S-Pen primary so pens on the secondary/tertiary lines count too. */
-        val STYLUS_BUTTON_MASK =
-            MotionEvent.BUTTON_STYLUS_PRIMARY or MotionEvent.BUTTON_STYLUS_SECONDARY or
-                MotionEvent.BUTTON_SECONDARY or MotionEvent.BUTTON_TERTIARY
+        val STYLUS_BUTTON_MASK = com.xnotes.stylus.StylusKeys.BUTTON_MASK
 
         /** A finger lifting that Android judged accidental, a resting palm say (FLAG_CANCELED, Android 13 on). */
         fun isCancelledLift(e: MotionEvent): Boolean = isCancelledLift(e.flags, Build.VERSION.SDK_INT)

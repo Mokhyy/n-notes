@@ -23,6 +23,8 @@ import com.xnotes.canvas.InitialView
 import com.xnotes.canvas.InteractionController
 import com.xnotes.canvas.StylusButtonLatch
 import com.xnotes.canvas.TextBar
+import com.xnotes.stylus.EffectiveStylusSettings
+import com.xnotes.stylus.StylusDevice
 import com.xnotes.core.fill.ColorDrop
 import com.xnotes.core.fill.DropAction
 import com.xnotes.core.fill.FillGrid
@@ -3103,14 +3105,33 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         toolbarLook = p.toolbarLook
         state.palette = palette
         com.xnotes.core.model.AudioLook.current = palette.audioLook()
+        // The stylus general section plus each pen's own profile, resolved once per connected pen
+        // when its device first appears rather than on every pen event.
+        val stylusSettings = p.stylusSettings()
+        val penTools = HashMap<Int, Tool?>()
+        val penHovers = HashMap<Int, Boolean>()
+        fun toolForPen(deviceId: Int): Tool? {
+            if (!penTools.containsKey(deviceId)) {
+                penTools[deviceId] = penToolOf(stylusSettings.effectiveFor(StylusDevice.of(deviceId)).penButtonTool)
+            }
+            return penTools[deviceId]
+        }
+        fun hoverForPen(deviceId: Int): Boolean {
+            if (!penHovers.containsKey(deviceId)) {
+                penHovers[deviceId] = stylusSettings.effectiveFor(StylusDevice.of(deviceId)).penButtonHover
+            }
+            return penHovers[deviceId] ?: false
+        }
+        val fallbackPenTool = penToolOf(p.penButtonTool)
         infiniteOrNull?.applyPalette(palette)
         infiniteOrNull?.applyInputPrefs(
             p.fingerDraws,
-            if (p.penButtonTool == "none") null else (Tool.fromId(p.penButtonTool) ?: Tool.ERASER),
+            fallbackPenTool,
             p.zoomLockPan,
             p.detectShapes,
             p.snapRotation90,
         )
+        infiniteOrNull?.interaction?.penButtonToolFor = { id -> toolForPen(id) }
         infiniteOrNull?.applyZoomRange(p.canvasMinZoomPercent, p.canvasMaxZoomPercent)
         // Both surfaces' pads: the switch is about the device, not about one of them.
         pad.frontBuffering = !p.disableFrontBuffering
@@ -3131,8 +3152,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         flowText.markdownInput = p.markdownInput
         flowText.slashCommands = p.slashCommands
         flowText.highlight = { toolbarInk() }
-        controller.penButtonTool = if (p.penButtonTool == "none") null else (Tool.fromId(p.penButtonTool) ?: Tool.ERASER)
+        controller.penButtonTool = fallbackPenTool
         controller.penButtonHover = p.penButtonHover
+        controller.penButtonToolFor = { id -> toolForPen(id) }
+        controller.penButtonHoverFor = { id -> hoverForPen(id) }
         state.sideMargin = p.sideMargin
         state.pageBorders = !p.hidePageBorders
         controller.showMargins = p.showMargins
@@ -11221,13 +11244,24 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         flowText.ensureCaretVisible()
     }
 
+    /** The effective stylus settings for the pen that sent [deviceId], from the general section
+     *  plus that pen's profile. */
+    private fun stylusFor(deviceId: Int): EffectiveStylusSettings =
+        preferences.stylusSettings().effectiveFor(StylusDevice.of(deviceId))
+
+    /** A configured pen-button tool id as a [Tool]: "none" disables the button, an unknown id keeps
+     *  the historical eraser fallback. */
+    private fun penToolOf(id: String): Tool? =
+        if (id == "none") null else (Tool.fromId(id) ?: Tool.ERASER)
+
     /** Feeder C entry point: route stylus side-button key presses (Bluetooth/USI pens) to the
      *  controller's held latch, and the vendor double-tap/click keycodes to their gesture handlers;
      *  a held key that can also be clicked goes to both. Returns true when consumed, so the host
      *  swallows the key. */
     fun onStylusButtonKey(e: android.view.KeyEvent): Boolean {
-        if (e.keyCode == penDoubleTapKeycode) return onPenDoubleTapKey(e)
-        if (e.keyCode in penButtonTapKeycodes) return onPenButtonTapKey(e)
+        val stylus = stylusFor(e.deviceId)
+        if (e.keyCode == stylus.doubleTapKeycode) return onPenDoubleTapKey(e, stylus)
+        if (stylus.isTapButton(e.keyCode)) return onPenButtonTapKey(e, stylus)
         val down = when (e.action) {
             android.view.KeyEvent.ACTION_DOWN -> true
             android.view.KeyEvent.ACTION_UP -> false
@@ -11236,23 +11270,21 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         // A canvas is on top: the same key stream drives its pen, so a Bluetooth or USI side
         // button behaves there exactly as it does on a note.
         val held = if (canvasOpen) infinite.onStylusButtonKey(e.keyCode, down) else controller.onStylusButtonKey(e.keyCode, down)
-        if (held && e.keyCode in penButtonClickKeycodes) onPenButtonClick(e)
+        if (held && e.keyCode in stylus.clickableHeldKeycodes) onPenButtonClick(e, stylus)
         return held
     }
 
     // Pens with no side button (e.g. Huawei M-Pencil) report a barrel double-tap as a vendor key
     // code with no standard mapping (718). One physical double-tap arrives as two quick presses, so
     // a pair within the window fires the mapped gesture once. Consumed only when the gesture is set.
-    private val penDoubleTapKeycode = 718
-    private val penDoubleTapMs = 600L
     private var lastPenTapMs = 0L
-    private fun onPenDoubleTapKey(e: android.view.KeyEvent): Boolean {
-        if (preferences.stylusDoubleTap == "none") return false
+    private fun onPenDoubleTapKey(e: android.view.KeyEvent, stylus: EffectiveStylusSettings): Boolean {
+        if (stylus.doubleTapAction == "none") return false
         if (e.action == android.view.KeyEvent.ACTION_DOWN) {
             val t = e.eventTime
-            if (lastPenTapMs != 0L && t - lastPenTapMs <= penDoubleTapMs) {
+            if (lastPenTapMs != 0L && t - lastPenTapMs <= stylus.barrelDoubleTapWindowMs) {
                 lastPenTapMs = 0L
-                dispatchTapGesture(preferences.stylusDoubleTap)
+                dispatchTapGesture(stylus.doubleTapAction)
             } else {
                 lastPenTapMs = t
             }
@@ -11266,14 +11298,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     // sends a Lenovo code per gesture (600-604), nearly always as a lone up.
     // Redmi Smart Pen sends its two buttons as the plain page keys, so 92/93 stay claimable by a
     // hardware keyboard: an unmapped button falls through and still pages the note.
-    private val penButtonTapKeycodes = setOf(333, 600, 601, 602, 603, 604, 92, 93)
     private var penTapDownCode = 0
-    private fun onPenButtonTapKey(e: android.view.KeyEvent): Boolean {
-        val action = when (e.keyCode) {
-            android.view.KeyEvent.KEYCODE_PAGE_UP -> preferences.stylusButton1Tap
-            android.view.KeyEvent.KEYCODE_PAGE_DOWN -> preferences.stylusButton2Tap
-            else -> preferences.stylusButtonTap
-        }
+    private fun onPenButtonTapKey(e: android.view.KeyEvent, stylus: EffectiveStylusSettings): Boolean {
+        val action = stylus.tapActionFor(e.keyCode)
         if (action == "none") return false
         when (e.action) {
             android.view.KeyEvent.ACTION_DOWN -> {
@@ -11287,18 +11314,13 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     }
 
     // Held side buttons whose hardware also reports a quick click, so the user gets both (see
-    // ButtonClick): a click runs the side button's tap action. OnePlus Pad Go 2 Stylo -> F21;
-    // Xiaomi Focus Pen Pro, which has no button, sends its pinch -> BUTTON_7.
-    private val penButtonClickKeycodes = setOf(
-        android.view.KeyEvent.KEYCODE_F21,
-        com.xnotes.canvas.InteractionController.FOCUS_PEN_PRO_PINCH_KEYCODE,
-    )
-    private fun onPenButtonClick(e: android.view.KeyEvent) {
+    // ButtonClick): a click runs the pen's tap action. The set itself comes from the pen profile.
+    private fun onPenButtonClick(e: android.view.KeyEvent, stylus: EffectiveStylusSettings) {
         val clicks = StylusButtonLatch.clicks
         if (e.action == android.view.KeyEvent.ACTION_DOWN) {
-            if (e.repeatCount == 0 && preferences.stylusButtonTap != "none") clicks.onPress(e.downTime)
+            if (e.repeatCount == 0 && stylus.buttonTapAction != "none") clicks.onPress(e.downTime)
         } else if (clicks.onRelease(e.eventTime) && !e.isCanceled) {
-            dispatchTapGesture(preferences.stylusButtonTap)
+            dispatchTapGesture(stylus.buttonTapAction)
         }
     }
 
