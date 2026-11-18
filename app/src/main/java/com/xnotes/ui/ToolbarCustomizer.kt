@@ -14,16 +14,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,6 +44,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xnotes.R
@@ -53,9 +59,9 @@ import com.xnotes.ui.theme.toComposeColor
  * The toolbar customizer, rendered inline inside Preferences. Each section is a bordered card whose
  * top strip (the empty space beside the delete X) is the grab area for dragging the whole section;
  * the cards sit side by side in a wrapping [FlowRow], and within a card the tool chips flow like the
- * real bar. Chips tap to show/hide and long-press to drag (within or across cards). The drag ghost
- * and the edge auto-scroll live in the caller (PreferencesPane) so the ghost can float above the
- * scroll; this body only paints, captures bounds, and forwards gesture events up.
+ * real bar. Chips tap to show/hide and long-press to drag (within or across cards). The drag state
+ * lives in [ToolbarDrag], whose ghost the host draws above its scroll; this body only paints, captures
+ * bounds, and forwards gesture events up.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -437,15 +443,11 @@ private fun itemIcon(item: ToolbarItem): ImageVector = when (item) {
     ToolbarItem.TITLE -> XnotesIcons.edit
     ToolbarItem.SIDEBAR -> XnotesIcons.sidebar
     ToolbarItem.PEN -> ImageVector.vectorResource(R.drawable.ic_stroke_regular)
-    ToolbarItem.DASHED -> ImageVector.vectorResource(R.drawable.ic_stroke_dashed)
-    ToolbarItem.CALLIGRAPHY -> ImageVector.vectorResource(R.drawable.ic_stroke_calligraphy)
-    ToolbarItem.SPEED -> ImageVector.vectorResource(R.drawable.ic_stroke_speed)
-    ToolbarItem.TAPER -> ImageVector.vectorResource(R.drawable.ic_stroke_taper)
     ToolbarItem.HIGHLIGHTER -> ImageVector.vectorResource(R.drawable.ic_stroke_highlighter)
     ToolbarItem.ERASER -> XnotesIcons.eraser
     ToolbarItem.PAN -> XnotesIcons.pan
+    ToolbarItem.READER -> Icons.Outlined.AutoStories
     ToolbarItem.SELECT -> XnotesIcons.select
-    ToolbarItem.LASSO -> XnotesIcons.lasso
     ToolbarItem.INSERT_SPACE -> XnotesIcons.insertSpace
     ToolbarItem.SCREENSHOT -> XnotesIcons.scissors
     ToolbarItem.WAND -> XnotesIcons.magicWand
@@ -456,12 +458,15 @@ private fun itemIcon(item: ToolbarItem): ImageVector = when (item) {
     ToolbarItem.TEXT_BOX -> XnotesIcons.textBox
     ToolbarItem.MARKUP -> XnotesIcons.markup
     ToolbarItem.IMAGE -> XnotesIcons.paperclip
+    ToolbarItem.TABLE -> XnotesIcons.table
     ToolbarItem.UNDO -> XnotesIcons.undo
     ToolbarItem.REDO -> XnotesIcons.redo
     ToolbarItem.PAGE_NAV -> XnotesIcons.prev
+    ToolbarItem.SEARCH -> XnotesIcons.search
     ToolbarItem.STYLES -> XnotesIcons.sliders
     ToolbarItem.MARGINS -> XnotesIcons.margins
     ToolbarItem.VIEW -> XnotesIcons.view
+    ToolbarItem.ADD_PAGE -> XnotesIcons.addPage
     ToolbarItem.ZOOM -> XnotesIcons.zoomIn
     ToolbarItem.FIT -> XnotesIcons.fit
     ToolbarItem.ZOOM_LOCK -> XnotesIcons.lock
@@ -469,4 +474,155 @@ private fun itemIcon(item: ToolbarItem): ImageVector = when (item) {
     ToolbarItem.COLORS -> XnotesIcons.more
     ToolbarItem.WAYPOINTS -> XnotesIcons.bookmark
     ToolbarItem.MINIMAP -> XnotesIcons.map
+}
+
+/**
+ * Drag state of the toolbar customizer, shared by every screen that shows it. The host keeps one with
+ * `remember`, draws [Ghost] at its root (above the scroll, so it is never clipped) and runs the edge
+ * auto-scroll with [edgeScrollDelta] while [active].
+ */
+class ToolbarDrag(private val editor: Editor) {
+    /** Which bar is being arranged; the two are separate layouts. */
+    var canvasTab by mutableStateOf(false)
+        private set
+    var item by mutableStateOf<ToolbarItem?>(null)
+        private set
+    var section by mutableStateOf<Int?>(null)
+        private set
+    var finger by mutableStateOf(Offset.Zero)
+        private set
+    private var grab by mutableStateOf(Offset.Zero)
+    private var dropTarget by mutableStateOf<Pair<Int, Int>?>(null)
+    private var sectionDropTarget by mutableStateOf<Int?>(null)
+    // Plain maps, read only at drag time.
+    private val chipBounds = mutableMapOf<ToolbarItem, Rect>()
+    private val sectionBounds = mutableMapOf<Int, Rect>()
+    private val sectionGrabBounds = mutableMapOf<Int, Rect>()
+
+    /** The shape and connector lists under the bar, reordered by key. */
+    internal val shapes = KeyReorder()
+
+    val active: Boolean get() = item != null || section != null || shapes.dragging != null
+    /** Where the finger is in whichever drag is running. */
+    val pointer: Offset get() = if (shapes.dragging != null) shapes.finger else finger
+    val layout: ToolbarLayout get() = if (canvasTab) editor.canvasToolbarLayout else editor.toolbarLayout
+
+    fun apply(next: ToolbarLayout) {
+        if (canvasTab) editor.applyCanvasToolbarLayout(next) else editor.applyToolbarLayout(next)
+    }
+
+    fun reset() = apply(if (canvasTab) ToolbarLayout.CANVAS_DEFAULT else ToolbarLayout.DEFAULT)
+
+    fun retarget() {
+        if (shapes.dragging != null) shapes.retarget()
+        else if (item != null) dropTarget = toolbarDropTarget(layout, finger, chipBounds, sectionBounds)
+        else if (section != null) sectionDropTarget = toolbarSectionDropTarget(layout, finger, sectionBounds)
+    }
+
+    fun showTab(canvas: Boolean) {
+        if (canvasTab == canvas) return
+        canvasTab = canvas
+        // The bounds maps are keyed by item and the two bars share most items, so stale entries
+        // from the other tab would aim a drop at a chip that is no longer there.
+        chipBounds.clear()
+        sectionBounds.clear()
+        sectionGrabBounds.clear()
+        item = null
+        section = null
+        dropTarget = null
+        sectionDropTarget = null
+    }
+
+    @Composable
+    fun Body() {
+        ToolbarCustomizerBody(
+            layout = layout,
+            dragItem = item,
+            dropTarget = dropTarget,
+            dragSection = section,
+            sectionDropTarget = sectionDropTarget,
+            chipBounds = chipBounds,
+            sectionBounds = sectionBounds,
+            sectionGrabBounds = sectionGrabBounds,
+            onToggle = { s, i -> apply(layout.toggleVisible(s, i)) },
+            onDelete = { s -> apply(layout.removeSection(s)) },
+            onAdd = { apply(layout.addSection()) },
+            onDragStart = { dragged, local ->
+                item = dragged
+                grab = local
+                finger = (chipBounds[dragged]?.topLeft ?: Offset.Zero) + local
+                retarget()
+            },
+            onDrag = { delta -> finger += delta; retarget() },
+            onDrop = {
+                val target = dropTarget
+                val moving = item
+                if (target != null && moving != null) {
+                    val cur = layout
+                    val fSec = cur.sections.indexOfFirst { s -> s.entries.any { it.item == moving } }
+                    val fIdx = if (fSec >= 0) cur.sections[fSec].entries.indexOfFirst { it.item == moving } else -1
+                    if (fSec >= 0 && fIdx >= 0) apply(cur.moveItem(fSec, fIdx, target.first, target.second))
+                }
+                item = null
+                dropTarget = null
+            },
+            onCancel = {
+                item = null
+                dropTarget = null
+            },
+            onSectionDragStart = { sec, local ->
+                section = sec
+                val grabAt = sectionGrabBounds[sec]?.topLeft ?: sectionBounds[sec]?.topLeft ?: Offset.Zero
+                val card = sectionBounds[sec]?.topLeft ?: Offset.Zero
+                finger = grabAt + local
+                grab = finger - card
+                retarget()
+            },
+            onSectionDrag = { delta -> finger += delta; retarget() },
+            onSectionDrop = {
+                val from = section
+                val insertAt = sectionDropTarget
+                if (from != null && insertAt != null) {
+                    val cur = layout
+                    val to = (if (insertAt > from) insertAt - 1 else insertAt).coerceIn(0, cur.sections.lastIndex)
+                    if (to != from) apply(cur.moveSection(from, to))
+                }
+                section = null
+                sectionDropTarget = null
+            },
+            onSectionCancel = {
+                section = null
+                sectionDropTarget = null
+            },
+        )
+    }
+
+    /** The dragged chip or section's floating copy, placed relative to the host root at [rootTopLeft]. */
+    @Composable
+    fun Ghost(rootTopLeft: Offset) {
+        val x = (finger.x - grab.x - rootTopLeft.x).toInt()
+        val y = (finger.y - grab.y - rootTopLeft.y).toInt()
+        val chip = item
+        val sec = section
+        if (shapes.dragging != null) {
+            val f = shapes.finger - shapes.grab - rootTopLeft
+            Box(Modifier.offset { IntOffset(f.x.toInt(), f.y.toInt()) }) { shapes.ghost() }
+        } else if (chip != null) {
+            Box(Modifier.offset { IntOffset(x, y) }) { ToolbarDragGhost(chip) }
+        } else if (sec != null) {
+            val card = layout.sections.getOrNull(sec)
+            val width = sectionBounds[sec]?.width
+            if (card != null && width != null) Box(Modifier.offset { IntOffset(x, y) }) { SectionCardGhost(card, width) }
+        }
+    }
+}
+
+/** How far to scroll this frame while a finger at [y] drags near the top or bottom edge of [viewport]. */
+internal fun edgeScrollDelta(y: Float, viewport: Rect): Float {
+    val band = 90f
+    return when {
+        y < viewport.top + band -> -((viewport.top + band - y) / band) * 14f
+        y > viewport.bottom - band -> ((y - (viewport.bottom - band)) / band) * 14f
+        else -> 0f
+    }
 }

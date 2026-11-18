@@ -41,6 +41,7 @@ class FlowTextController(
     private val flow: () -> TextFlow,
     private val frame: () -> FlowFrame?,
     private val slotHeight: () -> Double,
+    private val blankPageSize: () -> Pair<Double, Double>,
     /** A mutation landed; republish the layout ([live] = a caret session is open). */
     private val onChanged: (live: Boolean) -> Unit,
     /** A coalesced burst (one undo step) was pushed: refresh chrome/autosave/stream. */
@@ -391,7 +392,7 @@ class FlowTextController(
             return
         }
         flushBurst()
-        val (cmd, caret) = FlowEditor(flow()).appendEmptyLines(count)
+        val (cmd, caret) = FlowEditor(flow()).appendEmptyLines(count, frame()?.hiddenTailStart ?: flow().paragraphs.size)
         commitEdit(cmd, caret)
     }
 
@@ -454,7 +455,7 @@ class FlowTextController(
             }
             val (_, caret) = FlowEditor(flow()).replaceRange(r, text, effStyle)
             onChanged(active)
-            burstExtras += autoAppendPages()
+            burstExtras += autoAppendPages(caret.para)
             selection = FlowRange.caret(caret)
             onTyped()
             if (markdownInput) InputRules.forTyped(flow(), caret, text)?.let { return applyRule(it, caret) }
@@ -535,7 +536,7 @@ class FlowTextController(
             return
         }
         onChanged(active)
-        val extras = autoAppendPages()
+        val extras = autoAppendPages(caretTo?.para ?: selection.end.para)
         history.push(if (extras.isEmpty()) head else CompositeCommand(listOf(head) + extras))
         caretTo?.let { selection = FlowRange.caret(it) }
         onEdited()
@@ -567,14 +568,15 @@ class FlowTextController(
         onFlushed()
     }
 
-    /** Append pages, each the size the note gives an added page, until the published layout stops overflowing. */
-    private fun autoAppendPages(): List<Command> {
-        val need = frame()?.extraPagesNeeded ?: 0
+    /** Append pages, each the size the note gives an added page, until the content and the caret at [caretPara] fit. */
+    private fun autoAppendPages(caretPara: Int): List<Command> {
+        val need = frame()?.extraPagesFor(caretPara) ?: 0
         if (need <= 0) return emptyList()
         val doc = state.document
         val out = mutableListOf<Command>()
         repeat(need) {
-            val (w, h) = doc.blankPageSize(doc.pages.lastOrNull() ?: return out)
+            if (doc.pages.isEmpty()) return out
+            val (w, h) = blankPageSize()
             out += AddPageAuto(doc, Page(w, h), doc.pages.size).also { it.redo() }
         }
         state.relayout()
@@ -621,15 +623,15 @@ class FlowTextController(
     fun drawOverlay(r: com.xnotes.core.pal.Renderer) {
         if (!active) return
         val f = frame() ?: return
-        val accent = state.palette.accent
         if (!selection.collapsed) {
-            for ((pi, rect) in f.selectionRects(selection)) {
+            val rects = f.selectionRects(selection)
+            for ((pi, rect) in rects) {
                 if (state.pageRects.getOrNull(pi) == null) continue
-                r.fillRect(state.fromPageSpaceRect(pi, rect), accent.withAlpha(70))
+                r.fillRect(state.fromPageSpaceRect(pi, rect), state.selectionAccent(pi).withAlpha(70))
             }
             val norm = selection.normalized()
-            handleCenter(norm.start, isStart = true)?.let { handles.draw(r, it, isStart = true, accent) }
-            handleCenter(norm.end, isStart = false)?.let { handles.draw(r, it, isStart = false, accent) }
+            handleCenter(norm.start, isStart = true)?.let { handles.draw(r, it, isStart = true, state.selectionAccent(rects.firstOrNull()?.first)) }
+            handleCenter(norm.end, isStart = false)?.let { handles.draw(r, it, isStart = false, state.selectionAccent(rects.lastOrNull()?.first)) }
         } else {
             val (pi, cr) = f.caretRect(selection.end) ?: return
             if (state.pageRects.getOrNull(pi) == null) return
@@ -647,7 +649,7 @@ class FlowTextController(
                 }
             }
             val w = (FlowFrame.CARET_WIDTH / state.zoom).coerceAtLeast(0.75)
-            r.fillRect(state.fromPageSpaceRect(pi, Rect(cr.left - w / 2.0, top, w, height)), accent)
+            r.fillRect(state.fromPageSpaceRect(pi, Rect(cr.left - w / 2.0, top, w, height)), Rgba.CARET)
         }
     }
 

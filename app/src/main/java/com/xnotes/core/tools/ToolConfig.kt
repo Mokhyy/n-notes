@@ -1,5 +1,6 @@
 package com.xnotes.core.tools
 
+import com.xnotes.core.geometry.Pt
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.model.TapeItem
 import com.xnotes.core.model.TapeMode
@@ -20,6 +21,37 @@ enum class EraseMode(val id: String) {
 
     companion object {
         fun fromId(id: String?): EraseMode = entries.firstOrNull { it.id == id } ?: STROKE
+    }
+}
+
+/** What kinds of item a band or lasso picks up. Persisted as [id]. */
+enum class SelectKind(val id: String) {
+    INK("ink"),
+    HIGHLIGHTER("highlighter"),
+    SHAPES("shapes"),
+    TEXT("text"),
+    IMAGES("images"),
+    TABLES("tables"),
+    TAPE("tape"),
+    AUDIO("audio");
+
+    companion object {
+        val ALL: Set<SelectKind> = entries.toSet()
+
+        /** What a fresh eraser takes: everything but the pieces that are costly to lose by a slip. */
+        val ERASER_DEFAULT: Set<SelectKind> = ALL - setOf(IMAGES, TABLES, AUDIO)
+
+        fun fromId(id: String?): SelectKind? = entries.firstOrNull { it.id == id }
+
+        fun of(item: com.xnotes.core.model.CanvasItem): SelectKind = when (item) {
+            is com.xnotes.core.model.Stroke -> if (item.tool == Tool.HIGHLIGHTER) HIGHLIGHTER else INK
+            is com.xnotes.core.model.TextItem -> TEXT
+            is com.xnotes.core.model.ImageItem -> IMAGES
+            is com.xnotes.core.model.TableItem -> TABLES
+            is TapeItem -> TAPE
+            is com.xnotes.core.model.AudioItem -> AUDIO
+            else -> SHAPES
+        }
     }
 }
 
@@ -71,6 +103,12 @@ data class ToolConfig(
     val switchBackAfterErase: Boolean = false,
     /** Select: re-arm the pen/highlighter used before the select tool once a selection action completes. Only [Tool.SELECT]. */
     val switchBackAfterSelect: Boolean = false,
+    /** Select/lasso: take only items lying fully inside the band or loop, not ones it merely touches. */
+    val selectWholeItems: Boolean = false,
+    /** Select/lasso: the kinds of item a band or loop picks up. Kept on [Tool.SELECT] for both. */
+    val selectKinds: Set<SelectKind> = SelectKind.ALL,
+    /** Select: a moved selection snaps to the page's text margins and centre lines. Only [Tool.SELECT]. */
+    val snapToMargins: Boolean = true,
     /** Highlighter: commit each drag as a single straight segment (start → release). Only [Tool.HIGHLIGHTER]. */
     val straightLine: Boolean = false,
     /** When false, the pen draws at a constant on-screen size: at pen-down the width (and the
@@ -98,8 +136,18 @@ data class ToolConfig(
     val markupIntensity: Double = DEFAULT_MARKUP_INTENSITY,
     /** Eraser: also take off the PDF text markups it touches. Only used by [Tool.ERASER]. */
     val eraseMarkups: Boolean = true,
+    /** Pan: the view does not move sideways. Applies to every finger pan, whichever tool is armed. */
+    val lockPanX: Boolean = false,
+    /** Pan: the view does not move up and down. */
+    val lockPanY: Boolean = false,
+    /** Pan: how fast the view follows a finger, 1..10; 5 is the app's own rate. */
+    val panSensitivity: Int = 5,
+    /** Pan: a flick keeps the view gliding after the finger lifts. */
+    val panGlide: Boolean = true,
     /** Eraser: a pen scribbled over ink erases what it touches. Only used by [Tool.ERASER]. */
     val scribbleErase: Boolean = false,
+    /** Eraser: the kinds of item it may take off the page. Only used by [Tool.ERASER]. */
+    val erasableKinds: Set<SelectKind> = SelectKind.ERASER_DEFAULT,
     /** Tape: what a drag lays, a straight strip, a rectangle or a freehand band. Only used by [Tool.TAPE]. */
     val tapeMode: TapeMode = TapeMode.STRAIGHT,
     /** Tape: what is printed on it. Only used by [Tool.TAPE]. */
@@ -115,6 +163,12 @@ data class ToolConfig(
     /** Stabilization: the speed in dp/s below which movement counts as slow and is steadied hardest. */
     val stabilizeCrossover: Double = Stabilizer.DEFAULT_CROSSOVER,
 ) {
+    /** A finger's move turned into the view's move: locked axes drop out, the rest is scaled (1 -> 0.2x, 10 -> 3x). */
+    fun panDelta(dx: Double, dy: Double): Pt {
+        val k = if (panSensitivity <= 5) panSensitivity / 5.0 else 1.0 + (panSensitivity - 5) * 0.4
+        return Pt(if (lockPanX) 0.0 else dx * k, if (lockPanY) 0.0 else dy * k)
+    }
+
     companion object {
         const val DEFAULT_MARKUP_INTENSITY = 0.9
         const val MARKUP_INTENSITY_MIN = 0.1
@@ -139,7 +193,7 @@ object ToolDefaults {
         Tool.TAPER -> ToolConfig(baseWidth = 4.0, pressureEnabled = true, pressureMinFactor = 0.45, directionStrength = 0.0, taperEnabled = true, taperMinFactor = DEFAULT_TAPER_TIP)
         Tool.HIGHLIGHTER -> ToolConfig(baseWidth = 16.0, pressureEnabled = false, pressureMinFactor = 1.0, directionStrength = 0.0, highlighterAlpha = 0.90)
         Tool.ERASER -> ToolConfig(baseWidth = 24.0, pressureEnabled = false, pressureMinFactor = 1.0, directionStrength = 0.0)
-        Tool.LASSO -> ToolConfig(baseWidth = 2.0, pressureEnabled = false, pressureMinFactor = 1.0, directionStrength = 0.0)
+        Tool.LASSO -> ToolConfig(baseWidth = 2.0, pressureEnabled = false, pressureMinFactor = 1.0, directionStrength = 0.0, selectWholeItems = true)
         Tool.TAPE -> ToolConfig(
             baseWidth = TapeItem.DEFAULT_WIDTH, pressureEnabled = false, pressureMinFactor = 1.0, directionStrength = 0.0,
             tapePattern = TapePattern.STRIPES,
@@ -148,7 +202,7 @@ object ToolDefaults {
     }
 
     /** Tools whose config is persisted in settings (spec 09 §2). */
-    val persistedTools = listOf(Tool.PEN, Tool.DASHED, Tool.CALLIGRAPHY, Tool.SPEED, Tool.TAPER, Tool.HIGHLIGHTER, Tool.ERASER, Tool.SELECT, Tool.LASSO, Tool.MARKUP, Tool.TAPE)
+    val persistedTools = listOf(Tool.PEN, Tool.DASHED, Tool.CALLIGRAPHY, Tool.SPEED, Tool.TAPER, Tool.HIGHLIGHTER, Tool.ERASER, Tool.SELECT, Tool.LASSO, Tool.MARKUP, Tool.TAPE, Tool.PAN)
 }
 
 /**
