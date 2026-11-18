@@ -222,6 +222,7 @@ class InfiniteInteraction(
     var bandRect: Rect? = null
         private set
     val lassoPoints = ArrayList<Pt>()
+    private var lassoErasing = false
     private var bandAnchor = Pt.ZERO
 
     // The live transform drag.
@@ -1901,6 +1902,8 @@ class InfiniteInteraction(
     private fun beginErase(vx: Double, vy: Double) {
         eraseSession = onEraseBegin() ?: return
         mode = CanvasPointerMode.ERASE
+        lassoErasing = configFor(Tool.ERASER).eraseMode == EraseMode.LASSO
+        if (lassoErasing) lassoPoints.clear()
         eraseAt(vx, vy)
     }
 
@@ -1917,6 +1920,7 @@ class InfiniteInteraction(
 
     private fun eraseAt(vx: Double, vy: Double) {
         val session = eraseSession ?: return
+        if (lassoErasing) return extendLasso(vx, vy)
         onEraserCursor(Pt(vx, vy), eraserRadius() * viewport.zoom)
         val content = viewport.viewportToContent(Pt(vx, vy))
         session.erase(content.x, content.y, eraserRadius(), areaErase(), configFor(Tool.ERASER).erasableKinds)
@@ -1926,6 +1930,15 @@ class InfiniteInteraction(
     private fun endErase() {
         val session = eraseSession ?: return
         eraseSession = null
+        if (lassoErasing && lassoPoints.size >= 3) {
+            val loop = lassoPoints.toList()
+            session.eraseWhole(SelectionMath.lassoMembers(itemsIn(Rect.bounding(loop)), loop, configFor(Tool.LASSO).selectWholeItems, configFor(Tool.ERASER).erasableKinds))
+        }
+        if (lassoErasing) {
+            lassoErasing = false
+            lassoPoints.clear()
+            onSelectionChanged()
+        }
         onEraserCursor(null, 0.0)
         onEraseEnd(session)
         requestRender()

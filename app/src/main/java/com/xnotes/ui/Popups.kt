@@ -1202,11 +1202,11 @@ fun PanConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
     }
 }
 
-/** Eraser configuration popup: a STROKE/AREA mode picker and a SIZE slider (the eraser radius). */
+/** Eraser configuration popup: a STROKE/AREA/LASSO mode picker and a SIZE slider (the eraser radius). */
 @Composable
 fun EraserConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
     val base = remember { editor.toolConfig(Tool.ERASER) }
-    var area by remember { mutableStateOf(base.eraseMode == EraseMode.AREA) }
+    var mode by remember { mutableStateOf(base.eraseMode) }
     var size by remember { mutableStateOf(base.baseWidth.toFloat()) }
     var switchBack by remember { mutableStateOf(base.switchBackAfterErase) }
     var scale by remember { mutableStateOf(base.scale) }
@@ -1218,7 +1218,7 @@ fun EraserConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
         Tool.ERASER,
         base.copy(
             baseWidth = size.toDouble(),
-            eraseMode = if (area) EraseMode.AREA else EraseMode.STROKE,
+            eraseMode = mode,
             switchBackAfterErase = switchBack,
             scale = scale,
             eraseMarkups = markups,
@@ -1231,8 +1231,9 @@ fun EraserConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
         Column(Modifier.width(250.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
             PopupTitle(stringResource(R.string.title_eraser))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ModeChip(stringResource(R.string.eraser_stroke), selected = !area) { area = false; emit() }
-                ModeChip(stringResource(R.string.eraser_area), selected = area) { area = true; emit() }
+                ModeChip(stringResource(R.string.eraser_stroke), selected = mode == EraseMode.STROKE) { mode = EraseMode.STROKE; emit() }
+                ModeChip(stringResource(R.string.eraser_area), selected = mode == EraseMode.AREA) { mode = EraseMode.AREA; emit() }
+                ModeChip(stringResource(R.string.tool_lasso), selected = mode == EraseMode.LASSO) { mode = EraseMode.LASSO; emit() }
             }
             Spacer(Modifier.size(8.dp))
             StyleCaption(stringResource(R.string.caption_erasable_kinds))

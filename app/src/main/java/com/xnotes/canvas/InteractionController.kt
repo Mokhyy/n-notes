@@ -408,6 +408,7 @@ class InteractionController(
     // SELECTION
     private val selection = mutableListOf<Selected>()
     private val lassoPoints = mutableListOf<Pt>()
+    private var lassoErasing = false
     private var bandRect: Rect? = null
     private var moveOrigin = Pt.ZERO
     private var moveOffset = Pt.ZERO
@@ -1736,12 +1737,15 @@ class InteractionController(
         eraseMarkups.clear()
         eraseUnfilled.clear()
         mode = PointerMode.ERASE
+        lassoErasing = configFor(Tool.ERASER).eraseMode == EraseMode.LASSO
+        if (lassoErasing) lassoPoints.clear()
         eraseAt(vx, vy)
     }
 
     private fun eraseAt(vx: Double, vy: Double) {
-        eraserCursor = Pt(vx, vy)
         val content = state.viewportToContent(Pt(vx, vy))
+        if (lassoErasing) return extendLasso(content)
+        eraserCursor = Pt(vx, vy)
         val radius = eraserRadius()
         val eraserBox = Rect(content.x - radius, content.y - radius, radius * 2, radius * 2)
         val area = areaErase()
@@ -1856,6 +1860,7 @@ class InteractionController(
     }
 
     private fun endErase() {
+        if (lassoErasing) return endLassoErase()
         val cmds = ArrayList<Command>()
         // A fill came off before any cut or removal of its shape, so it goes back after them.
         if (eraseUnfilled.isNotEmpty()) cmds += RefillShapes(eraseUnfilled.toList())
@@ -2141,6 +2146,23 @@ class InteractionController(
     }
 
     // --- LASSO ---
+
+    private fun endLassoErase() {
+        lassoErasing = false
+        mode = PointerMode.IDLE
+        if (lassoPoints.size >= 3) {
+            val drawable = state.drawablePageRange()
+            val members = SelectionMath.lassoMembers(state.document.pages, state.pageRects, lassoPoints, configFor(Tool.LASSO).selectWholeItems, configFor(Tool.ERASER).erasableKinds) { i, p ->
+                state.toPageSpace(i, p)
+            }.filter { it.pageIndex in drawable }
+            if (members.isNotEmpty()) {
+                setSelection(members)
+                deleteSelection()
+            }
+        }
+        lassoPoints.clear()
+        requestRender()
+    }
 
     private fun beginLasso(content: Pt) {
         // A tap on the settled selection grabs it (a resize/rotate handle, or a move when inside the
@@ -5381,7 +5403,7 @@ class InteractionController(
             when {
                 mode == PointerMode.BAND -> bandRect?.let { r.strokeRect(it, accent) }
                 mode == PointerMode.TEXT_DRAG -> textDragRect?.let { r.strokeRect(it, accent) }
-                mode == PointerMode.LASSO_DRAW && lassoPoints.size >= 2 ->
+                (mode == PointerMode.LASSO_DRAW || lassoErasing) && lassoPoints.size >= 2 ->
                     r.strokePolyline(lassoPoints, chromePen(1.3))
                 selection.isNotEmpty() ->
                     selectionChromeBox()?.let { obb ->

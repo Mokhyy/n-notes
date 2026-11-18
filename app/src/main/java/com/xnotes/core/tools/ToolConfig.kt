@@ -13,11 +13,13 @@ import kotlin.math.roundToInt
 
 /**
  * Eraser behaviour (spec 04 §2): STROKE removes a whole stroke on contact; AREA removes only the
- * portion of a stroke the eraser passes over, splitting it into fragments. Persisted as [id].
+ * portion of a stroke the eraser passes over, splitting it into fragments; LASSO removes whatever
+ * the drawn loop takes once the pen lifts. Persisted as [id].
  */
 enum class EraseMode(val id: String) {
     STROKE("stroke"),
-    AREA("area");
+    AREA("area"),
+    LASSO("lasso");
 
     companion object {
         fun fromId(id: String?): EraseMode = entries.firstOrNull { it.id == id } ?: STROKE
