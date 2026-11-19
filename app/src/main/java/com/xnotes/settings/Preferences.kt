@@ -51,6 +51,14 @@ data class Preferences(
     val snapRotation90: Boolean = false,
     /** Language for handwriting-to-text (Convert to text): BCP-47 tag, "cs" (Czech) | "en" (English). */
     val ocrLanguage: String = "cs",
+    /** Which handwritten-maths model converts ink to LaTeX (an id from the Sponka-Math-Models releases). */
+    val mathModel: String = "pix2text-mfr",
+    /** The custom LLM math option: an OpenAI-compatible base URL, model and prompt ("" = built-in). The key stays on the device. */
+    val mathLlmUrl: String = "",
+    val mathLlmModel: String = "",
+    val mathLlmPrompt: String = "",
+    /** On-device math model used instead of the custom LLM when there is no network; "" = none. */
+    val mathLlmOffline: String = "",
     /** Tool the stylus side button activates while held; "none" disables it. */
     val penButtonTool: String = "eraser",
     /** Whether the side-button tool also activates during hover (no contact needed); eraser/pan only. */
@@ -196,6 +204,11 @@ data class Preferences(
         .put("detect_shapes", detectShapes)
         .put("snap_rotation_90", snapRotation90)
         .put("ocr_language", ocrLanguage)
+        .put("math_model", mathModel)
+        .put("math_llm_url", mathLlmUrl)
+        .put("math_llm_model", mathLlmModel)
+        .put("math_llm_prompt", mathLlmPrompt)
+        .put("math_llm_offline", mathLlmOffline)
         .put("pen_button_tool", penButtonTool)
         .put("pen_button_hover", penButtonHover)
         .put("two_finger_tap", twoFingerTap)
@@ -368,6 +381,11 @@ data class Preferences(
                 detectShapes = o.optBoolean("detect_shapes", true),
                 snapRotation90 = o.optBoolean("snap_rotation_90", false),
                 ocrLanguage = o.optString("ocr_language", "cs").ifEmpty { "cs" },
+                mathModel = o.optString("math_model", "pix2text-mfr").ifEmpty { "pix2text-mfr" },
+                mathLlmUrl = o.optString("math_llm_url", ""),
+                mathLlmModel = o.optString("math_llm_model", ""),
+                mathLlmPrompt = o.optString("math_llm_prompt", ""),
+                mathLlmOffline = o.optString("math_llm_offline", ""),
                 penButtonTool = o.optString("pen_button_tool", "eraser").ifEmpty { "eraser" },
                 penButtonHover = o.optBoolean("pen_button_hover", false),
                 twoFingerTap = tapAction("two_finger_tap"),
