@@ -602,6 +602,14 @@ class SettingsTest {
         assertEquals(0.0, Preferences.fromJson(JSONObject().put("material_contrast", 1.5)).materialContrast, 0.0)
     }
 
+    @Test fun backgroundBrightnessRoundTripsAndRejectsOutOfRange() {
+        for (level in listOf(-1.0, -0.3, 0.5, 1.0)) {
+            val p = Preferences(backgroundBrightness = level)
+            assertEquals(p, Preferences.fromJson(p.toJson()))
+        }
+        assertEquals(0.0, Preferences.fromJson(JSONObject().put("background_brightness", 1.5)).backgroundBrightness, 0.0)
+    }
+
     @Test fun cornerStyleRoundTripsAndDefaultsToRounded() {
         for (style in CornerStyle.entries) {
             val p = Preferences(cornerStyle = style)

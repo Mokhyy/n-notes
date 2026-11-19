@@ -406,6 +406,11 @@
     <string name="theme_dark">Tmavý</string>
     <string name="theme_light">Světlý</string>
     <string name="theme_oled">OLED</string>
+    <string name="pref_background_brightness">Pozadí</string>
+    <string name="background_darker">Tmavší</string>
+    <string name="background_default">Výchozí</string>
+    <string name="background_dim">Tlumené</string>
+    <string name="background_soft">Jemné</string>
     <string name="pref_accent_colour">Barva zvýraznění</string>
     <string name="pref_start_fullscreen">Spouštět na celou obrazovku</string>
     <string name="pref_input">Vstup</string>

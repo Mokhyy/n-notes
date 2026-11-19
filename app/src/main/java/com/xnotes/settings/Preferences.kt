@@ -24,6 +24,8 @@ data class Preferences(
     val materialStyle: MaterialStyle = MaterialStyle.TONAL_SPOT,
     /** Material contrast level, -1 (reduced) .. 0 (standard) .. 1 (high). */
     val materialContrast: Double = 0.0,
+    /** Shift of the chrome surfaces behind the pages, -1 (darker) .. 0 (theme) .. 1 (brighter). */
+    val backgroundBrightness: Double = 0.0,
     val materialSurfaceSeed: Rgba = DEFAULT_MATERIAL_SURFACE,
     val cornerStyle: CornerStyle = CornerStyle.ROUNDED,
     val toolbarLook: ToolbarLook = ToolbarLook(),
@@ -226,6 +228,7 @@ data class Preferences(
             }
             if (materialStyle != MaterialStyle.TONAL_SPOT) put("material_style", materialStyle.id)
             if (materialContrast != 0.0) put("material_contrast", materialContrast)
+            if (backgroundBrightness != 0.0) put("background_brightness", backgroundBrightness)
             if (materialMode == MaterialColourMode.DUAL || materialSurfaceSeed != DEFAULT_MATERIAL_SURFACE) {
                 put("material_surface_seed", Rgba.toHex(materialSurfaceSeed))
             }
@@ -329,6 +332,7 @@ data class Preferences(
                 materialDualSeed = dualSeed,
                 materialStyle = MaterialStyle.fromId(o.optString("material_style")),
                 materialContrast = o.optDouble("material_contrast", 0.0).takeIf { it in -1.0..1.0 } ?: 0.0,
+                backgroundBrightness = o.optDouble("background_brightness", 0.0).takeIf { it in -1.0..1.0 } ?: 0.0,
                 materialSurfaceSeed = surfaceSeed,
                 cornerStyle = CornerStyle.fromId(o.optString("corner_style")),
                 toolbarLook = ToolbarLook(

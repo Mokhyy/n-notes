@@ -342,6 +342,11 @@
     <string name="theme_dark">深色</string>
     <string name="theme_light">浅色</string>
     <string name="theme_oled">OLED</string>
+    <string name="pref_background_brightness">背景</string>
+    <string name="background_darker">更暗</string>
+    <string name="background_default">默认</string>
+    <string name="background_dim">柔暗</string>
+    <string name="background_soft">柔和</string>
     <string name="pref_accent_colour">强调色</string>
     <string name="pref_start_fullscreen">启动时全屏</string>
     <string name="pref_input">输入</string>

@@ -3069,7 +3069,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             MaterialColourMode.SYSTEM -> dynamicMaterialColors(appContext, dark = dark)
                 ?: MaterialColors.seeded(Preferences.DEFAULT_MATERIAL_DUAL, dark, surfaceSeed = Preferences.DEFAULT_MATERIAL_SURFACE)
         }
-        return Palette.material(appearance, m)
+        return Palette.material(appearance, m, p.backgroundBrightness)
     }
 
     /** The app's theme in its light or dark variant, for the reader; the current mode (OLED included) when it already matches. */

@@ -406,6 +406,11 @@
     <string name="theme_dark">Oscuro</string>
     <string name="theme_light">Claro</string>
     <string name="theme_oled">OLED</string>
+    <string name="pref_background_brightness">Fondo</string>
+    <string name="background_darker">Más oscuro</string>
+    <string name="background_default">Predeterminado</string>
+    <string name="background_dim">Atenuado</string>
+    <string name="background_soft">Suave</string>
     <string name="pref_accent_colour">Color de énfasis</string>
     <string name="pref_start_fullscreen">Iniciar en pantalla completa</string>
     <string name="pref_input">Entrada</string>
