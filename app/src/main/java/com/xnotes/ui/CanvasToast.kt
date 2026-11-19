@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -18,6 +19,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xnotes.ui.theme.LocalPalette
@@ -74,4 +76,22 @@ fun BoxScope.CanvasToastPill(host: ToastHost) {
                 .padding(horizontal = 18.dp, vertical = 9.dp),
         )
     }
+}
+
+/** The angle of a line end being dragged on [canvas], in the same pill, up and right of the pen. */
+@Composable
+fun LineAngleReadout(canvas: InfiniteEditor) {
+    val (at, deg) = canvas.lineAngle ?: return
+    val palette = LocalPalette.current
+    Text(
+        text = "$deg°",
+        color = palette.text.toComposeColor(),
+        fontSize = 13.sp,
+        modifier = Modifier
+            .offset { IntOffset((at.x + 24.dp.toPx()).toInt(), (at.y - 56.dp.toPx()).toInt()) }
+            .clip(RoundedCornerShape(50))
+            .background(palette.menuBg.toComposeColor())
+            .border(1.dp, palette.border.toComposeColor(), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    )
 }

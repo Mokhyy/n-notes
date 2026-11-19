@@ -128,6 +128,8 @@ class InfiniteInteraction(
     private val onPeelTape: (TapeItem) -> Unit = {},
     /** The view was panned or pinched by hand, as distinct from moved by the app. */
     private val onUserMovedView: () -> Unit = {},
+    /** A lone line's end being dragged: the pen in viewport pixels and the line's angle in degrees, or null once let go. */
+    private val onLineAngle: (Pt?, Int) -> Unit = { _, _ -> },
 ) {
 
     private val choreographer = Choreographer.getInstance()
@@ -761,6 +763,7 @@ class InfiniteInteraction(
         if (mode == CanvasPointerMode.JOINT) abandonJoint()
         if (mode == CanvasPointerMode.SLIDE) abandonSlide()
         if (mode == CanvasPointerMode.POLYGON) showPolygonDraft(null)
+        if (mode == CanvasPointerMode.RESIZE) onLineAngle(null, 0)
         if ((mode == CanvasPointerMode.ROTATE || mode == CanvasPointerMode.RESIZE) && liftedTransform) {
             selection()?.previewBack()
             if (bakedInLift.isNotEmpty()) selection()?.applyLiveTo(bakedInLift, Affine.IDENTITY)
@@ -1277,6 +1280,11 @@ class InfiniteInteraction(
         } else {
             sel.resizeLive(handle, at, transformMargin)
         }
+        val line = (sel.items.singleOrNull() as? ShapeItem)?.takeIf { it.shape.isEndpointShape }
+        if (line != null && (handle == HandleId.START || handle == HandleId.END)) {
+            val (held, pen) = if (handle == HandleId.START) line.end to line.start else line.start to line.end
+            onLineAngle(viewport.contentToViewport(pen), ResizeMath.angleDeg(held, pen))
+        }
         onSelectionChanged()
         requestRender()
     }
@@ -1299,6 +1307,7 @@ class InfiniteInteraction(
     }
 
     private fun endTransform() {
+        onLineAngle(null, 0)
         val sel = selection() ?: return
         val handle = grabHandle
         val wasResize = handle != null
@@ -1992,6 +2001,7 @@ class InfiniteInteraction(
     // --- pinch ---
 
     private fun beginPinch(e: MotionEvent) {
+        if (mode == CanvasPointerMode.RESIZE) onLineAngle(null, 0)
         mode = CanvasPointerMode.PINCH
         setInteractive(true, true)
         val a = Pt(e.getX(0).toDouble(), e.getY(0).toDouble())

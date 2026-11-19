@@ -24,9 +24,6 @@ import com.xnotes.core.model.TapeItem
 import com.xnotes.core.model.TapeMode
 import com.xnotes.core.tape.TapeGeometry
 
-/** Half-width of the sticky zone around each 90-degree step when snap-rotation is on. */
-private val SNAP_STICK_RAD = Math.toRadians(6.0)
-
 /**
  * What is selected on the canvas, and the arithmetic of moving, scaling and rotating it.
  *
@@ -51,7 +48,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
 
     val isEmpty: Boolean get() = items.isEmpty()
 
-    /** When set, a rotate drag snaps the box angle to the nearest 90 degrees. */
+    /** When set, a rotate drag snaps the box angle to the nearest 90 degrees from further away. */
     var snapRotation90: Boolean = false
 
     /** Gesture-start geometry, captured by [beginTransform] and restored every frame of a drag. */
@@ -297,7 +294,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
 
     /**
      * Drag the [handle] end of the lone line, arrow or strip of tape to [pointer], the other end held
-     * still. Tape snaps level or upright against it, as when laid; a line goes wherever it is put.
+     * still. Both snap level or upright against it, tape as when laid.
      */
     private fun dragEnd(handle: HandleId, pointer: Pt) {
         val item = items.singleOrNull() ?: return
@@ -352,18 +349,8 @@ class CanvasSelection(private val doc: InfiniteDocument) {
         refreshBox()
     }
 
-    /**
-     * Give each 90-degree step a small sticky zone, if enabled: the box clings to the nearest
-     * quarter turn only while it is within [SNAP_STICK_RAD] of it, and rotates freely otherwise.
-     * Not a hard quantiser, so angles between the steps stay reachable.
-     */
-    private fun snapSwept(from: Obb, swept: Double): Double {
-        if (!snapRotation90) return swept
-        val quarter = Math.PI / 2.0
-        val target = from.angle + swept
-        val nearest = Math.round(target / quarter) * quarter
-        return if (Math.abs(target - nearest) <= SNAP_STICK_RAD) nearest - from.angle else swept
-    }
+    /** Small sticky zones around each 45-degree step, wider around quarter turns with [snapRotation90]; not a hard quantiser. */
+    private fun snapSwept(from: Obb, swept: Double): Double = ResizeMath.snapTurn(from.angle + swept, snapRotation90) - from.angle
 
     /** Put the box back where the drag started, for a gesture that was cancelled rather than ended. */
     fun previewBack() {

@@ -279,9 +279,9 @@ object ResizeMath {
         return anchor to Pt(px, py)
     }
 
-    /** Open-shape resize: drag the grabbed endpoint; the other stays fixed. */
+    /** Open-shape resize: drag the grabbed endpoint, snapped level or upright against the other, which stays fixed. */
     fun resizeOpenShape(start: Pt, end: Pt, handle: HandleId, pointer: Pt): Pair<Pt, Pt> =
-        if (handle == HandleId.START) pointer to end else start to pointer
+        if (handle == HandleId.START) snapAxis(end, pointer) to end else start to snapAxis(start, pointer)
 
     /** Square-locked closed-shape resize (the perfect circle): the box stays square, sized by the
      *  larger pointer delta from the anchored corner. Returns new (start, end). */
@@ -320,6 +320,22 @@ object ResizeMath {
             else -> p
         }
     }
+
+    /** A rotation [angle] (rad) pulled onto the nearest 45-degree step within [InteractionController.ROTATE_SNAP_45_RAD],
+     *  and with [quarterTurns] onto the nearest quarter turn within the wider [InteractionController.ROTATE_SNAP_STICK_RAD]. */
+    fun snapTurn(angle: Double, quarterTurns: Boolean): Double {
+        val a = if (quarterTurns) stickToStep(angle, Math.PI / 2.0, InteractionController.ROTATE_SNAP_STICK_RAD) else angle
+        return stickToStep(a, Math.PI / 4.0, InteractionController.ROTATE_SNAP_45_RAD)
+    }
+
+    /** [angle] on the nearest whole multiple of [step] when within [tolerance] of it, otherwise left as it is. */
+    fun stickToStep(angle: Double, step: Double, tolerance: Double): Double {
+        val nearest = Math.round(angle / step) * step
+        return if (abs(angle - nearest) <= tolerance) nearest else angle
+    }
+
+    /** The direction from [from] to [to] on screen (y down), in whole degrees counter-clockwise from +x, 0..359. */
+    fun angleDeg(from: Pt, to: Pt): Int = Math.round(Math.toDegrees(atan2(from.y - to.y, to.x - from.x))).toInt().mod(360)
 
     /** [p] turned about [anchor] onto the nearest whole step of [stepDeg], as far along it as [p] reaches. */
     fun stepAngle(anchor: Pt, p: Pt, stepDeg: Double): Pt {

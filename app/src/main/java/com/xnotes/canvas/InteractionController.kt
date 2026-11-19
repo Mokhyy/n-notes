@@ -2930,16 +2930,7 @@ class InteractionController(
             world = res.transform
         } else {
             val raw = atan2(content.y - txCenter.y, content.x - txCenter.x) - txGrabAngle
-            // A sticky zone around each 90-degree step, not a hard quantiser: the box clings to the
-            // nearest quarter turn only while within ROTATE_SNAP_STICK of it, and turns freely otherwise.
-            val theta = if (snapRotation90) {
-                val quarter = Math.PI / 2.0
-                val target = txStartAngle + raw
-                val nearest = Math.round(target / quarter) * quarter
-                if (Math.abs(target - nearest) <= ROTATE_SNAP_STICK_RAD) nearest - txStartAngle else raw
-            } else {
-                raw
-            }
+            val theta = ResizeMath.snapTurn(txStartAngle + raw, snapRotation90) - txStartAngle
             selObb = obb0.copy(angle = txStartAngle + theta)
             world = Affine.rotateAbout(txCenter, theta)
         }
@@ -5606,6 +5597,15 @@ class InteractionController(
 
         // Ruler (viewport space; floats above all content and the live stroke).
         if (ruler.visible) drawRuler(r)
+
+        val line = resizeItem as? ShapeItem
+        if (mode == PointerMode.RESIZE && line != null && line.shape.isEndpointShape) {
+            val start = state.contentToViewport(state.fromPageSpace(resizePageIndex, line.start))
+            val end = state.contentToViewport(state.fromPageSpace(resizePageIndex, line.end))
+            val (held, pen) = if (resizeHandle == HandleId.START) end to start else start to end
+            val density = state.devicePxPerDp
+            drawReadout(r, "${ResizeMath.angleDeg(held, pen)}°", pen + Pt(30.0, -30.0) * density, density, state.palette)
+        }
     }
 
     /** The page the selection sits on, or null (the current page) when nothing is selected. */
@@ -6007,6 +6007,9 @@ class InteractionController(
 
         /** Half-width (rad) of the sticky zone around each 90-degree step for snap-rotation. */
         val ROTATE_SNAP_STICK_RAD = Math.toRadians(6.0)
+
+        /** Half-width (rad) of the sticky zone around each 45-degree step every rotation has. */
+        val ROTATE_SNAP_45_RAD = Math.toRadians(3.0)
 
         // Inertial fling tuning (viewport px/s).
         const val VEL_SMOOTH = 0.4 // EMA weight on the previous velocity estimate

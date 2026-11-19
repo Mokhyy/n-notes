@@ -144,6 +144,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         onAudioTap = { tapAudio(it) },
         onPeelTape = { peelTape(it) },
         onUserMovedView = { AudioPlayback.userMoved(this) },
+        onLineAngle = { at, deg -> lineAngle = at?.let { it to deg } },
     )
 
     private val devicePxPerDp = appContext.resources.displayMetrics.density.toDouble()
@@ -166,6 +167,10 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
 
     /** Whether a held freehand stroke may snap to the shape it looks like. */
     private var detectShapes = false
+
+    /** A dragged line end in viewport pixels and the line's angle in degrees, or null when none is dragged. */
+    var lineAngle by mutableStateOf<Pair<Pt, Int>?>(null)
+        private set
 
     /** Live zoom, mirrored into Compose so a readout can follow a pinch frame by frame. */
     var zoomPercent by mutableStateOf(100)

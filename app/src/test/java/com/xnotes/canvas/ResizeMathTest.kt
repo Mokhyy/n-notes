@@ -50,6 +50,28 @@ class ResizeMathTest {
         assertEquals(Pt(50.0, 50.0), e)
     }
 
+    @Test fun openShapeEndSnapsLevelAndUprightNearAnAxis() {
+        assertEquals(Pt(100.0, 0.0), ResizeMath.resizeOpenShape(Pt(0.0, 0.0), Pt(50.0, 50.0), HandleId.END, Pt(100.0, 3.0)).second)
+        assertEquals(Pt(50.0, 100.0), ResizeMath.resizeOpenShape(Pt(0.0, 0.0), Pt(50.0, 0.0), HandleId.START, Pt(53.0, 100.0)).first)
+    }
+
+    @Test fun aTurnSticksToFortyFiveDegreeStepsOnlyWhenClose() {
+        val deg = Math.PI / 180.0
+        assertEquals(45.0 * deg, ResizeMath.snapTurn(47.0 * deg, quarterTurns = false), 1e-12)
+        assertEquals(-180.0 * deg, ResizeMath.snapTurn(-182.0 * deg, quarterTurns = false), 1e-12)
+        assertEquals(40.0 * deg, ResizeMath.snapTurn(40.0 * deg, quarterTurns = false), 1e-12)
+        assertEquals(85.0 * deg, ResizeMath.snapTurn(85.0 * deg, quarterTurns = false), 1e-12)
+        assertEquals("the quarter-turn setting pulls from further away", 90.0 * deg, ResizeMath.snapTurn(85.0 * deg, quarterTurns = true), 1e-12)
+    }
+
+    @Test fun angleReadsCounterClockwiseOnScreen() {
+        assertEquals(0, ResizeMath.angleDeg(Pt(0.0, 0.0), Pt(10.0, 0.0)))
+        assertEquals(90, ResizeMath.angleDeg(Pt(0.0, 0.0), Pt(0.0, -10.0)))
+        assertEquals(180, ResizeMath.angleDeg(Pt(0.0, 0.0), Pt(-10.0, 0.0)))
+        assertEquals(270, ResizeMath.angleDeg(Pt(0.0, 0.0), Pt(0.0, 10.0)))
+        assertEquals(0, ResizeMath.angleDeg(Pt(0.0, 0.0), Pt(1000.0, 1.0)))
+    }
+
     @Test fun textResizeRightWidensWidthOnly() {
         val (pos, w, h) = ResizeMath.resizeText(Pt(0.0, 0.0), 100.0, 40.0, HandleId.R, Pt(150.0, 20.0))
         assertEquals(Pt(0.0, 0.0), pos)

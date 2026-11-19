@@ -1945,6 +1945,7 @@ private fun EditorPane(
                         com.xnotes.ui.TextStyleBar(canvas)
                         com.xnotes.ui.LongPressMenu(canvas, onInsertImageAt = { c -> actions.onInsertCanvasImage(editor, c) })
                         com.xnotes.ui.CanvasDebugOverlay(canvas)
+                        com.xnotes.ui.LineAngleReadout(canvas)
                         if (editor.showZoomBar) {
                             ZoomBar(
                                 canvas.zoomPercent, canvas.zoomLocked, canvas::toggleZoomLock,
