@@ -687,12 +687,13 @@ private fun LatexDialog(initial: String, onConfirm: (String) -> Unit, onDismiss:
     var value by remember { mutableStateOf(TextFieldValue(initial, TextRange(initial.length))) }
     var mathKeys by remember { mutableStateOf(true) }
     val focus = remember { androidx.compose.ui.focus.FocusRequester() }
-    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     val shape = MaterialTheme.shapes.large
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        // Read inside the dialog so they act on its window, not the activity's.
+        val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
