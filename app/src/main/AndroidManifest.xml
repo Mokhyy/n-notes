@@ -31,6 +31,7 @@
         </intent>
     </queries>
 
+    <!-- Left to right in every locale: the chrome places menus and overlays by screen coordinates. -->
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -38,7 +39,7 @@
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
+        android:supportsRtl="false"
         android:theme="@style/Theme.Xnotes">
         <activity
             android:name=".EditorActivity"
