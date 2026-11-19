@@ -2,6 +2,7 @@ package com.xnotes.stylus
 
 import android.view.InputDevice
 import android.view.MotionEvent
+import kotlin.math.pow
 
 /**
  * The hover-preview response: how a hovering pen's distance becomes cursor size and opacity.
@@ -13,10 +14,17 @@ import android.view.MotionEvent
 object StylusHover {
 
     /** Fraction the hover ring shrinks by at the pen's maximum reported distance. */
-    const val SHRINK_AT_MAX_DISTANCE = 0.35
+    const val SHRINK_AT_MAX_DISTANCE = 0.65
 
     /** Fraction of the hover ring's alpha lost at the pen's maximum reported distance. */
-    const val FADE_AT_MAX_DISTANCE = 0.65
+    const val FADE_AT_MAX_DISTANCE = 0.85
+
+    /**
+     * Exponent of the distance response. Below 1 it lifts the low end of the range, so the small
+     * distance changes a pen makes while hovering close move the ring much more than a linear
+     * mapping would: the preview responds where the pen actually is, not only near its stated max.
+     */
+    const val DISTANCE_RESPONSE = 0.4
 
     /** Radius of the neutral pointer ring, in dp. */
     const val POINTER_RADIUS_DP = 5.0
@@ -30,7 +38,8 @@ object StylusHover {
     private val maxByDevice = HashMap<Int, Double>()
 
     /**
-     * [MotionEvent.AXIS_DISTANCE] as 0..1 of this device's maximum, cached per pen.
+     * [MotionEvent.AXIS_DISTANCE] as 0..1 of this device's maximum, cached per pen, then shaped by
+     * [DISTANCE_RESPONSE] so a small lift already moves the cursor.
      *
      * Returns 0 when the axis is absent, and also when the device advertises only a binary
      * far/near range (max 1), as the Xiaomi Focus Pen Pro's Novatek panel does: with no gradient
@@ -49,7 +58,7 @@ object StylusHover {
                 0.0
             }
         }
-        return if (max > 1.0) (raw / max).coerceIn(0.0, 1.0) else 0.0
+        return if (max > 1.0) (raw / max).coerceIn(0.0, 1.0).pow(DISTANCE_RESPONSE) else 0.0
     }
 
     /** Size multiplier for a cursor at [distanceFraction] (0 = on the glass, 1 = furthest). */

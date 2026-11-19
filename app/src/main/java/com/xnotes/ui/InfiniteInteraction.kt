@@ -1843,25 +1843,32 @@ class InfiniteInteraction(
 
     /** A hovering pen lights the connection point under it while a connector is armed. */
     fun onHover(e: MotionEvent): Boolean {
-        val stylus = e.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
-        if (stylus) {
-            if (hoverPreviewAt(e.deviceId) && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT) {
-                val far = if (hoverDistancePreviewAt(e.deviceId)) {
-                    com.xnotes.stylus.StylusHover.distanceFraction(e)
-                } else {
-                    0.0
-                }
-                val shrink = com.xnotes.stylus.StylusHover.sizeScale(far)
-                val alpha = com.xnotes.stylus.StylusHover.alpha(far)
+        val toolType = e.getToolType(0)
+        val stylus = toolType == MotionEvent.TOOL_TYPE_STYLUS
+        val eraserPointer = toolType == MotionEvent.TOOL_TYPE_ERASER
+        if (stylus || eraserPointer) {
+            val gone = e.actionMasked == MotionEvent.ACTION_HOVER_EXIT
+            val far = if (!gone && hoverDistancePreviewAt(e.deviceId)) {
+                com.xnotes.stylus.StylusHover.distanceFraction(e)
+            } else {
+                0.0
+            }
+            val shrink = com.xnotes.stylus.StylusHover.sizeScale(far)
+            val alpha = com.xnotes.stylus.StylusHover.alpha(far)
+            val at = if (gone) null else Pt(e.x.toDouble(), e.y.toDouble())
+            if (eraserPointer || tool == Tool.ERASER) {
+                // The eraser's own ring, on hover as on contact, scaled by the same distance response.
+                onHoverCursor(at, eraserRadius() * viewport.zoom * shrink, alpha)
+            } else if (hoverPreviewAt(e.deviceId)) {
                 val width = if (tool.isStroke) configFor(tool).baseWidth * viewport.zoom else 0.0
                 val radius = if (width > 0.0) {
                     (width / 2).coerceAtLeast(com.xnotes.stylus.StylusHover.MIN_STROKE_RADIUS_DP * devicePxPerDp())
                 } else {
                     com.xnotes.stylus.StylusHover.POINTER_RADIUS_DP * devicePxPerDp()
                 }
-                onHoverCursor(Pt(e.x.toDouble(), e.y.toDouble()), radius * shrink, alpha)
-            } else if (e.actionMasked == MotionEvent.ACTION_HOVER_EXIT) {
-                onEraserCursor(null, 0.0)
+                onHoverCursor(at, radius * shrink, alpha)
+            } else if (gone) {
+                onHoverCursor(null, 0.0, 0.0)
             }
         }
         val hovering = connecting && mode == CanvasPointerMode.IDLE && e.actionMasked != MotionEvent.ACTION_HOVER_EXIT

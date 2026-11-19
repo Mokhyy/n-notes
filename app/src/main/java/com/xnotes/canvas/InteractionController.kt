@@ -695,6 +695,7 @@ class InteractionController(
         clearSelection()
         clearScreenshot()
         eraserCursor = null
+        eraserDistance = 0.0
         hoverCursor = null
         hoverDistance = 0.0
         previousTool = tool
@@ -803,6 +804,7 @@ class InteractionController(
             field = value
             if (!value) {
                 hoverDistance = 0.0
+                eraserDistance = 0.0
                 requestRender()
             }
         }
@@ -817,6 +819,12 @@ class InteractionController(
 
     /** The device the current hover cursor came from, so its per-pen overrides can be consulted. */
     private var hoverDeviceId = 0
+
+    /** The hovering eraser's distance fraction: 0 at the glass, 1 far. */
+    private var eraserDistance = 0.0
+
+    /** The device the current eraser hover cursor came from. */
+    private var eraserDeviceId = 0
 
     /** Per-pen override for [hoverPreview], by the event's device id; null uses the general value. */
     var hoverPreviewFor: ((Int) -> Boolean)? = null
@@ -859,12 +867,22 @@ class InteractionController(
         }
         val isEraserPointer = e.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
         if (tool != Tool.ERASER && !isEraserPointer) return stylusHover && hoverCursor != null
-        eraserCursor = if (e.actionMasked == MotionEvent.ACTION_HOVER_EXIT) {
+        val next = if (e.actionMasked == MotionEvent.ACTION_HOVER_EXIT) {
             null
         } else {
             Pt(e.x.toDouble(), e.y.toDouble())
         }
-        requestRender()
+        val distance = if (next != null && hoverDistancePreviewAt(e.deviceId)) {
+            com.xnotes.stylus.StylusHover.distanceFraction(e)
+        } else {
+            0.0
+        }
+        if (next != eraserCursor || distance != eraserDistance) {
+            eraserCursor = next
+            eraserDistance = distance
+            eraserDeviceId = e.deviceId
+            requestRender()
+        }
         return true
     }
 
@@ -936,6 +954,7 @@ class InteractionController(
         // vanishes on the down event itself instead of waiting for the gesture's first move.
         hoverCursor = null
         hoverDistance = 0.0
+        eraserDistance = 0.0
         requestRender()
         if (hoverActionTool != null) endHoverAction() // a hovering side-button gesture yields to contact
         downStoppedFling = flinging // captured before stopping: a tap that only halts a glide must not dismiss
@@ -1853,6 +1872,7 @@ class InteractionController(
         val content = state.viewportToContent(Pt(vx, vy))
         if (lassoErasing) return extendLasso(content)
         eraserCursor = Pt(vx, vy)
+        eraserDistance = 0.0
         val radius = eraserRadius()
         val eraserBox = Rect(content.x - radius, content.y - radius, radius * 2, radius * 2)
         val area = areaErase()
@@ -5611,8 +5631,13 @@ class InteractionController(
         // Eraser cursor (viewport space, after the transform is restored).
         val eraser = eraserCursor
         if (eraser != null) {
-            val radius = eraserRadius() * state.zoom
-            r.strokeEllipse(eraser, radius, radius, Pen(state.palette.textDim, 1.3, cosmetic = true))
+            val far = if (hoverDistancePreviewAt(eraserDeviceId)) eraserDistance else 0.0
+            val shrink = com.xnotes.stylus.StylusHover.sizeScale(far)
+            val fade = com.xnotes.stylus.StylusHover.alpha(far)
+            val base = state.palette.textDim
+            val color = base.withAlpha((base.a * fade).toInt().coerceIn(0, 255))
+            val radius = eraserRadius() * state.zoom * shrink
+            r.strokeEllipse(eraser, radius, radius, Pen(color, 1.3, cosmetic = true))
         } else {
             // The hovering pen's cursor: the pen's own width and ink for a stroke tool, a small
             // neutral ring for everything else. It follows the pen without touching the page.
