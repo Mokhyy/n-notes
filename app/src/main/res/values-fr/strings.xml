@@ -1386,6 +1386,7 @@
     <string name="canvas_menu_formula">Formule</string>
     <string name="canvas_menu_maths_keys">Touches de maths</string>
     <string name="pref_keep_screen_on">Garder l\'écran allumé tant que l\'application est ouverte</string>
+    <string name="pref_disable_back_button">Désactiver le bouton Retour</string>
     <string name="pref_updates">Mises à jour</string>
     <string name="pref_split_categories">Répartir les paramètres en catégories</string>
     <string name="pref_snap_rotation_90">Aimanter la rotation à 90 degrés</string>

@@ -1159,6 +1159,7 @@
     <string name="canvas_menu_formula">公式</string>
     <string name="canvas_menu_maths_keys">数学键盘</string>
     <string name="pref_keep_screen_on">应用打开时保持屏幕常亮</string>
+    <string name="pref_disable_back_button">禁用返回键</string>
     <string name="pref_updates">更新</string>
     <string name="pref_split_categories">将设置分为多个类别</string>
     <string name="pref_snap_rotation_90">旋转时吸附到 90 度</string>

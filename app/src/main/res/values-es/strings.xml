@@ -1407,6 +1407,7 @@
     <string name="canvas_menu_formula">Fórmula</string>
     <string name="canvas_menu_maths_keys">Teclas matemáticas</string>
     <string name="pref_keep_screen_on">Mantener la pantalla encendida mientras la app está abierta</string>
+    <string name="pref_disable_back_button">Desactivar el botón Atrás</string>
     <string name="pref_updates">Actualizaciones</string>
     <string name="pref_split_categories">Dividir los ajustes en categorías</string>
     <string name="pref_snap_rotation_90">Ajustar la rotación a 90 grados</string>
