@@ -1428,6 +1428,7 @@
     <string name="canvas_menu_formula">Vzorec</string>
     <string name="canvas_menu_maths_keys">Matematické klávesy</string>
     <string name="pref_keep_screen_on">Nechat obrazovku zapnutou, dokud je aplikace otevřená</string>
+    <string name="pref_disable_back_button">Vypnout tlačítko Zpět</string>
     <string name="pref_updates">Aktualizace</string>
     <string name="pref_split_categories">Rozdělit nastavení do kategorií</string>
     <string name="pref_snap_rotation_90">Přichytávat otočení po 90 stupních</string>

@@ -74,6 +74,8 @@ data class Preferences(
     val volumeKeysTurnPages: Boolean = false,
     /** Keep the screen from sleeping while the app is open. */
     val keepScreenOn: Boolean = false,
+    /** While a note or canvas is open, the Back button does nothing, so a stray press can't leave it. */
+    val disableBackButton: Boolean = false,
     /** Look for a newer release on GitHub each time the app starts. */
     val checkUpdatesOnStartup: Boolean = true,
     /** Preferences open on a list of categories; off shows every setting in one long list. */
@@ -204,6 +206,7 @@ data class Preferences(
         .put("stylus_button_2_tap", stylusButton2Tap)
         .put("volume_keys_turn_pages", volumeKeysTurnPages)
         .put("keep_screen_on", keepScreenOn)
+        .put("disable_back_button", disableBackButton)
         .put("check_updates_on_startup", checkUpdatesOnStartup)
         .put("prefs_categories", prefsCategories)
         .put("side_margin", sideMargin)
@@ -375,6 +378,7 @@ data class Preferences(
                 stylusButton2Tap = tapAction("stylus_button_2_tap"),
                 volumeKeysTurnPages = o.optBoolean("volume_keys_turn_pages", false),
                 keepScreenOn = o.optBoolean("keep_screen_on", false),
+                disableBackButton = o.optBoolean("disable_back_button", false),
                 checkUpdatesOnStartup = o.optBoolean("check_updates_on_startup", true),
                 prefsCategories = o.optBoolean("prefs_categories", true),
                 sideMargin = o.optDouble("side_margin", 16.0).coerceIn(0.0, 80.0),

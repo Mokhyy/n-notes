@@ -1418,6 +1418,7 @@
     <string name="canvas_menu_formula">Formula</string>
     <string name="canvas_menu_maths_keys">Maths keys</string>
     <string name="pref_keep_screen_on">Keep screen on while the app is open</string>
+    <string name="pref_disable_back_button">Disable back button</string>
     <string name="pref_updates">Updates</string>
     <string name="pref_split_categories">Split settings into categories</string>
     <string name="pref_snap_rotation_90">Snap rotation to 90 degrees</string>

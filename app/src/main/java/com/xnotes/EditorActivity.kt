@@ -1299,12 +1299,16 @@ private fun EditorScreen(
             // a note is open.
             val focused = editor.active
             if (focused.noteOpen) {
+                editor.prefsVersion // re-read the preferences below whenever they change
+                val backDisabled = focused.preferences.disableBackButton
+                // Composed first so the in-note handlers below still win; it only stops Back leaving the note.
+                BackHandler(enabled = backDisabled) { }
                 // While a text box is open, Back commits-or-dismisses it (and hides the keyboard).
                 BackHandler(enabled = focused.editingField != null) { focused.commitText() }
                 // A live flow caret session ends first (flushing its typing burst).
                 BackHandler(enabled = focused.flowEditingActive) { focused.flowText.endSession() }
                 // Otherwise Back closes that pane (guarded for unsaved edits); the other one stays.
-                BackHandler(enabled = focused.editingField == null && !focused.flowEditingActive) {
+                BackHandler(enabled = focused.editingField == null && !focused.flowEditingActive && !backDisabled) {
                     guarded(focused) { focused.goHome() }
                 }
                 // Reader mode is left before the note is.
