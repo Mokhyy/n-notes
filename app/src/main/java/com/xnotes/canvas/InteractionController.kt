@@ -4594,7 +4594,9 @@ class InteractionController(
             val page = state.document.pages.getOrNull(pageIndex) ?: continue
             val picked = sels.mapTo(HashSet()) { it.item }
             val old = page.items.toList()
-            val new = arrangeOrder(old, { it in picked }, how) { it.paintBounds() }
+            // The page's own image stays the bottom, so nothing is sent under the paper.
+            val paper = old.takeWhile { (it as? ImageItem)?.paper == true && it !in picked }
+            val new = paper + arrangeOrder(old.drop(paper.size), { it in picked }, how) { it.paintBounds() }
             if (sameOrder(old, new)) continue
             cmds.add(ReorderItems(page, old, new))
             page.items.clear()

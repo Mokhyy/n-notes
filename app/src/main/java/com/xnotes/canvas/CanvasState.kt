@@ -79,11 +79,14 @@ class RoomView(
     val cover: Rect,
     val live: Boolean = true,
 ) {
-    /** Anchored items drawn under the ink: dropped colour, which lies under the lines it fills. */
-    val fills: List<CanvasItem> get() = anchored.filter { it is com.xnotes.core.model.ShapeItem && it.isFill }
+    /** Anchored items drawn under the ink: dropped colour, which lies under the lines it fills, and the page's own image. */
+    val fills: List<CanvasItem> get() = anchored.filter { underInk(it) }
 
     /** Anchored items drawn over the ink. */
-    val over: List<CanvasItem> get() = anchored.filter { !(it is com.xnotes.core.model.ShapeItem && it.isFill) }
+    val over: List<CanvasItem> get() = anchored.filterNot { underInk(it) }
+
+    private fun underInk(it: CanvasItem) =
+        (it is com.xnotes.core.model.ShapeItem && it.isFill) || (it as? com.xnotes.core.model.ImageItem)?.paper == true
 }
 
 /** How a freshly opened document's initial view is chosen (see [CanvasState.establishInitialView]). */

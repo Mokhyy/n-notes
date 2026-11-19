@@ -5547,7 +5547,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         if (size.width <= 0 || size.height <= 0) return null
         val pageH = (pageW * size.height.toDouble() / size.width).coerceIn(pageW * 0.25, pageW * 4.0)
         val page = Page(pageW, pageH)
-        page.items.add(ImageItem(ImageData(imgFile, size.width, size.height), Rect(0.0, 0.0, pageW, pageH)))
+        page.items.add(ImageItem(ImageData(imgFile, size.width, size.height), Rect(0.0, 0.0, pageW, pageH)).also { it.paper = true })
         return page
     }
 
@@ -9085,7 +9085,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         }.getOrNull() ?: return
         val size = imageCodec.probeFile(file.path)
         if (size == null || size.width <= 0 || size.height <= 0) { file.delete(); return }
-        val img = ImageItem(ImageData(file, size.width, size.height), Rect(0.0, 0.0, page.width, page.height))
+        val img = ImageItem(ImageData(file, size.width, size.height), Rect(0.0, 0.0, page.width, page.height)).also { it.paper = true }
         page.items.add(0, img) // behind the copied ink/items
     }
 

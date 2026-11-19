@@ -189,6 +189,7 @@ object RoomCut {
                 it.locked = p.locked
                 it.link = p.link
                 it.sync = p.sync
+                it.paper = p.paper
                 it.translate(dx, dy)
             }
         }

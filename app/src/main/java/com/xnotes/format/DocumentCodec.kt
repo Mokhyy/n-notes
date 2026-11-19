@@ -475,6 +475,7 @@ class DocumentCodec(
         item.part?.let { j.name("part").beginArray().value(it.x).value(it.y).value(it.w).value(it.h).endArray() }
         item.sync?.let { writeSync(j, it) }
         if (item.locked) j.name("locked").value(true)
+        if (item.paper) j.name("paper").value(true)
         item.link?.let { j.name("link").value(it) }
         item.group?.let { j.name("group").value(it) }
         j.endObject()
@@ -941,6 +942,12 @@ class DocumentCodec(
                     if (spec is PendingImage) glue.named(item, spec.id)
                 }
             }
+            // Notes from before the paper flag: an image imported as the page sits under any colour, filling it exactly.
+            (page.items.firstOrNull { (it as? ShapeItem)?.isFill != true } as? ImageItem)?.let {
+                if (it.angle == 0.0 && it.orientation == 0 && it.part == null &&
+                    it.rect.x == 0.0 && it.rect.y == 0.0 && it.rect.w == page.width && it.rect.h == page.height
+                ) it.paper = true
+            }
         }
         // A recording whose item did not survive leaves its file behind; nothing else will delete it.
         val used = m.pageImages.flatMap { it.second }.filterIsInstance<PendingAudio>().map { it.asset }.toSet()
@@ -1007,6 +1014,7 @@ class DocumentCodec(
         val sync: SyncMark?,
         val group: Int? = null,
         val part: Rect? = null,
+        val paper: Boolean = false,
     ) : Pending(index, asset)
 
     private class PendingAudio(
@@ -1186,6 +1194,7 @@ class DocumentCodec(
     /** Union of every kind's fields, so an item parses in one pass whatever its key order. */
     private class ItemScratch {
         var locked = false
+        var paper = false
         var link: String? = null
         var group: Int? = null
         var kind: String? = null
@@ -1345,6 +1354,7 @@ class DocumentCodec(
                 "cols" -> s.tableCols = doubleListOrNull(p)
                 "rows" -> s.tableRows = doubleListOrNull(p)
                 "locked" -> s.locked = boolOr(p, false)
+                "paper" -> s.paper = boolOr(p, false)
                 "link" -> s.link = stringOr(p, "").ifEmpty { null }
                 "group" -> s.group = intOrNull(p)
                 "rid" -> s.rid = intOr(p, 0)
@@ -1371,7 +1381,7 @@ class DocumentCodec(
                     pending.add(
                         PendingImage(
                             items.size + pending.size, asset, s.rect, s.srcW, s.srcH,
-                            s.orientation, s.angle, Flip.fromId(s.flip), s.locked, s.id, s.link, sync, s.group, s.part,
+                            s.orientation, s.angle, Flip.fromId(s.flip), s.locked, s.id, s.link, sync, s.group, s.part, s.paper,
                         ),
                     )
                 }
@@ -1862,6 +1872,7 @@ class DocumentCodec(
                 it.link = spec.link
                 it.sync = spec.sync
                 it.group = spec.group
+                it.paper = spec.paper
             }
     }
 
