@@ -306,6 +306,7 @@ class InfiniteInteraction(
     private var lastMoveMs = 0L
     private var panVel = Pt.ZERO
     private var panFromPenButton = false // a side-button pan parks where the pen lifted: no glide
+    private var panFromPinch = false // the last finger of a pinch lifting is never a tap
     private var flinging = false
     private var flingVel = Pt.ZERO
     private var lastFlingMs = 0L
@@ -682,6 +683,7 @@ class InfiniteInteraction(
         if (e.pointerCount == 2) {
             val remaining = if (e.actionIndex == 0) 1 else 0
             beginPan(e.getX(remaining).toDouble(), e.getY(remaining).toDouble())
+            panFromPinch = true
         } else {
             mode = CanvasPointerMode.IDLE
         }
@@ -1958,6 +1960,7 @@ class InfiniteInteraction(
         mode = CanvasPointerMode.PAN
         panDownAt = Pt(vx, vy)
         panFromPenButton = fromPenButton
+        panFromPinch = false
         // Moving the view is paced by the display, so the render thread stays up for it.
         setInteractive(true, true)
         startTrackingVelocity(vx, vy)
@@ -1965,7 +1968,7 @@ class InfiniteInteraction(
 
     /** True when the pan never really moved, so it reads as a tap rather than a scroll. */
     private fun panWasTap(vx: Double, vy: Double): Boolean =
-        Pt(vx, vy).distanceTo(panDownAt) <= TAP_SLOP_PX
+        !panFromPinch && Pt(vx, vy).distanceTo(panDownAt) <= TAP_SLOP_PX
 
     private fun extendPan(vx: Double, vy: Double) {
         trackVelocity(vx, vy)
