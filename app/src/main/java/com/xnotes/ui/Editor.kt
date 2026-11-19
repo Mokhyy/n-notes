@@ -9100,9 +9100,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     class MadeFile(val uri: String, val name: String)
 
     /**
-     * Copy the pages at [indices] into a new note named [name], next to this one, or in the top
-     * folder when this note lies outside it; with [move] they then leave this note, as one undo
-     * step. This note stays open, and a message names the new one with a button to open it.
+     * Copy the pages at [indices] and their typed text into a new note named [name]; with [move] they
+     * then leave this note as one undo step. A message names the new note with a button to open it.
      */
     fun extractPages(indices: List<Int>, name: String, move: Boolean) {
         val root = browseRoot ?: run { message = appContext.getString(R.string.err_extract_pages); return }
@@ -9115,6 +9114,14 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         }
         val leaving = picked.map { doc.pages[it] }
         val cargo = com.xnotes.core.model.PageCargo.pack(doc, picked, textMeasurer)
+        val ranges = flowRangesOn(picked)
+        val stamp = flowStamp()
+        val pagesBefore = doc.pages.toList()
+        val text = ranges.map { (page, range) ->
+            picked.indexOf(page) to com.xnotes.core.text.FlowMerge.slice(doc.flow, range).also { slice ->
+                for (para in slice.paragraphs) para.breakToPage = para.breakToPage?.let { picked.indexOf(it).takeIf { i -> i >= 0 } }
+            }
+        }.filter { !it.second.isEmpty }
         // A name of its own for the PDF, which a note switched away from meanwhile would delete.
         val sourcePdf = doc.pdfFile?.takeIf { cargo.pdfIndices.isNotEmpty() }?.let { keepPdf(it) }
         val parentId = currentUri?.takeIf { isUnderTree(it, root) }?.let { parentDocIdOf(it) } ?: browseRootDocId(root)
@@ -9124,7 +9131,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             importing = true
             val made = try {
                 withContext(Dispatchers.IO) {
-                    writeCargoNote(root, parentId, name, doc, cargo, sourcePdf)?.also { made ->
+                    writeCargoNote(root, parentId, name, doc, cargo, sourcePdf, text)?.also { made ->
                         if (importCancelled.get()) {
                             runCatching { android.provider.DocumentsContract.deleteDocument(appContext.contentResolver, android.net.Uri.parse(made.uri)) }
                         }
@@ -9141,7 +9148,15 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 message = appContext.getString(R.string.err_extract_pages)
                 return@launch
             }
-            if (move && state.document === doc) deletePages(leaving.map { p -> doc.pages.indexOfFirst { it === p } }.filter { it >= 0 })
+            if (move && state.document === doc) {
+                val at = leaving.map { p -> doc.pages.indexOfFirst { it === p } }.filter { it >= 0 }
+                flowText.endSession()
+                // The text leaves too only when it is still what was copied; otherwise it stays here, never lost.
+                val same = flowStamp() == stamp && doc.pages == pagesBefore && at.size < doc.pages.size
+                val cut = if (!same || ranges.any { touchesTable(doc.flow, it.second) }) emptyList()
+                else ranges.asReversed().mapNotNull { cutParagraphs(doc.flow, it.second) }
+                deletePages(at, cut)
+            }
             val folder = withContext(Dispatchers.IO) {
                 queryDisplayName(android.provider.DocumentsContract.buildDocumentUriUsingTree(android.net.Uri.parse(root), parentId))
             } ?: ""
@@ -9153,12 +9168,13 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     }
 
     /**
-     * Write [cargo], pages from [from], as a new note named [rawName] under [parentId]: their pages,
-     * PDF pages and bookmarks, no typed text, and [from]'s note-wide look for pages added later. IO.
+     * Write [cargo], pages from [from], as a new note named [rawName] under [parentId], with [text]
+     * starting on its page of the cargo and [from]'s note-wide look. IO.
      */
     private fun writeCargoNote(
         root: String, parentId: String, rawName: String, from: Document,
         cargo: com.xnotes.core.model.PageCargo, sourcePdf: java.io.File?,
+        text: List<Pair<Int, com.xnotes.core.text.TextFlow>>,
     ): MadeFile? {
         val note = Document(dpi = cargo.dpi, created = System.currentTimeMillis())
         note.style = from.style
@@ -9168,7 +9184,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             from.templates[key]?.let { note.templates = note.templates + (key to it) }
             from.templatePackages[key]?.let { note.templatePackages = note.templatePackages + (key to it) }
         }
-        (settings.newNoteFlow ?: factoryFlow).applyTo(note.flow)
+        (if (text.isEmpty()) settings.newNoteFlow ?: factoryFlow else com.xnotes.core.text.FlowDefaults.of(from.flow)).applyTo(note.flow)
+        for ((page, flow) in text) com.xnotes.core.text.FlowMerge.append(note.flow, flow, page)
         val pdf = cargoPdf(cargo, sourcePdf)
         if (cargo.pdfIndices.isNotEmpty() && pdf == null) return null
         note.pdfFile = pdf
@@ -9273,6 +9290,59 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         return try { read.allPageSizePoints() } finally { read.close() }
     }
 
+    /** The typed text laid out on the [picked] pages (sorted), one range per run of pages, with the page it starts on. */
+    private fun flowRangesOn(picked: List<Int>): List<Pair<Int, FlowRange>> {
+        republishFlowIfStale()
+        val frame = publishedFlow?.frame ?: return emptyList()
+        val runs = ArrayList<MutableList<Int>>()
+        for (p in picked) if (runs.lastOrNull()?.last() == p - 1) runs.last().add(p) else runs.add(mutableListOf(p))
+        return runs.mapNotNull { run ->
+            val lines = run.flatMap { p -> frame.pages.getOrNull(p)?.lines.orEmpty().map { p to it } }
+            val (page, first) = lines.minByOrNull { FlowPos(it.second.paraIndex, it.second.startChar) } ?: return@mapNotNull null
+            // Text that overflows the last page belongs to it.
+            val end = if (run.last() == state.document.pages.lastIndex) state.document.flow.endPos()
+            else lines.maxOf { FlowPos(it.second.paraIndex, it.second.endChar) }
+            page to wholeTables(state.document.flow, FlowRange(FlowPos(first.paraIndex, first.startChar), end))
+        }
+    }
+
+    /** [range] widened so a table it ends in comes whole, as a table cut by rows loses them. */
+    private fun wholeTables(flow: com.xnotes.core.text.TextFlow, range: FlowRange): FlowRange {
+        val paras = flow.paragraphs
+        var start = range.start
+        paras[start.para].table?.let { t ->
+            var s = start.para
+            while (s > 0 && paras[s - 1].table === t) s--
+            start = FlowPos(s, 0)
+        }
+        var end = range.end
+        paras[end.para].table?.let { t ->
+            var e = end.para
+            while (e + 1 < paras.size && paras[e + 1].table === t) e++
+            end = FlowPos(e, paras[e].length)
+        }
+        return FlowRange(start, end)
+    }
+
+    /** Whether [range] or a paragraph next to it is part of a table, which a text cut would mangle. */
+    private fun touchesTable(flow: com.xnotes.core.text.TextFlow, range: FlowRange): Boolean {
+        val from = (range.start.para - 1).coerceAtLeast(0)
+        val to = (range.end.para + 1).coerceAtMost(flow.paragraphs.lastIndex)
+        return (from..to).any { flow.paragraphs[it].table != null }
+    }
+
+    /** Delete [range] from [flow], taking whole paragraphs with it so no empty one is left behind. */
+    private fun cutParagraphs(flow: com.xnotes.core.text.TextFlow, range: FlowRange): Command? {
+        val r = range.normalized()
+        val whole = r.start.offset == 0 && r.end.offset == flow.paragraphs[r.end.para].length
+        val ed = FlowEditor(flow)
+        return when {
+            whole && r.end.para + 1 < flow.paragraphs.size -> ed.replaceRange(FlowRange(r.start, FlowPos(r.end.para + 1, 0)), "", adoptEndProps = true).first
+            whole && r.start.para > 0 -> ed.deleteRange(FlowRange(FlowPos(r.start.para - 1, flow.paragraphs[r.start.para - 1].length), r.end)).first
+            else -> ed.deleteRange(r).first
+        }
+    }
+
     /** The name Extract suggests for the pages at [indices]: the note's, then which pages or how many. */
     fun extractName(indices: List<Int>): String {
         val picked = indices.distinct().sorted()
@@ -9375,8 +9445,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         view.requestRender()
     }
 
-    /** Delete [indices] as one undoable edit, refusing to empty the note. */
-    fun deletePages(indices: List<Int>) {
+    /** Delete [indices] as one undoable edit with [along], edits already made, refusing to empty the note. */
+    fun deletePages(indices: List<Int>, along: List<Command> = emptyList()) {
         val pages = state.document.pages
         val targets = indices.filter { it in pages.indices }.distinct().sortedDescending()
         if (targets.isEmpty()) return
@@ -9384,7 +9454,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             message = appContext.getString(R.string.err_keep_one_page)
             return
         }
-        val cmds = ArrayList<Command>()
+        val cmds = ArrayList<Command>(along)
         for (i in targets) { // descending, so each removeAt index stays valid and DeletePage stores the original index
             val page = pages[i]
             cmds.add(DeletePage(state.document, page, i).also { it.redo() })
