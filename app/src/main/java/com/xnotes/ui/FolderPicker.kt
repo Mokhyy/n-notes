@@ -154,7 +154,7 @@ internal fun DocumentLinkDialog(editor: Editor, onDismiss: () -> Unit, onPick: (
                     }
                 }
                 Spacer(Modifier.height(8.dp))
-                val list = entries?.filter { it.isDir || com.xnotes.core.util.ReaderKind.isListed(it.name) }?.sortedWith(compareBy({ !it.isDir }, { it.name.lowercase() }))
+                val list = entries?.filter { it.isDir || com.xnotes.core.util.ReaderKind.isListed(it.name) }?.sortedWith(compareBy<BrowseEntry> { !it.isDir }.thenBy(naturalOrder) { it.name })
                 when {
                     list == null -> EmptyNote(stringResource(R.string.loading))
                     list.isEmpty() -> EmptyNote(stringResource(R.string.no_files_here))

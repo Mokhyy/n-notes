@@ -450,7 +450,7 @@ private fun FolderPicker(service: CloudService, onDismiss: () -> Unit, onSelecte
         loading = true
         error = null
         SyncManager.listFolders(context, service, current.first).fold(
-            { folders = it.sortedBy { f -> f.name.lowercase() }; loading = false },
+            { folders = it.sortedWith(compareBy(naturalOrder) { f -> f.name }); loading = false },
             { error = it.message; loading = false },
         )
     }
