@@ -44,7 +44,10 @@ import com.xnotes.core.tools.InkPalette
 import com.xnotes.core.tools.ShapeConfig
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolConfig
+import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.exp
+import kotlin.math.sin
 
 /** What the current gesture is doing. */
 enum class CanvasPointerMode { IDLE, PAN, PINCH, DRAW, ERASE, SHAPE, BAND, LASSO, MOVE, RESIZE, ROTATE, VERTEX, POLYGON, CONNECT, JOINT, SLIDE, TAPE }
@@ -128,8 +131,8 @@ class InfiniteInteraction(
     private val onPeelTape: (TapeItem) -> Unit = {},
     /** The view was panned or pinched by hand, as distinct from moved by the app. */
     private val onUserMovedView: () -> Unit = {},
-    /** A lone line's end being dragged: the pen in viewport pixels and the line's angle in degrees, or null once let go. */
-    private val onLineAngle: (Pt?, Int) -> Unit = { _, _ -> },
+    /** A line end or a rotation being dragged, in viewport pixels, or null once let go. */
+    private val onAngleReadout: (AngleReadout?) -> Unit = {},
 ) {
 
     private val choreographer = Choreographer.getInstance()
@@ -763,7 +766,7 @@ class InfiniteInteraction(
         if (mode == CanvasPointerMode.JOINT) abandonJoint()
         if (mode == CanvasPointerMode.SLIDE) abandonSlide()
         if (mode == CanvasPointerMode.POLYGON) showPolygonDraft(null)
-        if (mode == CanvasPointerMode.RESIZE) onLineAngle(null, 0)
+        if (mode == CanvasPointerMode.RESIZE || mode == CanvasPointerMode.ROTATE) onAngleReadout(null)
         if ((mode == CanvasPointerMode.ROTATE || mode == CanvasPointerMode.RESIZE) && liftedTransform) {
             selection()?.previewBack()
             if (bakedInLift.isNotEmpty()) selection()?.applyLiveTo(bakedInLift, Affine.IDENTITY)
@@ -1283,7 +1286,10 @@ class InfiniteInteraction(
         val line = (sel.items.singleOrNull() as? ShapeItem)?.takeIf { it.shape.isEndpointShape }
         if (line != null && (handle == HandleId.START || handle == HandleId.END)) {
             val (held, pen) = if (handle == HandleId.START) line.end to line.start else line.start to line.end
-            onLineAngle(viewport.contentToViewport(pen), ResizeMath.angleDeg(held, pen))
+            val a = viewport.contentToViewport(held)
+            val b = viewport.contentToViewport(pen)
+            val snapped = ResizeMath.onSnapStep(atan2(pen.y - held.y, pen.x - held.x))
+            onAngleReadout(AngleReadout(b, ResizeMath.angleDeg(a, b), if (snapped) snapGuide(a, b) else null))
         }
         onSelectionChanged()
         requestRender()
@@ -1302,12 +1308,20 @@ class InfiniteInteraction(
         } else {
             sel.rotateLive(at)
         }
+        sel.box?.let { box ->
+            val a = viewport.contentToViewport(box.localToWorld(Pt(-box.halfW, 0.0)))
+            val b = viewport.contentToViewport(box.localToWorld(Pt(box.halfW, 0.0)))
+            val deg = ResizeMath.angleDeg(Pt.ZERO, Pt(cos(box.angle), sin(box.angle)))
+            onAngleReadout(AngleReadout(Pt(vx, vy), deg, if (ResizeMath.onSnapStep(box.angle)) snapGuide(a, b) else null))
+        }
         onSelectionChanged()
         requestRender()
     }
 
+    private fun snapGuide(a: Pt, b: Pt) = ResizeMath.guideThrough(a, b, InteractionController.SNAP_GUIDE_OVERHANG_DP * devicePxPerDp())
+
     private fun endTransform() {
-        onLineAngle(null, 0)
+        onAngleReadout(null)
         val sel = selection() ?: return
         val handle = grabHandle
         val wasResize = handle != null
@@ -2001,7 +2015,7 @@ class InfiniteInteraction(
     // --- pinch ---
 
     private fun beginPinch(e: MotionEvent) {
-        if (mode == CanvasPointerMode.RESIZE) onLineAngle(null, 0)
+        if (mode == CanvasPointerMode.RESIZE || mode == CanvasPointerMode.ROTATE) onAngleReadout(null)
         mode = CanvasPointerMode.PINCH
         setInteractive(true, true)
         val a = Pt(e.getX(0).toDouble(), e.getY(0).toDouble())

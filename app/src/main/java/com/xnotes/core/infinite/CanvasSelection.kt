@@ -1,5 +1,6 @@
 package com.xnotes.core.infinite
 
+import com.xnotes.canvas.AngleSnap
 import com.xnotes.canvas.HandleId
 import com.xnotes.canvas.ResizeHandle
 import com.xnotes.canvas.ResizeMath
@@ -50,6 +51,9 @@ class CanvasSelection(private val doc: InfiniteDocument) {
 
     /** When set, a rotate drag snaps the box angle to the nearest 90 degrees from further away. */
     var snapRotation90: Boolean = false
+
+    /** Snapping for the rotate or line-end drag in progress, fresh for each [beginTransform]. */
+    private val angleSnap = AngleSnap()
 
     /** Gesture-start geometry, captured by [beginTransform] and restored every frame of a drag. */
     private var startSnapshots: List<GeometrySnapshot> = emptyList()
@@ -174,6 +178,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
      * there, so a press a few pixels off the grip's centre no longer snaps the selection.
      */
     fun beginTransform(grabAt: Pt? = null, rigid: Boolean = false, pin: Boolean = true) {
+        angleSnap.reset()
         startSnapshots = items.map { it.snapshotGeometry() }
         // A move, turn or resize moves everything by one map; a point edit reshapes what it edits.
         follow = followOf(items, rigid = rigid, pin = pin)
@@ -308,7 +313,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
                 tape.shape = tape.shape.copy(points = ends)
             }
             line != null -> {
-                val (s, e) = ResizeMath.resizeOpenShape(line.start, line.end, handle, pointer)
+                val (s, e) = ResizeMath.snapOpenEnd(line.start, line.end, handle, pointer, angleSnap)
                 line.setGeometry(ShapeHandle(s, e))
             }
             else -> return
@@ -349,8 +354,8 @@ class CanvasSelection(private val doc: InfiniteDocument) {
         refreshBox()
     }
 
-    /** Small sticky zones around each 45-degree step, wider around quarter turns with [snapRotation90]; not a hard quantiser. */
-    private fun snapSwept(from: Obb, swept: Double): Double = ResizeMath.snapTurn(from.angle + swept, snapRotation90) - from.angle
+    /** The swept turn snapped by [angleSnap], quarter turns catching from further away with [snapRotation90]. */
+    private fun snapSwept(from: Obb, swept: Double): Double = angleSnap.snap(from.angle + swept, snapRotation90) - from.angle
 
     /** Put the box back where the drag started, for a gesture that was cancelled rather than ended. */
     fun previewBack() {

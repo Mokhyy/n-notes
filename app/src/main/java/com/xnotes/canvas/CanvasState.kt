@@ -154,6 +154,9 @@ class CanvasState(
     /** Device pixels per dp (display density), set by the view. Lets the speed pen
      *  measure gesture speed in zoom- and device-independent dp (see [InteractionController]). */
     var devicePxPerDp: Double = 1.0
+
+    /** [com.xnotes.settings.CornerStyle.scale] of the corner style preference, for chrome drawn on the canvas. */
+    var cornerScale: Double = 1.0
     var pageColorOverride: Rgba? = null
     var didInitialFit: Boolean = false
 

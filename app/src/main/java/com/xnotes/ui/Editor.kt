@@ -3188,6 +3188,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         cornerStyle = p.cornerStyle
         toolbarLook = p.toolbarLook
         state.palette = palette
+        state.cornerScale = p.cornerStyle.scale.toDouble()
         com.xnotes.core.model.AudioLook.current = palette.audioLook()
         infiniteOrNull?.applyPalette(palette)
         infiniteOrNull?.applyInputPrefs(
@@ -3306,6 +3307,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun applyHomePreferences(p: Preferences) {
         settings = settings.copy(prefs = p)
         cornerStyle = p.cornerStyle
+        state.cornerScale = p.cornerStyle.scale.toDouble()
         toolbarLook = p.toolbarLook
         saveSettingsSoon()
         prefsVersion++

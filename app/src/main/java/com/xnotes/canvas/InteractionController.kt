@@ -557,6 +557,10 @@ class InteractionController(
     private var txCenter = Pt.ZERO
     private var txGrabAngle = 0.0
     private var txStartAngle = 0.0
+    /** Where the pen is during a rotate drag, for the angle readout beside it. */
+    private var txPointer: Pt? = null
+    /** Snapping for the rotate or line-end drag in progress. */
+    private val angleSnap = AngleSnap()
 
     // LONG-PRESS GRAB
     private val handler by lazy { Handler(Looper.getMainLooper()) } // lazy: see [choreographer]
@@ -2432,6 +2436,7 @@ class InteractionController(
     private fun beginResize(sel: Selected, handle: HandleId) {
         resizeItem = sel.item
         resizeHandle = handle
+        angleSnap.reset()
         resizePageIndex = sel.pageIndex
         resizeOldGeom = (sel.item as Resizable).geometry()
         mode = PointerMode.RESIZE
@@ -2459,7 +2464,7 @@ class InteractionController(
             }
             is ShapeItem -> {
                 val (s, en) = when {
-                    item.shape.isEndpointShape -> ResizeMath.resizeOpenShape(item.start, item.end, handle, local)
+                    item.shape.isEndpointShape -> ResizeMath.snapOpenEnd(item.start, item.end, handle, local, angleSnap)
                     item.shape.keepsAspect -> ResizeMath.resizeSquareShape(item.start, item.end, handle, local)
                     else -> ResizeMath.resizeClosedShape(item.start, item.end, handle, local)
                 }
@@ -2903,6 +2908,8 @@ class InteractionController(
         txStartObb = selObb
         txMargin = selectionChromeMargin()
         txHandle = handle
+        txPointer = null
+        angleSnap.reset()
         if (handle == null) {
             val c = selObb?.center ?: content
             txCenter = c
@@ -2929,8 +2936,9 @@ class InteractionController(
             selObb = res.obb
             world = res.transform
         } else {
+            txPointer = content
             val raw = atan2(content.y - txCenter.y, content.x - txCenter.x) - txGrabAngle
-            val theta = ResizeMath.snapTurn(txStartAngle + raw, snapRotation90) - txStartAngle
+            val theta = angleSnap.snap(txStartAngle + raw, snapRotation90) - txStartAngle
             selObb = obb0.copy(angle = txStartAngle + theta)
             world = Affine.rotateAbout(txCenter, theta)
         }
@@ -5598,14 +5606,30 @@ class InteractionController(
         // Ruler (viewport space; floats above all content and the live stroke).
         if (ruler.visible) drawRuler(r)
 
+        val density = state.devicePxPerDp
         val line = resizeItem as? ShapeItem
         if (mode == PointerMode.RESIZE && line != null && line.shape.isEndpointShape) {
             val start = state.contentToViewport(state.fromPageSpace(resizePageIndex, line.start))
             val end = state.contentToViewport(state.fromPageSpace(resizePageIndex, line.end))
             val (held, pen) = if (resizeHandle == HandleId.START) end to start else start to end
-            val density = state.devicePxPerDp
+            if (ResizeMath.onSnapStep(atan2(line.end.y - line.start.y, line.end.x - line.start.x))) drawSnapGuide(r, held, pen)
             drawReadout(r, "${ResizeMath.angleDeg(held, pen)}°", pen + Pt(30.0, -30.0) * density, density, state.palette)
         }
+        val obb = selObb
+        val pointer = txPointer
+        if (mode == PointerMode.TRANSFORM && txHandle == null && obb != null && pointer != null) {
+            val a = state.contentToViewport(obb.localToWorld(Pt(-obb.halfW, 0.0)))
+            val b = state.contentToViewport(obb.localToWorld(Pt(obb.halfW, 0.0)))
+            if (ResizeMath.onSnapStep(obb.angle)) drawSnapGuide(r, a, b)
+            val deg = ResizeMath.angleDeg(Pt.ZERO, Pt(cos(obb.angle), sin(obb.angle)))
+            drawReadout(r, "$deg°", state.contentToViewport(pointer) + Pt(30.0, -30.0) * density, density, state.palette)
+        }
+    }
+
+    /** A dashed run through viewport points [a] and [b], carried a little past both. */
+    private fun drawSnapGuide(r: Renderer, a: Pt, b: Pt) {
+        val (from, to) = ResizeMath.guideThrough(a, b, SNAP_GUIDE_OVERHANG_DP * state.devicePxPerDp) ?: return
+        r.strokePolyline(listOf(from, to), chromePen(1.5))
     }
 
     /** The page the selection sits on, or null (the current page) when nothing is selected. */
@@ -5870,8 +5894,16 @@ class InteractionController(
         val h = textH + padY * 2
         val left = (at.x - w / 2.0).coerceIn(2.0, (state.viewportW - w - 2.0).coerceAtLeast(2.0))
         val top = (at.y - h / 2.0).coerceIn(2.0, (state.viewportH - h - 2.0).coerceAtLeast(2.0))
-        r.fillRect(Rect(left, top, w, h), pal.menuBg.scaleAlpha(0.92))
-        r.strokeRect(Rect(left, top, w, h), Pen(pal.textDim, 1.2, cosmetic = true))
+        // Same radius as the chrome's small shape role, scaled by the corner style preference.
+        val rad = (8.0 * state.cornerScale * density).coerceAtMost(h / 2.0)
+        val right = left + w
+        val bottom = top + h
+        val outline = arcPolyline(Pt(left + rad, top + rad), rad, 180.0, 270.0, 6) +
+            arcPolyline(Pt(right - rad, top + rad), rad, 270.0, 360.0, 6) +
+            arcPolyline(Pt(right - rad, bottom - rad), rad, 0.0, 90.0, 6) +
+            arcPolyline(Pt(left + rad, bottom - rad), rad, 90.0, 180.0, 6)
+        r.fillPolygon(outline, pal.menuBg.scaleAlpha(0.92))
+        r.strokePolyline(outline + outline.first(), Pen(pal.textDim, 1.2, cosmetic = true))
         r.drawText(text, Rect(left + padX, top + padY, textW + 2.0, textH), font, pal.text)
     }
 
@@ -5998,18 +6030,17 @@ class InteractionController(
          *  so a shape reads as thick as a same-size pen instead of as a flat full-width line. */
         const val SHAPE_PEN_PARITY = 0.675
 
-        /** A line/arrow drawn with the shape tool snaps flat when within this angle (deg) of an axis.
-         *  Half the recognizer's hold-to-snap angle: a live drag is steadier, so it needs less help. */
-        const val SHAPE_AXIS_SNAP_DEG = 4.0
-
         /** With the Perfect switch on, a line/arrow keeps its angle to whole steps of this (deg). */
         const val SHAPE_PERFECT_STEP_DEG = 15.0
 
         /** Half-width (rad) of the sticky zone around each 90-degree step for snap-rotation. */
-        val ROTATE_SNAP_STICK_RAD = Math.toRadians(6.0)
+        val ROTATE_SNAP_STICK_RAD = Math.toRadians(12.0)
 
-        /** Half-width (rad) of the sticky zone around each 45-degree step every rotation has. */
-        val ROTATE_SNAP_45_RAD = Math.toRadians(3.0)
+        /** Half-width (rad) of the sticky zone around each 45-degree step, for every rotation and line end. */
+        val ANGLE_SNAP_RAD = Math.toRadians(8.0)
+
+        /** How far (dp) the dashed snap guide runs past the selection. */
+        const val SNAP_GUIDE_OVERHANG_DP = 24.0
 
         // Inertial fling tuning (viewport px/s).
         const val VEL_SMOOTH = 0.4 // EMA weight on the previous velocity estimate
