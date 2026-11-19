@@ -940,6 +940,7 @@
     <string name="equation">Équation</string>
     <string name="insert_date">Date</string>
     <string name="insert_time">Heure</string>
+    <string name="horizontal_line">Ligne horizontale</string>
     <string name="page_break">Saut de page</string>
     <string name="quote">Citation</string>
     <string name="callout_note">Note</string>

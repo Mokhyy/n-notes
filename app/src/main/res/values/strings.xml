@@ -971,6 +971,7 @@
     <string name="equation">Equation</string>
     <string name="insert_date">Date</string>
     <string name="insert_time">Time</string>
+    <string name="horizontal_line">Horizontal line</string>
     <string name="page_break">Page break</string>
     <string name="quote">Quote</string>
     <string name="callout_note">Note</string>

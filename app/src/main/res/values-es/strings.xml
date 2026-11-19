@@ -954,6 +954,7 @@
     <string name="equation">Ecuación</string>
     <string name="insert_date">Fecha</string>
     <string name="insert_time">Hora</string>
+    <string name="horizontal_line">Línea horizontal</string>
     <string name="page_break">Salto de página</string>
     <string name="quote">Cita</string>
     <string name="callout_note">Nota</string>

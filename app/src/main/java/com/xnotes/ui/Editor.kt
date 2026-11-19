@@ -9986,6 +9986,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             SlashCommands.Kind.CALLOUT -> flowStartQuote(com.xnotes.core.text.CalloutKind.entries[entry.level])
             SlashCommands.Kind.CODE -> flowSetCodeLanguage(slashCodeLanguage(arg))
             SlashCommands.Kind.TABLE -> slashInsertTable(arg)
+            SlashCommands.Kind.RULE -> flowInsertRule()
             SlashCommands.Kind.PAGE_BREAK -> flowInsertPageBreak()
             SlashCommands.Kind.SIZE -> flowSetChar { it.copy(sizePt = size.coerceIn(6.0, 96.0)) }
             SlashCommands.Kind.COLOR -> flowSetCharColor(color)
@@ -10008,6 +10009,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         when (entry.kind) {
             SlashCommands.Kind.QUOTE -> flowStartQuote(null)
             SlashCommands.Kind.CALLOUT -> flowStartQuote(com.xnotes.core.text.CalloutKind.entries[entry.level])
+            SlashCommands.Kind.RULE -> flowInsertRule()
             SlashCommands.Kind.PAGE_BREAK -> flowInsertPageBreak()
             SlashCommands.Kind.DATE, SlashCommands.Kind.TIME -> {
                 val stamp = if (entry.kind == SlashCommands.Kind.DATE) {
@@ -10064,6 +10066,27 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val (split, caret) = ed.replaceRange(sel, "\n")
         val mark = ed.setParaStyle(FlowRange.caret(caret)) { it.breakBefore = true }
         flowText.commitEdit(ed.combined(listOfNotNull(split, mark)), caret)
+    }
+
+    /** A horizontal rule on its own line at the caret, which then sits on the line after it. */
+    fun flowInsertRule() {
+        if (!flowText.active) return
+        val flow = state.document.flow
+        val sel = flowText.selection.normalized()
+        if (flow.paragraphs.getOrNull(sel.start.para)?.table != null) return
+        flowText.flushBurst()
+        flowText.mirrorStale = true
+        val ed = FlowEditor(flow)
+        val (cut, at) = ed.replaceRange(sel, if (sel.start.offset == 0) "" else "\n")
+        val (split, caret) = ed.insertText(at, "\n")
+        val mark = ed.setParaStyle(FlowRange.caret(at)) {
+            it.rule = true
+            it.list = ListKind.NONE
+            it.checked = false
+            it.headingLevel = 0
+            it.codeLang = null
+        }
+        flowText.commitEdit(ed.combined(listOfNotNull(cut, split, mark)), caret)
     }
 
     /** "/table 3x4" sizes the grid; anything unparsed falls back to the saved default. */

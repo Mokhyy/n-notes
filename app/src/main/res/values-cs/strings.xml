@@ -968,6 +968,7 @@
     <string name="equation">Rovnice</string>
     <string name="insert_date">Datum</string>
     <string name="insert_time">Čas</string>
+    <string name="horizontal_line">Vodorovná čára</string>
     <string name="page_break">Konec stránky</string>
     <string name="quote">Citace</string>
     <string name="callout_note">Poznámka</string>
