@@ -116,9 +116,12 @@ object ResizeMath {
     /** On-screen size (device px) below which a selection gets a move grip, as its handles crowd out its body. */
     const val MOVE_GRIP_BELOW_PX = 120.0
 
+    /** True when [obb] seen at [zoom] is below [MOVE_GRIP_BELOW_PX], so it gets a move grip and no box handles. */
+    fun obbCrowded(obb: Obb, zoom: Double): Boolean = kotlin.math.max(obb.halfW, obb.halfH) * 2.0 * zoom < MOVE_GRIP_BELOW_PX
+
     /** The move-grip centre, [arm] content px past the bottom edge of [obb] seen at [zoom], or null when the box is big enough to grab. */
     fun obbMoveGrip(obb: Obb, zoom: Double, arm: Double): Pt? =
-        if (kotlin.math.max(obb.halfW, obb.halfH) * 2.0 * zoom >= MOVE_GRIP_BELOW_PX) null
+        if (!obbCrowded(obb, zoom)) null
         else obb.localToWorld(Pt(0.0, obb.halfH + arm))
 
     /** The pan tool's four-way arrows as polylines centred on [c], reaching [r] content px out. */

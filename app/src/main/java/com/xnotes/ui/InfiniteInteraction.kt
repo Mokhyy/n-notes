@@ -949,7 +949,7 @@ class InfiniteInteraction(
         val grip = sel.rotateGrip(OverlayTessellator.GRIP_ARM_PX / viewport.zoom, margin)
         if (grip != null && at.distanceTo(grip) <= tolerance) return true
         sel.moveGrip(viewport.zoom, OverlayTessellator.GRIP_ARM_PX / viewport.zoom, margin)?.let { if (at.distanceTo(it) <= tolerance) return true }
-        if (sel.hitHandle(at, tolerance, margin) != null) return true
+        if (sel.hitHandle(at, tolerance, margin, viewport.zoom) != null) return true
         // A dot can sit outside the box: a knob out on a callout's tail, a thin line's middle.
         val reach = OverlayTessellator.DOT_TOUCH_PX / viewport.zoom
         if ((sel.items.singleOrNull() as? ShapeItem)?.dotNear(at, reach) == true) return true
@@ -969,7 +969,8 @@ class InfiniteInteraction(
         val margin = frameMargin()
         val grip = sel.rotateGrip(OverlayTessellator.GRIP_ARM_PX / viewport.zoom, margin)
         if (grip != null && at.distanceTo(grip) <= tolerance) return true
-        if (sel.hitHandle(at, tolerance, margin) != null) return true
+        sel.moveGrip(viewport.zoom, OverlayTessellator.GRIP_ARM_PX / viewport.zoom, margin)?.let { if (at.distanceTo(it) <= tolerance) return true }
+        if (sel.hitHandle(at, tolerance, margin, viewport.zoom) != null) return true
         return shape.dotNear(at, OverlayTessellator.DOT_TOUCH_PX / viewport.zoom) ||
             shape.touches(at, InteractionController.OUTLINE_GRAB / viewport.zoom)
     }
@@ -1033,7 +1034,7 @@ class InfiniteInteraction(
             beginMoveAt(sel, at)
             return true
         }
-        val handle = sel.hitHandle(at, tolerance, margin)
+        val handle = sel.hitHandle(at, tolerance, margin, viewport.zoom)
         if (handle != null) {
             grabHandle = handle
             transformMargin = sel.chromeMargin(margin)

@@ -1929,7 +1929,9 @@ class InteractionController(
         if (singleSelectedTable() != null) return emptyList()
         val endpoint = singleEndpointShape()
         if (endpoint != null) return endpointHandles(endpoint)
-        val all = selectionChromeBox()?.let { ResizeMath.obbHandles(it) } ?: return emptyList()
+        val box = selectionChromeBox() ?: return emptyList()
+        if (ResizeMath.obbCrowded(box, state.zoom)) return emptyList()
+        val all = ResizeMath.obbHandles(box)
         // A pill scales by its corners and lengthens by its sides; nothing stretches it upright.
         if (selection.all { it.item is AudioItem }) return all.filter { it.id != HandleId.T && it.id != HandleId.B }
         val square = (selection.singleOrNull()?.item as? ShapeItem)?.shape?.keepsAspect == true
@@ -2032,6 +2034,7 @@ class InteractionController(
         if (state.pageRects.getOrNull(lone.pageIndex) == null) return false
         val tol = HANDLE_HIT / state.zoom
         selectionRotatePoint()?.let { if (it.distanceTo(content) <= tol) return true }
+        selectionMoveGrip()?.let { if (it.distanceTo(content) <= tol) return true }
         if (ResizeMath.hitHandle(selectionResizeHandles(), content, tol) != null) return true
         val local = state.toPageSpace(lone.pageIndex, content)
         val shape = lone.item as ShapeItem

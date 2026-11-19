@@ -1697,7 +1697,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
             val shape = (selection.items.singleOrNull() as? ShapeItem)?.takeIf { interaction.showsEditDots }
             parts += OverlayTessellator.selection(
                 box, zoom, accent, StrokeTessellator.DEFAULT_TOLERANCE, devicePxPerDp,
-                handles = selection.handles(margin).map { it.content },
+                handles = selection.handles(margin, zoom).map { it.content },
                 vertexDots = shape?.vertexDots()?.map { it.at }.orEmpty(),
                 edgeDots = shape?.edgeDots(OverlayTessellator.EDGE_DOT_MIN_PX / zoom)?.map { it.at }.orEmpty(),
                 knobs = shape?.knobDots().orEmpty(),

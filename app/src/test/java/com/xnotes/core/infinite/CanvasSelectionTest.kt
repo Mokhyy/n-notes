@@ -119,6 +119,23 @@ class CanvasSelectionTest {
         assertNull(sel.hitHandle(Pt(50.0, 30.0), 5.0))
     }
 
+    @Test fun aBoxTooSmallOnScreenHidesItsHandlesButKeepsTheMoveGrip() {
+        val sel = CanvasSelection(docOf())
+        sel.select(listOf(box(0.0, 0.0, 100.0, 60.0)))
+        assertTrue(sel.handles(zoom = 1.0).isEmpty())
+        assertNull(sel.hitHandle(Pt(0.0, 0.0), 5.0, zoom = 1.0))
+        assertNotNull(sel.moveGrip(1.0, 30.0))
+        assertEquals(8, sel.handles(zoom = 2.0).size)
+        assertNull(sel.moveGrip(2.0, 30.0))
+    }
+
+    @Test fun aLineTooSmallOnScreenKeepsItsEnds() {
+        val l = straight()
+        val sel = CanvasSelection(docOf(l))
+        sel.select(listOf(l))
+        assertEquals(listOf(HandleId.START, HandleId.END), sel.handles(zoom = 0.5).map { it.id })
+    }
+
     @Test fun theRotateGripSitsAboveTheBox() {
         val sel = CanvasSelection(docOf())
         sel.select(listOf(box(0.0, 0.0, 100.0, 60.0)))

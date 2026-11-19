@@ -128,11 +128,13 @@ class CanvasSelection(private val doc: InfiniteDocument) {
     /** True when [p] is inside the selection, so a press there grabs it rather than starting a band. */
     fun contains(p: Pt, screenMargin: Double = 0.0): Boolean = chromeBox(screenMargin)?.contains(p) == true
 
-    /** The resize handles, in content space; a shape that keeps its aspect gets corners only, a line, an arrow or a strip of tape its two ends. */
-    fun handles(screenMargin: Double = 0.0): List<ResizeHandle> {
+    /** The resize handles, in content space; a shape that keeps its aspect gets corners only, a line, an arrow or a strip of tape its two ends. A box too small at [zoom] gets none. */
+    fun handles(screenMargin: Double = 0.0, zoom: Double? = null): List<ResizeHandle> {
         loneTapeStrip?.let { t -> return listOf(ResizeHandle(HandleId.START, t.shape.points[0]), ResizeHandle(HandleId.END, t.shape.points[1])) }
         loneEndpointShape?.let { s -> return listOf(ResizeHandle(HandleId.START, s.start), ResizeHandle(HandleId.END, s.end)) }
-        val all = chromeBox(screenMargin)?.let { ResizeMath.obbHandles(it) } ?: return emptyList()
+        val box = chromeBox(screenMargin) ?: return emptyList()
+        if (zoom != null && ResizeMath.obbCrowded(box, zoom)) return emptyList()
+        val all = ResizeMath.obbHandles(box)
         // A pill scales by its corners and lengthens by its sides; nothing stretches it upright.
         if (items.all { it is AudioItem }) return all.filter { it.id != HandleId.T && it.id != HandleId.B }
         val square = (items.singleOrNull() as? ShapeItem)?.shape?.keepsAspect == true
@@ -164,8 +166,8 @@ class CanvasSelection(private val doc: InfiniteDocument) {
     }
 
     /** Which handle [p] lands on, within [tolerance] content pixels, or null. */
-    fun hitHandle(p: Pt, tolerance: Double, screenMargin: Double = 0.0): HandleId? =
-        ResizeMath.hitHandle(handles(screenMargin), p, tolerance)
+    fun hitHandle(p: Pt, tolerance: Double, screenMargin: Double = 0.0, zoom: Double? = null): HandleId? =
+        ResizeMath.hitHandle(handles(screenMargin, zoom), p, tolerance)
 
     // --- transforms ---
 
