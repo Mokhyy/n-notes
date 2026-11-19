@@ -370,6 +370,7 @@ fun PreferencesPane(
                 SectionTitle(stringResource(R.string.pref_general))
                 CheckRow(stringResource(R.string.pref_start_fullscreen), editor.fullscreen) { editor.setFullscreenPref(it) }
                 CheckRow(stringResource(R.string.pref_keep_screen_on), prefs.keepScreenOn) { updateHome(prefs.copy(keepScreenOn = it)) }
+                CheckRow(stringResource(R.string.pref_disable_back_button), prefs.disableBackButton) { updateHome(prefs.copy(disableBackButton = it)) }
                 TextButton(onClick = { confirmOnboarding = true }) { Text(stringResource(R.string.onboarding_restart), fontSize = 13.sp) }
                 TextButton(onClick = onOpenAbout) { Text(stringResource(R.string.about), fontSize = 13.sp) }
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())

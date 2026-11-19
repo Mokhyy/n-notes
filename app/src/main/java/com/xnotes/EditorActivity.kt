@@ -1309,6 +1309,9 @@ private fun EditorScreen(
                 }
                 // Reader mode is left before the note is.
                 BackHandler(enabled = focused.readerMode) { focused.exitReader() }
+                // When the user has chosen to disable Back, it does nothing while a note or canvas
+                // is open — composed last so it wins over every handler above and swallows the press.
+                BackHandler(enabled = focused.preferences.disableBackButton) { }
             }
 
             val actions = PaneActions(
