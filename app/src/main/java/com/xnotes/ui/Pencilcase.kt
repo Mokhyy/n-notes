@@ -83,6 +83,8 @@ fun BoxScope.Pencilcase(
     var trayOpen by remember { mutableStateOf(false) }
     var barGrab by remember { mutableStateOf(Offset.Zero) }
     var barFinger by remember { mutableStateOf(Offset.Zero) }
+    var barAt by remember { mutableStateOf(Offset.Zero) }
+    var handleBounds by remember { mutableStateOf(Rect.Zero) }
     var mode by remember { mutableStateOf(Mode.USE) }
     val current = when {
         mode == Mode.REMOVE && items.isEmpty() -> Mode.USE
@@ -162,6 +164,24 @@ fun BoxScope.Pencilcase(
                         change.consume()
                         moveBy(drag, snap)
                     }
+                }
+                // The handle's drag lives on the bar: the handle is rebuilt when the bar turns upright, which would end it.
+                .onGloballyPositioned { barAt = it.positionInRoot() }
+                .pointerInput(Unit) {
+                    val snap = 48.dp.toPx()
+                    var onHandle = false
+                    detectDragGestures(
+                        onDragStart = { at ->
+                            onHandle = handleBounds.inflate(viewConfiguration.touchSlop).contains(barAt + at)
+                            if (onHandle) startMove(at)
+                        },
+                        onDragEnd = { if (onHandle) settle(snap) },
+                        onDragCancel = { if (onHandle) settle(snap) },
+                    ) { change, drag ->
+                        if (!onHandle) return@detectDragGestures
+                        change.consume()
+                        moveBy(drag, snap)
+                    }
                 },
             shape = MenuDefaults.shape,
             color = MenuDefaults.containerColor,
@@ -175,17 +195,7 @@ fun BoxScope.Pencilcase(
                     contentDescription = stringResource(R.string.pencilcase_move),
                     tint = palette.textDim.toComposeColor(),
                     modifier = Modifier
-                        .pointerInput(Unit) {
-                            val snap = 48.dp.toPx()
-                            detectDragGestures(
-                                onDragStart = { startMove(it) },
-                                onDragEnd = { settle(snap) },
-                                onDragCancel = { settle(snap) },
-                            ) { change, drag ->
-                                change.consume()
-                                moveBy(drag, snap)
-                            }
-                        }
+                        .onGloballyPositioned { handleBounds = it.boundsInRoot() }
                         .padding(8.dp)
                         .size(20.dp)
                         .rotate(if (vertical) 90f else 0f),
