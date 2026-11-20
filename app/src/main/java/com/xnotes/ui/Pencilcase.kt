@@ -27,7 +27,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -43,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -75,6 +81,7 @@ fun BoxScope.Pencilcase(
     onPick: (PencilcaseItem) -> Unit,
     onRemove: (PencilcaseItem) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
+    onRename: (index: Int, name: String?) -> Unit,
     canPick: (PencilcaseItem) -> Boolean = { true },
 ) {
     val palette = LocalPalette.current
@@ -89,8 +96,9 @@ fun BoxScope.Pencilcase(
     var barAt by remember { mutableStateOf(Offset.Zero) }
     var handleBounds by remember { mutableStateOf(Rect.Zero) }
     var mode by remember { mutableStateOf(Mode.USE) }
+    var renaming by remember { mutableStateOf<Int?>(null) }
     val current = when {
-        mode == Mode.REMOVE && items.isEmpty() -> Mode.USE
+        (mode == Mode.REMOVE || mode == Mode.RENAME) && items.isEmpty() -> Mode.USE
         mode == Mode.REORDER && items.size < 2 -> Mode.USE
         else -> mode
     }
@@ -142,6 +150,12 @@ fun BoxScope.Pencilcase(
     fun target(from: Int): Int = latestItems.indices.count { i ->
         val b = bounds[i] ?: return@count false
         i != from && (if (vertical) b.center.y < finger.y else b.center.x < finger.x)
+    }
+
+    val tipSide = when (dock) {
+        Dock.LEFT -> TipSide.RIGHT
+        Dock.RIGHT -> TipSide.LEFT
+        Dock.NONE -> TipSide.BELOW
     }
 
     val caretAt = grabbed?.let { g -> target(g).let { if (it < g) it else it + 1 } }
@@ -207,7 +221,7 @@ fun BoxScope.Pencilcase(
             val buttons: @Composable () -> Unit = {
                 items.forEachIndexed { i, item ->
                     if (caretAt == i) Caret(vertical)
-                    val label = stringResource(item.tool.labelRes)
+                    val label = item.name ?: stringResource(item.tool.labelRes)
                     Box(
                         Modifier
                             .alpha(if (grabbed == i) 0.15f else 1f)
@@ -234,16 +248,24 @@ fun BoxScope.Pencilcase(
                                 },
                             ),
                     ) {
-                        CaseButton(
-                            pencilcaseIcon(item),
-                            if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
-                            tint = when {
-                                current == Mode.USE && !canPick(item) -> palette.border
-                                item.tool == Tool.ERASER || item.tool == Tool.TABLE -> palette.text
-                                else -> item.shownColor
-                            }.toComposeColor(),
-                            enabled = current == Mode.REMOVE || current == Mode.USE && canPick(item),
-                        ) { if (current == Mode.REMOVE) onRemove(item) else onPick(item) }
+                        Tooltip(label, side = tipSide) {
+                            CaseButton(
+                                pencilcaseIcon(item),
+                                if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
+                                tint = when {
+                                    current == Mode.USE && !canPick(item) -> palette.border
+                                    item.tool == Tool.ERASER || item.tool == Tool.TABLE -> palette.text
+                                    else -> item.shownColor
+                                }.toComposeColor(),
+                                enabled = current != Mode.REORDER && (current != Mode.USE || canPick(item)),
+                            ) {
+                                when (current) {
+                                    Mode.REMOVE -> onRemove(item)
+                                    Mode.RENAME -> renaming = i
+                                    else -> onPick(item)
+                                }
+                            }
+                        }
                         if (current == Mode.REMOVE) {
                             Icon(
                                 XnotesIcons.close,
@@ -292,6 +314,9 @@ fun BoxScope.Pencilcase(
                 CaseButton(XnotesIcons.trash, stringResource(R.string.pencilcase_remove_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
                     trayOpen = false; mode = Mode.REMOVE
                 }
+                CaseButton(XnotesIcons.rename, stringResource(R.string.pencilcase_rename_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
+                    trayOpen = false; mode = Mode.RENAME
+                }
             }
             val trayShown = trayOpen && current == Mode.USE && items.isNotEmpty()
             val scroll = rememberScrollState()
@@ -323,10 +348,14 @@ fun BoxScope.Pencilcase(
                 }
             }
         }
+        renaming?.let { r ->
+            val item = items.getOrNull(r) ?: return@let
+            RenameItemDialog(item.name.orEmpty(), stringResource(item.tool.labelRes), onConfirm = { onRename(r, it); renaming = null }) { renaming = null }
+        }
         grabbed?.let { g ->
             val item = items.getOrNull(g) ?: return@let
             Box(Modifier.align(Alignment.TopStart).offset { (finger - grab - origin).round() }) {
-                ToolbarDragGhost(pencilcaseIcon(item), stringResource(item.tool.labelRes))
+                ToolbarDragGhost(pencilcaseIcon(item), item.name ?: stringResource(item.tool.labelRes))
             }
         }
     }
@@ -334,7 +363,30 @@ fun BoxScope.Pencilcase(
 
 private enum class Dock { NONE, LEFT, RIGHT }
 
-private enum class Mode { USE, REMOVE, REORDER }
+private enum class Mode { USE, REMOVE, REORDER, RENAME }
+
+/** A blank name goes back to showing the tool's own name. */
+@Composable
+private fun RenameItemDialog(initial: String, toolName: String, onConfirm: (String?) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.pencilcase_rename)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                placeholder = { Text(toolName) },
+                modifier = Modifier.focusRequester(focus),
+            )
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(text.trim().ifEmpty { null }) }) { Text(stringResource(R.string.rename)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
 
 @Composable
 private fun Rule(vertical: Boolean) {

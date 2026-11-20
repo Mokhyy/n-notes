@@ -53,6 +53,8 @@
     <string name="pencilcase_remove_items">Odebrat nástroje</string>
     <string name="pencilcase_reorder">Změnit pořadí nástrojů</string>
     <string name="pencilcase_move">Přesunout penál</string>
+    <string name="pencilcase_rename_items">Přejmenovat nástroje</string>
+    <string name="pencilcase_rename">Přejmenovat nástroj</string>
     <string name="edge_all">Vše</string>
     <string name="edge_left">Vlevo</string>
     <string name="edge_right">Vpravo</string>

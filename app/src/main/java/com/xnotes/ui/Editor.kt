@@ -8705,10 +8705,13 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     /** Save [item] at the end of the pencilcase; one already in it is not saved twice. */
     fun addToPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
-        if (item !in pencilcase) setPencilcase(pencilcase + item)
+        if (pencilcase.none { it.copy(name = null) == item }) setPencilcase(pencilcase + item)
     }
 
     fun removeFromPencilcase(item: com.xnotes.core.tools.PencilcaseItem) = setPencilcase(pencilcase - item)
+
+    fun renamePencilcaseItem(index: Int, name: String?) =
+        setPencilcase(pencilcase.toMutableList().also { it[index] = it[index].copy(name = name) })
 
     fun movePencilcaseItem(from: Int, to: Int) = setPencilcase(pencilcase.toMutableList().apply { add(to, removeAt(from)) })
 

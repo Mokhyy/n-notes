@@ -1962,6 +1962,7 @@ private fun EditorPane(
                                 canPick = { it.tool != com.xnotes.core.tools.Tool.TABLE },
                                 onRemove = editor::removeFromPencilcase,
                                 onMove = editor::movePencilcaseItem,
+                                onRename = editor::renamePencilcaseItem,
                             )
                         }
                         CanvasToastPill(canvas)
@@ -2041,6 +2042,7 @@ private fun EditorPane(
                                     onPick = editor::armPencilcase,
                                     onRemove = editor::removeFromPencilcase,
                                     onMove = editor::movePencilcaseItem,
+                                    onRename = editor::renamePencilcaseItem,
                                 )
                             }
                             ZoomLockHint(editor)

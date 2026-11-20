@@ -273,6 +273,7 @@ data class Settings(
         private fun pencilcaseItemJson(item: PencilcaseItem) = JSONObject()
             .put("tool", item.tool.id)
             .put("color", rgbaArr(item.color))
+            .apply { item.name?.let { put("name", it) } }
             .apply {
                 when (item.tool) {
                     Tool.SHAPE -> put("shape", shapeConfigJson(item.shape))
@@ -293,6 +294,7 @@ data class Settings(
                     shape = o.optJSONObject("shape")?.let { shapeConfig(it) } ?: ShapeConfig(),
                     color = rgba(o.optJSONArray("color")) ?: InkPalette.DEFAULT,
                     table = tableDefaults(o.optJSONObject("table")),
+                    name = o.optString("name").takeIf { it.isNotBlank() },
                 )
             }
         }

@@ -53,6 +53,8 @@
     <string name="pencilcase_remove_items">Retirer des outils</string>
     <string name="pencilcase_reorder">Réorganiser les outils</string>
     <string name="pencilcase_move">Déplacer la trousse</string>
+    <string name="pencilcase_rename_items">Renommer les outils</string>
+    <string name="pencilcase_rename">Renommer l\'outil</string>
     <string name="edge_all">Tous</string>
     <string name="edge_left">Gauche</string>
     <string name="edge_right">Droite</string>

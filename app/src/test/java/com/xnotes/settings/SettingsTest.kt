@@ -732,7 +732,7 @@ class SettingsTest {
             com.xnotes.core.tools.ToolDefaults.configFor(Tool.PEN).copy(rgba = Rgba(1, 2, 3, 255)),
             com.xnotes.core.tools.ShapeConfig(strokeWidth = 9.0),
             Rgba(10, 20, 30, 255),
-        )
+        ).copy(name = "Fine liner")
         assertEquals(listOf(pen), Settings.fromJson(Settings(pencilcase = listOf(pen)).toJson()).pencilcase)
     }
 

@@ -10,6 +10,8 @@ data class PencilcaseItem(
     val shape: ShapeConfig = ShapeConfig(),
     val color: Rgba = InkPalette.DEFAULT,
     val table: TableDefaults = TableDefaults(),
+    /** What the user called it, shown on hover instead of the tool's name. */
+    val name: String? = null,
 ) {
     /** What the item draws in: the tool's own colour when it has one, else the saved ink. */
     val shownColor: Rgba get() = config.colorOverride ?: color
