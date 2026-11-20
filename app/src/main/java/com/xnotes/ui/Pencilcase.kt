@@ -1,5 +1,12 @@
 package com.xnotes.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,13 +26,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,8 +63,8 @@ import com.xnotes.ui.icons.XnotesIcons
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.toComposeColor
 
-/** Floating bar of saved tools: tap arms, the menu saves, reorders and removes.
- *  The handle drags it at once, the rest after a long press; it snaps home or docks upright on a side edge. */
+/** Floating bar of saved tools: tap arms, the arrow slides out save, reorder and remove.
+ *  The handle drags it at once, the rest after a long press; near a side edge it docks upright. */
 @Composable
 fun BoxScope.Pencilcase(
     items: List<PencilcaseItem>,
@@ -76,7 +80,9 @@ fun BoxScope.Pencilcase(
     var size by remember { mutableStateOf(IntSize.Zero) }
     var dock by remember { mutableStateOf(Dock.NONE) }
     var vertical by remember { mutableStateOf(false) }
-    var menuOpen by remember { mutableStateOf(false) }
+    var trayOpen by remember { mutableStateOf(false) }
+    var barGrab by remember { mutableStateOf(Offset.Zero) }
+    var barFinger by remember { mutableStateOf(Offset.Zero) }
     var mode by remember { mutableStateOf(Mode.USE) }
     val current = when {
         mode == Mode.REMOVE && items.isEmpty() -> Mode.USE
@@ -105,15 +111,26 @@ fun BoxScope.Pencilcase(
         return Offset(x, at.y.coerceIn(0f, maxY))
     }
 
-    fun startMove() { offset = shown(); dock = Dock.NONE }
+    fun startMove(at: Offset) {
+        offset = shown()
+        barGrab = at
+        barFinger = offset + at
+    }
+
+    // Docking follows the finger, not the bar, so turning upright mid-drag cannot flip it back.
+    fun moveBy(drag: Offset, snap: Float) {
+        barFinger += drag
+        dock = when {
+            barFinger.x < snap -> Dock.LEFT
+            barFinger.x > area.width - snap -> Dock.RIGHT
+            else -> Dock.NONE
+        }
+        vertical = dock != Dock.NONE
+        offset = shown(barFinger - barGrab)
+    }
 
     fun settle(snap: Float) {
-        when {
-            offset.getDistance() < snap -> { offset = Offset.Zero; vertical = false }
-            offset.x < snap -> { dock = Dock.LEFT; vertical = true }
-            offset.x + size.width > area.width - snap -> { dock = Dock.RIGHT; vertical = true }
-            else -> vertical = false
-        }
+        if (dock == Dock.NONE && offset.getDistance() < snap) offset = Offset.Zero
     }
 
     /** Where the dragged item lands in the list without it. */
@@ -138,12 +155,12 @@ fun BoxScope.Pencilcase(
                     if (current == Mode.REORDER) return@pointerInput // a long press there picks up an item instead
                     val snap = 48.dp.toPx()
                     detectDragGesturesAfterLongPress(
-                        onDragStart = { startMove() },
+                        onDragStart = { startMove(it) },
                         onDragEnd = { settle(snap) },
                         onDragCancel = { settle(snap) },
                     ) { change, drag ->
                         change.consume()
-                        offset = shown(offset + drag)
+                        moveBy(drag, snap)
                     }
                 },
             shape = MenuDefaults.shape,
@@ -161,12 +178,12 @@ fun BoxScope.Pencilcase(
                         .pointerInput(Unit) {
                             val snap = 48.dp.toPx()
                             detectDragGestures(
-                                onDragStart = { startMove() },
+                                onDragStart = { startMove(it) },
                                 onDragEnd = { settle(snap) },
                                 onDragCancel = { settle(snap) },
                             ) { change, drag ->
                                 change.consume()
-                                offset = shown(offset + drag)
+                                moveBy(drag, snap)
                             }
                         }
                         .padding(8.dp)
@@ -217,6 +234,7 @@ fun BoxScope.Pencilcase(
                                 tint = palette.text.toComposeColor(),
                                 modifier = Modifier
                                     .align(Alignment.TopStart)
+                                    .offset(4.dp, 4.dp)
                                     .size(12.dp)
                                     .background(palette.surface.toComposeColor(), CircleShape)
                                     .border(1.dp, palette.border.toComposeColor(), CircleShape)
@@ -226,37 +244,65 @@ fun BoxScope.Pencilcase(
                     }
                 }
                 if (caretAt == items.size) Caret(vertical)
-            }
-            val menu: @Composable () -> Unit = {
-                Box {
-                    if (current == Mode.USE) {
-                        CaseButton(XnotesIcons.more, stringResource(R.string.more), palette.textDim.toComposeColor()) { menuOpen = true }
-                    } else {
-                        CaseButton(XnotesIcons.check, stringResource(R.string.done), palette.accent.toComposeColor()) { mode = Mode.USE }
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        MenuRow(XnotesIcons.plus, stringResource(R.string.pencilcase_save), canSave) { menuOpen = false; onSave() }
-                        MenuRow(XnotesIcons.sort, stringResource(R.string.pencilcase_reorder), items.size > 1) { menuOpen = false; mode = Mode.REORDER }
-                        MenuRow(XnotesIcons.trash, stringResource(R.string.pencilcase_remove_items), items.isNotEmpty()) { menuOpen = false; mode = Mode.REMOVE }
-                    }
+                if (items.isEmpty()) {
+                    CaseButton(
+                        XnotesIcons.plus,
+                        stringResource(R.string.pencilcase_save),
+                        tint = (if (canSave) palette.textDim else palette.border).toComposeColor(),
+                        enabled = canSave,
+                        onClick = onSave,
+                    )
                 }
             }
+            val toggle: @Composable () -> Unit = {
+                if (current == Mode.USE) {
+                    CaseButton(
+                        XnotesIcons.chevronDown,
+                        stringResource(R.string.more),
+                        palette.textDim.toComposeColor(),
+                        rotation = if (vertical) (if (trayOpen) 180f else 0f) else (if (trayOpen) 90f else -90f),
+                    ) { trayOpen = !trayOpen }
+                } else {
+                    CaseButton(XnotesIcons.check, stringResource(R.string.done), palette.accent.toComposeColor()) { mode = Mode.USE }
+                }
+            }
+            val tray: @Composable () -> Unit = {
+                fun tint(on: Boolean) = (if (on) palette.textDim else palette.border).toComposeColor()
+                CaseButton(XnotesIcons.plus, stringResource(R.string.pencilcase_save), tint(canSave), enabled = canSave) { trayOpen = false; onSave() }
+                CaseButton(XnotesIcons.sort, stringResource(R.string.pencilcase_reorder), tint(items.size > 1), enabled = items.size > 1) {
+                    trayOpen = false; mode = Mode.REORDER
+                }
+                CaseButton(XnotesIcons.trash, stringResource(R.string.pencilcase_remove_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
+                    trayOpen = false; mode = Mode.REMOVE
+                }
+            }
+            val trayShown = trayOpen && current == Mode.USE && items.isNotEmpty()
             val scroll = rememberScrollState()
             if (vertical) {
                 Column(Modifier.padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     handle()
                     Rule(vertical)
                     Column(Modifier.weight(1f, fill = false).verticalScroll(scroll), horizontalAlignment = Alignment.CenterHorizontally) { buttons() }
-                    Rule(vertical)
-                    menu()
+                    if (items.isNotEmpty()) {
+                        Rule(vertical)
+                        toggle()
+                        AnimatedVisibility(trayShown, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) { tray() }
+                        }
+                    }
                 }
             } else {
                 Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     handle()
                     Rule(vertical)
                     Row(Modifier.weight(1f, fill = false).horizontalScroll(scroll), verticalAlignment = Alignment.CenterVertically) { buttons() }
-                    Rule(vertical)
-                    menu()
+                    if (items.isNotEmpty()) {
+                        Rule(vertical)
+                        toggle()
+                        AnimatedVisibility(trayShown, enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
+                            Row(verticalAlignment = Alignment.CenterVertically) { tray() }
+                        }
+                    }
                 }
             }
         }
@@ -293,28 +339,19 @@ private fun Caret(vertical: Boolean) {
 }
 
 @Composable
-private fun MenuRow(icon: ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
-    DropdownMenuItem(
-        text = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp)) },
-        enabled = enabled,
-        onClick = onClick,
-    )
-}
-
-@Composable
 private fun CaseButton(
     icon: ImageVector,
     description: String,
     tint: androidx.compose.ui.graphics.Color,
     enabled: Boolean = true,
+    rotation: Float = 0f,
     onClick: () -> Unit,
 ) {
     Icon(
         icon,
         contentDescription = description,
         tint = tint,
-        modifier = Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(enabled = enabled, onClick = onClick).padding(8.dp).size(20.dp),
+        modifier = Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(enabled = enabled, onClick = onClick).padding(8.dp).size(20.dp).rotate(rotation),
     )
 }
 
