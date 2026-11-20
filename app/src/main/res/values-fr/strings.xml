@@ -51,6 +51,8 @@
     <string name="pencilcase_save">Ranger l\'outil dans la trousse</string>
     <string name="pencilcase_remove">Retirer %1$s</string>
     <string name="pencilcase_remove_items">Retirer des outils</string>
+    <string name="pencilcase_reorder">Réorganiser les outils</string>
+    <string name="pencilcase_move">Déplacer la trousse</string>
     <string name="edge_all">Tous</string>
     <string name="edge_left">Gauche</string>
     <string name="edge_right">Droite</string>

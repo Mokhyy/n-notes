@@ -1960,6 +1960,7 @@ private fun EditorPane(
                                 onSave = { canvas.pencilcaseSnapshot()?.let(editor::addToPencilcase) },
                                 onPick = canvas::armPencilcase,
                                 onRemove = editor::removeFromPencilcase,
+                                onMove = editor::movePencilcaseItem,
                             )
                         }
                         CanvasToastPill(canvas)
@@ -2038,6 +2039,7 @@ private fun EditorPane(
                                     onSave = { editor.pencilcaseSnapshot()?.let(editor::addToPencilcase) },
                                     onPick = editor::armPencilcase,
                                     onRemove = editor::removeFromPencilcase,
+                                    onMove = editor::movePencilcaseItem,
                                 )
                             }
                             ZoomLockHint(editor)

@@ -171,7 +171,7 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
             ToolbarItem.MARKUP to ToolbarItem.TEXT_BOX,
             ToolbarItem.READER to ToolbarItem.ZOOM_LOCK,
             ToolbarItem.ADD_PAGE to ToolbarItem.VIEW,
-            ToolbarItem.PENCILCASE to ToolbarItem.TITLE,
+            ToolbarItem.PENCILCASE to ToolbarItem.PAN,
         )
 
         /** Items that join the bar hidden, both in [DEFAULT] and when added to a stored layout. */
@@ -199,10 +199,10 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
 
         /** Mirrors the hardcoded bar exactly (see Toolbar.kt) so existing users see no change. */
         val DEFAULT: ToolbarLayout = of(
-            listOf(ToolbarItem.HOME, ToolbarItem.TITLE, ToolbarItem.PENCILCASE),
+            listOf(ToolbarItem.HOME, ToolbarItem.TITLE),
             listOf(ToolbarItem.SIDEBAR),
             listOf(ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER),
-            listOf(ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.INSERT_SPACE, ToolbarItem.SCREENSHOT),
+            listOf(ToolbarItem.PAN, ToolbarItem.PENCILCASE, ToolbarItem.SELECT, ToolbarItem.INSERT_SPACE, ToolbarItem.SCREENSHOT),
             listOf(ToolbarItem.WAND, ToolbarItem.TAPE, ToolbarItem.SHAPE, ToolbarItem.RULER, ToolbarItem.TEXT, ToolbarItem.TEXT_BOX, ToolbarItem.MARKUP),
             listOf(ToolbarItem.IMAGE, ToolbarItem.TABLE),
             listOf(ToolbarItem.COLORS),
@@ -214,9 +214,9 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
 
         /** Mirrors the hardcoded canvas bar (see InfiniteToolbar.kt). */
         val CANVAS_DEFAULT: ToolbarLayout = of(
-            listOf(ToolbarItem.HOME, ToolbarItem.TITLE, ToolbarItem.PENCILCASE),
+            listOf(ToolbarItem.HOME, ToolbarItem.TITLE),
             listOf(ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER),
-            listOf(ToolbarItem.PAN, ToolbarItem.SELECT),
+            listOf(ToolbarItem.PAN, ToolbarItem.PENCILCASE, ToolbarItem.SELECT),
             listOf(ToolbarItem.WAND, ToolbarItem.TAPE, ToolbarItem.SHAPE),
             listOf(ToolbarItem.IMAGE),
             listOf(ToolbarItem.COLORS),

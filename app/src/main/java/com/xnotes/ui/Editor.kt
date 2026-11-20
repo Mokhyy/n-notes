@@ -8710,6 +8710,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     fun removeFromPencilcase(item: com.xnotes.core.tools.PencilcaseItem) = setPencilcase(pencilcase - item)
 
+    fun movePencilcaseItem(from: Int, to: Int) = setPencilcase(pencilcase.toMutableList().apply { add(to, removeAt(from)) })
+
     private fun setPencilcase(list: List<com.xnotes.core.tools.PencilcaseItem>) {
         settings = settings.copy(pencilcase = list)
         sharedPencilcase.value = list

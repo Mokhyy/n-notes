@@ -51,6 +51,8 @@
     <string name="pencilcase_save">将工具存入笔袋</string>
     <string name="pencilcase_remove">移除%1$s</string>
     <string name="pencilcase_remove_items">移除工具</string>
+    <string name="pencilcase_reorder">重新排序工具</string>
+    <string name="pencilcase_move">移动笔袋</string>
     <string name="edge_all">全部</string>
     <string name="edge_left">左侧</string>
     <string name="edge_right">右侧</string>
