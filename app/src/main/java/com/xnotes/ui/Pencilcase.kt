@@ -254,7 +254,8 @@ fun BoxScope.Pencilcase(
                                 if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
                                 tint = when {
                                     current == Mode.USE && !canPick(item) -> palette.border
-                                    item.tool == Tool.ERASER || item.tool == Tool.TABLE -> palette.text
+                                    item.tool == Tool.TABLE -> item.table.style.lineColor ?: item.table.style.tint ?: palette.text
+                                    item.tool == Tool.ERASER -> palette.text
                                     else -> item.shownColor
                                 }.toComposeColor(),
                                 enabled = current != Mode.REORDER && (current != Mode.USE || canPick(item)),
@@ -311,11 +312,11 @@ fun BoxScope.Pencilcase(
                 CaseButton(XnotesIcons.sort, stringResource(R.string.pencilcase_reorder), tint(items.size > 1), enabled = items.size > 1, rotation = 90f) {
                     trayOpen = false; mode = Mode.REORDER
                 }
-                CaseButton(XnotesIcons.trash, stringResource(R.string.pencilcase_remove_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
-                    trayOpen = false; mode = Mode.REMOVE
-                }
                 CaseButton(XnotesIcons.rename, stringResource(R.string.pencilcase_rename_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
                     trayOpen = false; mode = Mode.RENAME
+                }
+                CaseButton(XnotesIcons.trash, stringResource(R.string.pencilcase_remove_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
+                    trayOpen = false; mode = Mode.REMOVE
                 }
             }
             val trayShown = trayOpen && current == Mode.USE && items.isNotEmpty()
