@@ -269,7 +269,7 @@ fun BoxScope.Pencilcase(
             val tray: @Composable () -> Unit = {
                 fun tint(on: Boolean) = (if (on) palette.textDim else palette.border).toComposeColor()
                 CaseButton(XnotesIcons.plus, stringResource(R.string.pencilcase_save), tint(canSave), enabled = canSave) { trayOpen = false; onSave() }
-                CaseButton(XnotesIcons.sort, stringResource(R.string.pencilcase_reorder), tint(items.size > 1), enabled = items.size > 1) {
+                CaseButton(XnotesIcons.sort, stringResource(R.string.pencilcase_reorder), tint(items.size > 1), enabled = items.size > 1, rotation = 90f) {
                     trayOpen = false; mode = Mode.REORDER
                 }
                 CaseButton(XnotesIcons.trash, stringResource(R.string.pencilcase_remove_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
