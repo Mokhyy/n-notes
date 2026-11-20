@@ -15,5 +15,13 @@ data class PencilcaseItem(
     companion object {
         /** Tools that can go in the pencilcase. */
         val TOOLS: Set<Tool> = (Tool.PENS + listOf(Tool.HIGHLIGHTER, Tool.ERASER, Tool.TAPE, Tool.SHAPE)).toSet()
+
+        /** Keeps only what [tool] uses and settings store, so the same tool saved twice compares equal. */
+        fun of(tool: Tool, config: ToolConfig, shape: ShapeConfig, color: Rgba) = PencilcaseItem(
+            tool,
+            config = if (tool == Tool.SHAPE) ToolDefaults.configFor(tool) else config.copy(rgba = InkPalette.DEFAULT),
+            shape = if (tool == Tool.SHAPE) shape else ShapeConfig(),
+            color = if (tool == Tool.ERASER) InkPalette.DEFAULT else color,
+        )
     }
 }

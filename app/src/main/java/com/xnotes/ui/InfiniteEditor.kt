@@ -1144,7 +1144,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
 
     /** The armed tool as a pencilcase item, or null when it is not one the pencilcase holds. */
     fun pencilcaseSnapshot(): com.xnotes.core.tools.PencilcaseItem? = tool.takeIf { it in com.xnotes.core.tools.PencilcaseItem.TOOLS }
-        ?.let { com.xnotes.core.tools.PencilcaseItem(it, toolConfig(it), shapeConfig, inkColor) }
+        ?.let { com.xnotes.core.tools.PencilcaseItem.of(it, toolConfig(it), shapeConfig, inkColor) }
 
     /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
     fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {

@@ -41,11 +41,8 @@ import com.xnotes.ui.icons.XnotesIcons
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.toComposeColor
 
-/**
- * Floating pencilcase: saved tools in their own colours, tap one to arm it. Plus saves the armed tool,
- * the bin switches to removing, where a tap takes an item out. Long-press drags it, kept on screen.
- * Let go near the top-left corner and it goes back home; near the left or right edge it docks there upright.
- */
+/** Floating bar of saved tools: tap arms, plus saves the armed tool, bin toggles removing.
+ *  Long-press drags it; let go near the top-left corner to go home, near a side edge to dock upright. */
 @Composable
 fun BoxScope.Pencilcase(
     items: List<PencilcaseItem>,
@@ -112,7 +109,10 @@ fun BoxScope.Pencilcase(
                         if (removing) XnotesIcons.close else pencilcaseIcon(item.tool),
                         if (removing) stringResource(R.string.pencilcase_remove, label) else label,
                         tint = if (removing || item.tool == Tool.ERASER) palette.text.toComposeColor() else item.shownColor.toComposeColor(),
-                    ) { if (removing) onRemove(item) else onPick(item) }
+                    ) {
+                        if (!removing) onPick(item)
+                        else { onRemove(item); if (items.size == 1) removeMode = false }
+                    }
                 }
                 if (!removing) {
                     CaseButton(

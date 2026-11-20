@@ -726,6 +726,16 @@ class SettingsTest {
         assertEquals(items[1].shape, back[1].shape)
     }
 
+    @Test fun aSavedPencilcaseItemEqualsItsReloadedCopy() {
+        val pen = com.xnotes.core.tools.PencilcaseItem.of(
+            Tool.PEN,
+            com.xnotes.core.tools.ToolDefaults.configFor(Tool.PEN).copy(rgba = Rgba(1, 2, 3, 255)),
+            com.xnotes.core.tools.ShapeConfig(strokeWidth = 9.0),
+            Rgba(10, 20, 30, 255),
+        )
+        assertEquals(listOf(pen), Settings.fromJson(Settings(pencilcase = listOf(pen)).toJson()).pencilcase)
+    }
+
     @Test fun pencilcaseDropsToolsItCannotHold() {
         val json = Settings().toJson().put("pencilcase", org.json.JSONArray().put(JSONObject().put("tool", "text")).put(JSONObject().put("tool", "nope")))
         assertEquals(emptyList<Any>(), Settings.fromJson(json).pencilcase)
