@@ -27,11 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -47,8 +43,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -351,7 +345,18 @@ fun BoxScope.Pencilcase(
         }
         renaming?.let { r ->
             val item = items.getOrNull(r) ?: return@let
-            RenameItemDialog(item.name.orEmpty(), stringResource(item.tool.labelRes), onConfirm = { onRename(r, it); renaming = null }) { renaming = null }
+            // A blank name, or Reset, goes back to the tool's own name.
+            NameDialog(
+                title = stringResource(R.string.pencilcase_rename),
+                initial = item.name.orEmpty(),
+                confirmLabel = stringResource(R.string.rename),
+                placeholder = stringResource(item.tool.labelRes),
+                allowEmpty = true,
+                onConfirm = { onRename(r, it.ifEmpty { null }); renaming = null },
+                onDismiss = { renaming = null },
+                onRemove = { onRename(r, null); renaming = null },
+                removeLabel = stringResource(R.string.reset),
+            )
         }
         grabbed?.let { g ->
             val item = items.getOrNull(g) ?: return@let
@@ -365,29 +370,6 @@ fun BoxScope.Pencilcase(
 private enum class Dock { NONE, LEFT, RIGHT }
 
 private enum class Mode { USE, REMOVE, REORDER, RENAME }
-
-/** A blank name goes back to showing the tool's own name. */
-@Composable
-private fun RenameItemDialog(initial: String, toolName: String, onConfirm: (String?) -> Unit, onDismiss: () -> Unit) {
-    var text by remember { mutableStateOf(initial) }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.pencilcase_rename)) },
-        text = {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                placeholder = { Text(toolName) },
-                modifier = Modifier.focusRequester(focus),
-            )
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(text.trim().ifEmpty { null }) }) { Text(stringResource(R.string.rename)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
 
 @Composable
 private fun Rule(vertical: Boolean) {

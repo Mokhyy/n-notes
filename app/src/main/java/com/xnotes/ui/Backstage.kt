@@ -2514,10 +2514,10 @@ private fun StackedNoteCard(editor: Editor, entry: BrowseEntry, modifier: Modifi
  * on the keyboard's Done action or hardware Enter, and dismisses on Cancel, the scrim, or Esc.
  * When [allowEmpty] is false the confirm button stays disabled until something is typed; a
  * non-null [error] shows under the field and keeps the dialog open after a failed operation.
- * A non-null [onRemove] adds a Delete button before Cancel.
+ * A non-null [onRemove] adds a Delete button, or [removeLabel], before Cancel.
  */
 @Composable
-private fun NameDialog(
+internal fun NameDialog(
     title: String,
     initial: String,
     confirmLabel: String,
@@ -2527,6 +2527,7 @@ private fun NameDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
     onRemove: (() -> Unit)? = null,
+    removeLabel: String? = null,
     /** A second way to confirm, beside [confirmLabel], for a name that can be put to two uses. */
     secondLabel: String? = null,
     onSecond: (String) -> Unit = {},
@@ -2574,7 +2575,7 @@ private fun NameDialog(
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (onRemove != null) TextButton(onClick = onRemove) { Text(stringResource(R.string.delete)) }
+                if (onRemove != null) TextButton(onClick = onRemove) { Text(removeLabel ?: stringResource(R.string.delete)) }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },
