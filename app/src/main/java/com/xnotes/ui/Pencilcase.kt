@@ -75,6 +75,7 @@ fun BoxScope.Pencilcase(
     onPick: (PencilcaseItem) -> Unit,
     onRemove: (PencilcaseItem) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
+    canPick: (PencilcaseItem) -> Boolean = { true },
 ) {
     val palette = LocalPalette.current
     var offset by remember { mutableStateOf(Offset.Zero) }
@@ -236,8 +237,12 @@ fun BoxScope.Pencilcase(
                         CaseButton(
                             pencilcaseIcon(item),
                             if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
-                            tint = (if (item.tool == Tool.ERASER) palette.text else item.shownColor).toComposeColor(),
-                            enabled = current != Mode.REORDER,
+                            tint = when {
+                                current == Mode.USE && !canPick(item) -> palette.border
+                                item.tool == Tool.ERASER || item.tool == Tool.TABLE -> palette.text
+                                else -> item.shownColor
+                            }.toComposeColor(),
+                            enabled = current == Mode.REMOVE || current == Mode.USE && canPick(item),
                         ) { if (current == Mode.REMOVE) onRemove(item) else onPick(item) }
                         if (current == Mode.REMOVE) {
                             Icon(
@@ -371,6 +376,7 @@ private fun CaseButton(
 private fun pencilcaseIcon(item: PencilcaseItem): ImageVector = when (val tool = item.tool) {
     Tool.ERASER -> XnotesIcons.eraser
     Tool.TAPE -> XnotesIcons.tape
+    Tool.TABLE -> XnotesIcons.table
     Tool.SHAPE -> ShapePresets.byKey(item.shape.preset)?.let(ShapeIcons::of)
         ?: ConnectorPresets.byKey(item.shape.preset)?.let(ShapeIcons::connector)
         ?: XnotesIcons.shape

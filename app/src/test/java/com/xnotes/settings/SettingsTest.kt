@@ -736,6 +736,17 @@ class SettingsTest {
         assertEquals(listOf(pen), Settings.fromJson(Settings(pencilcase = listOf(pen)).toJson()).pencilcase)
     }
 
+    @Test fun aSavedPencilcaseTableKeepsItsSizeAndStyle() {
+        val table = com.xnotes.core.tools.PencilcaseItem.of(
+            Tool.TABLE,
+            com.xnotes.core.tools.ToolDefaults.configFor(Tool.TABLE),
+            com.xnotes.core.tools.ShapeConfig(),
+            Rgba(10, 20, 30, 255),
+            com.xnotes.core.text.TableDefaults(rows = 5, cols = 2, style = com.xnotes.core.text.TableStyle(headerRow = true)),
+        )
+        assertEquals(listOf(table), Settings.fromJson(Settings(pencilcase = listOf(table)).toJson()).pencilcase)
+    }
+
     @Test fun pencilcaseDropsToolsItCannotHold() {
         val json = Settings().toJson().put("pencilcase", org.json.JSONArray().put(JSONObject().put("tool", "text")).put(JSONObject().put("tool", "nope")))
         assertEquals(emptyList<Any>(), Settings.fromJson(json).pencilcase)

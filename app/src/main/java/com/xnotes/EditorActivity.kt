@@ -1959,6 +1959,7 @@ private fun EditorPane(
                                 canSave = canvas.tool in com.xnotes.core.tools.PencilcaseItem.TOOLS,
                                 onSave = { canvas.pencilcaseSnapshot()?.let(editor::addToPencilcase) },
                                 onPick = canvas::armPencilcase,
+                                canPick = { it.tool != com.xnotes.core.tools.Tool.TABLE },
                                 onRemove = editor::removeFromPencilcase,
                                 onMove = editor::movePencilcaseItem,
                             )

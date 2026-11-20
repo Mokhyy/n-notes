@@ -8720,11 +8720,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     /** The armed tool as a pencilcase item, or null when it is not one the pencilcase holds. */
     fun pencilcaseSnapshot(): com.xnotes.core.tools.PencilcaseItem? = tool.takeIf { it in com.xnotes.core.tools.PencilcaseItem.TOOLS }
-        ?.let { com.xnotes.core.tools.PencilcaseItem.of(it, controller.configFor(it), shapeConfig, controller.inkColor) }
+        ?.let { com.xnotes.core.tools.PencilcaseItem.of(it, controller.configFor(it), shapeConfig, controller.inkColor, newTableDefaults) }
 
     /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
     fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
         selectTool(item.tool)
+        if (item.tool == Tool.TABLE) return saveNewTableDefaults(item.table)
         if (item.tool == Tool.SHAPE) updateShapeConfig(item.shape) else controller.setToolConfig(item.tool, item.config)
         if (item.tool == Tool.ERASER) return
         val swatch = toolbarColors.take(toolbarColorCount).indexOf(item.color)

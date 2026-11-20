@@ -273,7 +273,13 @@ data class Settings(
         private fun pencilcaseItemJson(item: PencilcaseItem) = JSONObject()
             .put("tool", item.tool.id)
             .put("color", rgbaArr(item.color))
-            .apply { if (item.tool == Tool.SHAPE) put("shape", shapeConfigJson(item.shape)) else put("config", toolConfigJson(item.config)) }
+            .apply {
+                when (item.tool) {
+                    Tool.SHAPE -> put("shape", shapeConfigJson(item.shape))
+                    Tool.TABLE -> put("table", tableDefaultsJson(item.table))
+                    else -> put("config", toolConfigJson(item.config))
+                }
+            }
 
         /** Items of a tool this version does not know, or cannot save, are dropped. */
         private fun pencilcase(a: JSONArray?): List<PencilcaseItem> {
@@ -286,6 +292,7 @@ data class Settings(
                     config = o.optJSONObject("config")?.let { toolConfig(it, tool) } ?: ToolDefaults.configFor(tool),
                     shape = o.optJSONObject("shape")?.let { shapeConfig(it) } ?: ShapeConfig(),
                     color = rgba(o.optJSONArray("color")) ?: InkPalette.DEFAULT,
+                    table = tableDefaults(o.optJSONObject("table")),
                 )
             }
         }

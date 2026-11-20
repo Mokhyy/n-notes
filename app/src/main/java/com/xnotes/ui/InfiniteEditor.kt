@@ -1148,6 +1148,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
 
     /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
     fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
+        if (item.tool == Tool.TABLE) return // a canvas has no tables
         armTool(item.tool)
         if (item.tool == Tool.SHAPE) updateShapeConfig(item.shape) else updateToolConfig(item.tool, item.config)
         if (item.tool == Tool.ERASER) return
