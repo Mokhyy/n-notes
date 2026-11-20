@@ -47,6 +47,10 @@
     <string name="toolbar_colours">Couleurs</string>
     <string name="toolbar_waypoints">Repères</string>
     <string name="toolbar_minimap">Mini-carte</string>
+    <string name="toolbar_pencilcase">Trousse</string>
+    <string name="pencilcase_save">Ranger l\'outil dans la trousse</string>
+    <string name="pencilcase_remove">Retirer %1$s</string>
+    <string name="pencilcase_remove_items">Retirer des outils</string>
     <string name="edge_all">Tous</string>
     <string name="edge_left">Gauche</string>
     <string name="edge_right">Droite</string>

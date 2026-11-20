@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -486,6 +487,7 @@ private fun itemIcon(item: ToolbarItem): ImageVector = when (item) {
     ToolbarItem.ZOOM_LOCK -> XnotesIcons.lock
     ToolbarItem.FULLSCREEN -> XnotesIcons.fullscreen
     ToolbarItem.COLORS -> XnotesIcons.more
+    ToolbarItem.PENCILCASE -> Icons.Outlined.DesignServices
     ToolbarItem.WAYPOINTS -> XnotesIcons.bookmark
     ToolbarItem.MINIMAP -> XnotesIcons.map
 }

@@ -48,6 +48,9 @@ enum class ToolbarItem(val id: String) {
     FULLSCREEN("fullscreen"),
     COLORS("colors"),
 
+    /** Shows or hides the floating bar of saved tools. */
+    PENCILCASE("pencilcase"),
+
     /** Canvas only: saved views, which are what page numbers are on an unbounded surface. */
     WAYPOINTS("waypoints"),
 
@@ -166,8 +169,9 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
             ToolbarItem.TAPE to ToolbarItem.WAND,
             ToolbarItem.INSERT_SPACE to ToolbarItem.SELECT,
             ToolbarItem.MARKUP to ToolbarItem.TEXT_BOX,
-            ToolbarItem.READER to ToolbarItem.PAN,
+            ToolbarItem.READER to ToolbarItem.ZOOM_LOCK,
             ToolbarItem.ADD_PAGE to ToolbarItem.VIEW,
+            ToolbarItem.PENCILCASE to ToolbarItem.TITLE,
         )
 
         /** Items that join the bar hidden, both in [DEFAULT] and when added to a stored layout. */
@@ -184,7 +188,7 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
             ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER,
             ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.WAND,
             ToolbarItem.TAPE, ToolbarItem.SHAPE,
-            ToolbarItem.IMAGE, ToolbarItem.COLORS, ToolbarItem.UNDO, ToolbarItem.REDO,
+            ToolbarItem.IMAGE, ToolbarItem.COLORS, ToolbarItem.PENCILCASE, ToolbarItem.UNDO, ToolbarItem.REDO,
             ToolbarItem.STYLES, ToolbarItem.WAYPOINTS, ToolbarItem.MINIMAP,
             ToolbarItem.ZOOM, ToolbarItem.FIT, ToolbarItem.ZOOM_LOCK,
         )
@@ -195,22 +199,22 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
 
         /** Mirrors the hardcoded bar exactly (see Toolbar.kt) so existing users see no change. */
         val DEFAULT: ToolbarLayout = of(
-            listOf(ToolbarItem.HOME, ToolbarItem.TITLE),
+            listOf(ToolbarItem.HOME, ToolbarItem.TITLE, ToolbarItem.PENCILCASE),
             listOf(ToolbarItem.SIDEBAR),
             listOf(ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER),
-            listOf(ToolbarItem.PAN, ToolbarItem.READER, ToolbarItem.SELECT, ToolbarItem.INSERT_SPACE, ToolbarItem.SCREENSHOT),
+            listOf(ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.INSERT_SPACE, ToolbarItem.SCREENSHOT),
             listOf(ToolbarItem.WAND, ToolbarItem.TAPE, ToolbarItem.SHAPE, ToolbarItem.RULER, ToolbarItem.TEXT, ToolbarItem.TEXT_BOX, ToolbarItem.MARKUP),
             listOf(ToolbarItem.IMAGE, ToolbarItem.TABLE),
             listOf(ToolbarItem.COLORS),
             listOf(ToolbarItem.UNDO, ToolbarItem.REDO),
             listOf(ToolbarItem.PAGE_NAV, ToolbarItem.SEARCH, ToolbarItem.STYLES, ToolbarItem.MARGINS, ToolbarItem.VIEW, ToolbarItem.ADD_PAGE),
-            listOf(ToolbarItem.ZOOM, ToolbarItem.FIT, ToolbarItem.ZOOM_LOCK),
+            listOf(ToolbarItem.ZOOM, ToolbarItem.FIT, ToolbarItem.ZOOM_LOCK, ToolbarItem.READER),
             listOf(ToolbarItem.FULLSCREEN),
         )
 
         /** Mirrors the hardcoded canvas bar (see InfiniteToolbar.kt). */
         val CANVAS_DEFAULT: ToolbarLayout = of(
-            listOf(ToolbarItem.HOME, ToolbarItem.TITLE),
+            listOf(ToolbarItem.HOME, ToolbarItem.TITLE, ToolbarItem.PENCILCASE),
             listOf(ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER),
             listOf(ToolbarItem.PAN, ToolbarItem.SELECT),
             listOf(ToolbarItem.WAND, ToolbarItem.TAPE, ToolbarItem.SHAPE),

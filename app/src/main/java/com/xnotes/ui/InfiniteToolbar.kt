@@ -1,6 +1,8 @@
 package com.xnotes.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -157,6 +159,11 @@ fun InfiniteToolbar(
                                 }
                                 if (switcherIndex == i) ColorSwitcherPopup(editor, i) { switcherIndex = null }
                             }
+                        }
+
+                    ToolbarItem.PENCILCASE ->
+                        ToolbarIcon(Icons.Outlined.DesignServices, stringResource(R.string.toolbar_pencilcase), active = owner.showPencilcase) {
+                            owner.toggleShowPencilcase()
                         }
 
                     ToolbarItem.UNDO ->

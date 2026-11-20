@@ -48,6 +48,10 @@
     <string name="toolbar_colours">Colours</string>
     <string name="toolbar_waypoints">Waypoints</string>
     <string name="toolbar_minimap">Minimap</string>
+    <string name="toolbar_pencilcase">Pencilcase</string>
+    <string name="pencilcase_save">Save tool to pencilcase</string>
+    <string name="pencilcase_remove">Remove %1$s</string>
+    <string name="pencilcase_remove_items">Remove tools</string>
     <string name="edge_all">All</string>
     <string name="edge_left">Left</string>
     <string name="edge_right">Right</string>

@@ -47,6 +47,10 @@
     <string name="toolbar_colours">Barvy</string>
     <string name="toolbar_waypoints">Uložené pohledy</string>
     <string name="toolbar_minimap">Minimapa</string>
+    <string name="toolbar_pencilcase">Penál</string>
+    <string name="pencilcase_save">Uložit nástroj do penálu</string>
+    <string name="pencilcase_remove">Odebrat %1$s</string>
+    <string name="pencilcase_remove_items">Odebrat nástroje</string>
     <string name="edge_all">Vše</string>
     <string name="edge_left">Vlevo</string>
     <string name="edge_right">Vpravo</string>

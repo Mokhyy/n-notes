@@ -44,6 +44,7 @@
 - **Automatic text colour**: text colour follows the page background so text stays readable.
 - **General settings**: a General section in Preferences for app-wide options.
 - **Zoom menu**: the toolbar zoom menu has a zoom lock and starred zoom levels, with an optional zoom bar on the canvas that can be turned off.
+- **Pencilcase**: a floating bar for saved tools, shown or hidden from its toolbar button. Plus saves the pen, highlighter, eraser, tape or shape in use with its settings and colour, a tap arms it again, and the bin removes items. Long-press to move it; it snaps back to its corner or docks upright on the left or right edge.
 - **Pan menu**: lock panning to one axis, and set its sensitivity and how long it glides.
 - **Translations**: Czech, Spanish and French.
 - ~~**Create menu**: the new-note button is now a list to create a note, canvas, folder, or import a file.~~

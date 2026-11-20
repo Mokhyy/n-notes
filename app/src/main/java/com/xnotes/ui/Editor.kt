@@ -361,6 +361,9 @@ private val sharedRecents = androidx.compose.runtime.mutableStateOf<List<com.xno
 /** Saved zooms as last set here, read only so both panes recompose on a change; the list lives in settings. */
 private val sharedFavoriteZooms = androidx.compose.runtime.mutableStateOf<List<Float>?>(null)
 
+/** The pencilcase as last set here, read only so both panes recompose on a change; the list lives in settings. */
+private val sharedPencilcase = androidx.compose.runtime.mutableStateOf<List<com.xnotes.core.tools.PencilcaseItem>?>(null)
+
 /**
  * Which pane of a split view an editor drives. [PRIMARY] is the app's one editor in the ordinary
  * single-note case and the first pane of a split; [SECONDARY] is the second pane, built only when a
@@ -816,6 +819,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         treeVersion++
         sharedRecents.value = settings.recentDocs // a sync may have merged in another device's recents
         sharedFavoriteZooms.value = settings.favoriteZooms
+        sharedPencilcase.value = settings.pencilcase
     }
 
     override var toastText by mutableStateOf<String?>(null)
@@ -8689,6 +8693,41 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         get() { prefsVersion; return preferences.showZoomBar }
 
     fun setShowZoomBar(on: Boolean) = applyPreferences(preferences.copy(showZoomBar = on))
+
+    /** Saved tools, shared by every note and canvas. */
+    val pencilcase: List<com.xnotes.core.tools.PencilcaseItem>
+        get() { sharedPencilcase.value; return settings.pencilcase }
+
+    val showPencilcase: Boolean
+        get() { prefsVersion; return preferences.showPencilcase }
+
+    fun toggleShowPencilcase() = applyPreferences(preferences.copy(showPencilcase = !showPencilcase))
+
+    /** Save [item] at the end of the pencilcase; one already in it is not saved twice. */
+    fun addToPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
+        if (item !in pencilcase) setPencilcase(pencilcase + item)
+    }
+
+    fun removeFromPencilcase(item: com.xnotes.core.tools.PencilcaseItem) = setPencilcase(pencilcase - item)
+
+    private fun setPencilcase(list: List<com.xnotes.core.tools.PencilcaseItem>) {
+        settings = settings.copy(pencilcase = list)
+        sharedPencilcase.value = list
+        saveSettingsSoon()
+    }
+
+    /** The armed tool as a pencilcase item, or null when it is not one the pencilcase holds. */
+    fun pencilcaseSnapshot(): com.xnotes.core.tools.PencilcaseItem? = tool.takeIf { it in com.xnotes.core.tools.PencilcaseItem.TOOLS }
+        ?.let { com.xnotes.core.tools.PencilcaseItem(it, controller.configFor(it), shapeConfig, controller.inkColor) }
+
+    /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
+    fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
+        selectTool(item.tool)
+        if (item.tool == Tool.SHAPE) updateShapeConfig(item.shape) else controller.setToolConfig(item.tool, item.config)
+        if (item.tool == Tool.ERASER) return
+        val swatch = toolbarColors.take(toolbarColorCount).indexOf(item.color)
+        if (swatch >= 0) pickColor(swatch) else controller.inkColor = item.color
+    }
 
     /** Save [zoom] if it is not saved yet, remove it if it is. */
     fun toggleFavoriteZoom(zoom: Float) {

@@ -16,6 +16,7 @@ import com.xnotes.core.text.TableStyle
 import com.xnotes.core.tools.EraseMode
 import com.xnotes.core.tools.InkPalette
 import com.xnotes.core.tools.MarkupMode
+import com.xnotes.core.tools.PencilcaseItem
 import com.xnotes.core.tools.SelectKind
 import com.xnotes.core.tools.ShapeConfig
 import com.xnotes.core.shapes.ShapeKind
@@ -111,6 +112,8 @@ data class Settings(
     val onboardingDone: Boolean = false,
     /** Saved zooms from the zoom menu, ascending, shared by every note and canvas. */
     val favoriteZooms: List<Float> = DEFAULT_FAVORITE_ZOOMS,
+    /** Tools saved in the pencilcase bar, in the order they were added, shared by every note and canvas. */
+    val pencilcase: List<PencilcaseItem> = emptyList(),
 ) {
     fun configFor(tool: Tool): ToolConfig = tools[tool] ?: ToolDefaults.configFor(tool)
 
@@ -180,6 +183,7 @@ data class Settings(
             .put("pdf_notifications_asked", pdfNotificationsAsked)
             .put("onboarding_done", onboardingDone)
             .put("favorite_zooms", JSONArray().apply { favoriteZooms.forEach { put(it.toDouble()) } })
+            .put("pencilcase", JSONArray().apply { pencilcase.forEach { put(pencilcaseItemJson(it)) } })
     }
 
     companion object {
@@ -245,6 +249,7 @@ data class Settings(
                 pdfNotificationsAsked = o.optBoolean("pdf_notifications_asked", false),
                 onboardingDone = o.optBoolean("onboarding_done", o.has("browse_root")),
                 favoriteZooms = favoriteZooms(o.optJSONArray("favorite_zooms")),
+                pencilcase = pencilcase(o.optJSONArray("pencilcase")),
             )
         }
 
@@ -263,6 +268,26 @@ data class Settings(
             return (0 until a.length()).mapNotNull { i ->
                 a.optDouble(i, Double.NaN).takeIf { it.isFinite() }?.toFloat()
             }.take(MAX_FAVORITE_ZOOMS)
+        }
+
+        private fun pencilcaseItemJson(item: PencilcaseItem) = JSONObject()
+            .put("tool", item.tool.id)
+            .put("color", rgbaArr(item.color))
+            .apply { if (item.tool == Tool.SHAPE) put("shape", shapeConfigJson(item.shape)) else put("config", toolConfigJson(item.config)) }
+
+        /** Items of a tool this version does not know, or cannot save, are dropped. */
+        private fun pencilcase(a: JSONArray?): List<PencilcaseItem> {
+            if (a == null) return emptyList()
+            return (0 until a.length()).mapNotNull { i ->
+                val o = a.optJSONObject(i) ?: return@mapNotNull null
+                val tool = Tool.fromId(o.optString("tool"))?.takeIf { it in PencilcaseItem.TOOLS } ?: return@mapNotNull null
+                PencilcaseItem(
+                    tool = tool,
+                    config = o.optJSONObject("config")?.let { toolConfig(it, tool) } ?: ToolDefaults.configFor(tool),
+                    shape = o.optJSONObject("shape")?.let { shapeConfig(it) } ?: ShapeConfig(),
+                    color = rgba(o.optJSONArray("color")) ?: InkPalette.DEFAULT,
+                )
+            }
         }
 
         private fun recentDocs(a: JSONArray?): List<RecentDoc> {

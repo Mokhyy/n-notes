@@ -160,6 +160,7 @@ val ToolbarItem.labelRes: Int
         ToolbarItem.ZOOM_LOCK -> R.string.toolbar_zoom_lock
         ToolbarItem.FULLSCREEN -> R.string.toolbar_fullscreen
         ToolbarItem.COLORS -> R.string.toolbar_colours
+        ToolbarItem.PENCILCASE -> R.string.toolbar_pencilcase
         ToolbarItem.WAYPOINTS -> R.string.toolbar_waypoints
         ToolbarItem.MINIMAP -> R.string.toolbar_minimap
     }

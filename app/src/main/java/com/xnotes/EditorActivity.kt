@@ -104,6 +104,7 @@ import com.xnotes.ui.Editor
 import com.xnotes.ui.Toolbar
 import com.xnotes.ui.ToolbarAround
 import com.xnotes.ui.icons.XnotesIcons
+import com.xnotes.ui.Pencilcase
 import com.xnotes.ui.ZoomBar
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.XnotesTheme
@@ -1952,6 +1953,15 @@ private fun EditorPane(
                                 editor.favoriteZooms, canvas::setZoom, editor::toggleFavoriteZoom,
                             )
                         }
+                        if (editor.showPencilcase) {
+                            Pencilcase(
+                                editor.pencilcase,
+                                canSave = canvas.tool in com.xnotes.core.tools.PencilcaseItem.TOOLS,
+                                onSave = { canvas.pencilcaseSnapshot()?.let(editor::addToPencilcase) },
+                                onPick = canvas::armPencilcase,
+                                onRemove = editor::removeFromPencilcase,
+                            )
+                        }
                         CanvasToastPill(canvas)
                     }
                 }
@@ -2019,6 +2029,15 @@ private fun EditorPane(
                                 ZoomBar(
                                     editor.zoomPercent, editor.zoomLocked, editor::toggleZoomLock,
                                     editor.favoriteZooms, editor::setZoom, editor::toggleFavoriteZoom,
+                                )
+                            }
+                            if (editor.showPencilcase && !editor.readerMode) {
+                                Pencilcase(
+                                    editor.pencilcase,
+                                    canSave = editor.tool in com.xnotes.core.tools.PencilcaseItem.TOOLS,
+                                    onSave = { editor.pencilcaseSnapshot()?.let(editor::addToPencilcase) },
+                                    onPick = editor::armPencilcase,
+                                    onRemove = editor::removeFromPencilcase,
                                 )
                             }
                             ZoomLockHint(editor)

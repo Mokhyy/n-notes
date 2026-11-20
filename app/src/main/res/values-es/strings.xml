@@ -47,6 +47,10 @@
     <string name="toolbar_colours">Colores</string>
     <string name="toolbar_waypoints">Puntos de referencia</string>
     <string name="toolbar_minimap">Minimapa</string>
+    <string name="toolbar_pencilcase">Estuche</string>
+    <string name="pencilcase_save">Guardar herramienta en el estuche</string>
+    <string name="pencilcase_remove">Quitar %1$s</string>
+    <string name="pencilcase_remove_items">Quitar herramientas</string>
     <string name="edge_all">Todos</string>
     <string name="edge_left">Izquierda</string>
     <string name="edge_right">Derecha</string>

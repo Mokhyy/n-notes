@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -310,6 +311,9 @@ private fun ToolbarItemView(
             stringResource(if (editor.zoomLocked) R.string.unlock_zoom else R.string.lock_zoom),
             active = editor.zoomLocked,
         ) { editor.toggleZoomLock() }
+
+        ToolbarItem.PENCILCASE ->
+            ToolbarIcon(Icons.Outlined.DesignServices, stringResource(R.string.toolbar_pencilcase), active = editor.showPencilcase) { editor.toggleShowPencilcase() }
 
         ToolbarItem.FULLSCREEN -> ToolbarIcon(XnotesIcons.fullscreen, stringResource(R.string.toolbar_fullscreen), shortcut = Keys.FULLSCREEN) { onToggleFullscreen() }
 

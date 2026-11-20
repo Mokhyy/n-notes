@@ -707,6 +707,30 @@ class SettingsTest {
         assertEquals(starred.favoriteZooms, Settings.fromJson(starred.toJson()).favoriteZooms)
     }
 
+    @Test fun pencilcaseItemsSurviveTheSettingsRoundTrip() {
+        val items = listOf(
+            com.xnotes.core.tools.PencilcaseItem(
+                Tool.CALLIGRAPHY,
+                com.xnotes.core.tools.ToolDefaults.configFor(Tool.CALLIGRAPHY).copy(baseWidth = 7.5, neon = true),
+                color = Rgba(10, 20, 30, 255),
+            ),
+            com.xnotes.core.tools.PencilcaseItem(
+                Tool.SHAPE,
+                shape = com.xnotes.core.tools.ShapeConfig(strokeWidth = 5.0, dashed = true),
+                color = Rgba(200, 0, 0, 255),
+            ),
+        )
+        val back = Settings.fromJson(Settings(pencilcase = items).toJson()).pencilcase
+        assertEquals(items.map { it.tool to it.color }, back.map { it.tool to it.color })
+        assertEquals(items[0].config.copy(rgba = back[0].config.rgba), back[0].config)
+        assertEquals(items[1].shape, back[1].shape)
+    }
+
+    @Test fun pencilcaseDropsToolsItCannotHold() {
+        val json = Settings().toJson().put("pencilcase", org.json.JSONArray().put(JSONObject().put("tool", "text")).put(JSONObject().put("tool", "nope")))
+        assertEquals(emptyList<Any>(), Settings.fromJson(json).pencilcase)
+    }
+
     @Test fun aSettingsFileWithoutStarredZoomsFallsBackToTheDefaults() {
         assertEquals(DEFAULT_FAVORITE_ZOOMS, Settings.fromJson(JSONObject()).favoriteZooms)
     }
