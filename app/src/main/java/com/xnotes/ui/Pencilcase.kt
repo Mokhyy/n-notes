@@ -57,6 +57,8 @@ import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.xnotes.R
+import com.xnotes.core.shapes.ConnectorPresets
+import com.xnotes.core.shapes.ShapePresets
 import com.xnotes.core.tools.PencilcaseItem
 import com.xnotes.core.tools.Tool
 import com.xnotes.ui.icons.XnotesIcons
@@ -232,7 +234,7 @@ fun BoxScope.Pencilcase(
                             ),
                     ) {
                         CaseButton(
-                            pencilcaseIcon(item.tool),
+                            pencilcaseIcon(item),
                             if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
                             tint = (if (item.tool == Tool.ERASER) palette.text else item.shownColor).toComposeColor(),
                             enabled = current != Mode.REORDER,
@@ -319,7 +321,7 @@ fun BoxScope.Pencilcase(
         grabbed?.let { g ->
             val item = items.getOrNull(g) ?: return@let
             Box(Modifier.align(Alignment.TopStart).offset { (finger - grab - origin).round() }) {
-                ToolbarDragGhost(pencilcaseIcon(item.tool), stringResource(item.tool.labelRes))
+                ToolbarDragGhost(pencilcaseIcon(item), stringResource(item.tool.labelRes))
             }
         }
     }
@@ -366,10 +368,12 @@ private fun CaseButton(
 }
 
 @Composable
-private fun pencilcaseIcon(tool: Tool): ImageVector = when (tool) {
+private fun pencilcaseIcon(item: PencilcaseItem): ImageVector = when (val tool = item.tool) {
     Tool.ERASER -> XnotesIcons.eraser
     Tool.TAPE -> XnotesIcons.tape
-    Tool.SHAPE -> XnotesIcons.shape
+    Tool.SHAPE -> ShapePresets.byKey(item.shape.preset)?.let(ShapeIcons::of)
+        ?: ConnectorPresets.byKey(item.shape.preset)?.let(ShapeIcons::connector)
+        ?: XnotesIcons.shape
     else -> ImageVector.vectorResource(
         when (tool) {
             Tool.DASHED -> R.drawable.ic_stroke_dashed
