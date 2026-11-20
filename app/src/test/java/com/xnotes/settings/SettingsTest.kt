@@ -10,6 +10,7 @@ import com.xnotes.core.tools.ToolbarLayout
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -736,15 +737,20 @@ class SettingsTest {
         assertEquals(listOf(pen), Settings.fromJson(Settings(pencilcase = listOf(pen)).toJson()).pencilcase)
     }
 
-    @Test fun aSavedPencilcaseTableKeepsItsSizeAndStyle() {
-        val table = com.xnotes.core.tools.PencilcaseItem.of(
+    @Test fun aSavedPencilcaseTableKeepsItsSizeWidthAndColour() {
+        fun table(cols: Int, width: Double, own: Rgba?) = com.xnotes.core.tools.PencilcaseItem.of(
             Tool.TABLE,
             com.xnotes.core.tools.ToolDefaults.configFor(Tool.TABLE),
             com.xnotes.core.tools.ShapeConfig(),
             Rgba(10, 20, 30, 255),
-            com.xnotes.core.text.TableDefaults(rows = 5, cols = 2, style = com.xnotes.core.text.TableStyle(headerRow = true)),
+            com.xnotes.canvas.TableToolDefaults(cols = cols, rows = 5, width = width, color = own),
         )
-        assertEquals(listOf(table), Settings.fromJson(Settings(pencilcase = listOf(table)).toJson()).pencilcase)
+        val red = table(2, 4.0, Rgba(200, 0, 0, 255))
+        assertEquals(Rgba(200, 0, 0, 255), red.color)
+        assertEquals(Rgba(10, 20, 30, 255), table(2, 4.0, null).color)
+        assertNotEquals(red, table(3, 4.0, Rgba(200, 0, 0, 255)))
+        assertNotEquals(red, table(2, 6.0, Rgba(200, 0, 0, 255)))
+        assertEquals(listOf(red), Settings.fromJson(Settings(pencilcase = listOf(red)).toJson()).pencilcase)
     }
 
     @Test fun pencilcaseDropsToolsItCannotHold() {

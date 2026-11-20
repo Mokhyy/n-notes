@@ -248,7 +248,6 @@ fun BoxScope.Pencilcase(
                                 if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
                                 tint = when {
                                     current == Mode.USE && !canPick(item) -> palette.border
-                                    item.tool == Tool.TABLE -> item.table.style.lineColor ?: item.table.style.tint ?: palette.text
                                     item.tool == Tool.ERASER -> palette.text
                                     else -> item.shownColor
                                 }.toComposeColor(),

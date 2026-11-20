@@ -277,7 +277,7 @@ data class Settings(
             .apply {
                 when (item.tool) {
                     Tool.SHAPE -> put("shape", shapeConfigJson(item.shape))
-                    Tool.TABLE -> put("table", tableDefaultsJson(item.table))
+                    Tool.TABLE -> put("table", JSONObject().put("cols", item.table.cols).put("rows", item.table.rows).put("width", item.table.width))
                     else -> put("config", toolConfigJson(item.config))
                 }
             }
@@ -293,7 +293,14 @@ data class Settings(
                     config = o.optJSONObject("config")?.let { toolConfig(it, tool) } ?: ToolDefaults.configFor(tool),
                     shape = o.optJSONObject("shape")?.let { shapeConfig(it) } ?: ShapeConfig(),
                     color = rgba(o.optJSONArray("color")) ?: InkPalette.DEFAULT,
-                    table = tableDefaults(o.optJSONObject("table")),
+                    table = o.optJSONObject("table")?.let { t ->
+                        val d = PencilcaseItem.DEFAULT_TABLE
+                        d.copy(
+                            cols = t.optInt("cols", d.cols).coerceIn(1, 20),
+                            rows = t.optInt("rows", d.rows).coerceIn(1, 20),
+                            width = t.optDouble("width", d.width).coerceIn(1.0, 12.0),
+                        )
+                    } ?: PencilcaseItem.DEFAULT_TABLE,
                     name = o.optString("name").takeIf { it.isNotBlank() },
                 )
             }
