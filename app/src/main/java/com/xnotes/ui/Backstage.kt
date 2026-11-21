@@ -1501,6 +1501,13 @@ private fun ExplorerSection(
                 importInto = { callsNow.value.importInto(it.documentUri) },
                 syncConflict = { conflictOf = it },
                 toggleHidden = { e -> editor.setHidden(e.documentUri, !editor.isHidden(e.documentUri)); refreshKey++ },
+                saveAsTemplate = { e ->
+                    scope.launch {
+                        val ok = withContext(Dispatchers.IO) { editor.saveAsNoteTemplate(root, e.documentUri) }
+                        if (ok) editor.message = context.getString(R.string.saved_as_template) else opError = context.getString(R.string.err_save_template)
+                        refreshKey++
+                    }
+                },
             ),
         )
     }
@@ -2439,6 +2446,7 @@ internal fun EntryMenu(
     deleteLabel: String = stringResource(R.string.delete),
     hidden: Boolean = false,
     onToggleHidden: (() -> Unit)? = null,
+    onSaveAsTemplate: (() -> Unit)? = null,
 ) {
     val palette = LocalPalette.current
     // "Colour code" swaps the menu's contents for the swatch picker until a colour (or None) is chosen;
@@ -2468,6 +2476,7 @@ internal fun EntryMenu(
             if (onToggleHidden != null) {
                 DropdownMenuItem(text = { Text(stringResource(if (hidden) R.string.unhide else R.string.hide_on_device)) }, onClick = { onDismiss(); onToggleHidden() })
             }
+            if (onSaveAsTemplate != null) DropdownMenuItem(text = { Text(stringResource(R.string.save_as_template)) }, onClick = { onDismiss(); onSaveAsTemplate() })
             DropdownMenuItem(text = { Text(deleteLabel) }, onClick = { onDismiss(); onDelete?.invoke() })
             if (onShare != null) {
                 HorizontalDivider(color = palette.border.toComposeColor())

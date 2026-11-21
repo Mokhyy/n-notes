@@ -117,6 +117,7 @@ internal class EntryActions(
     val importInto: (BrowseEntry) -> Unit,
     val syncConflict: (BrowseEntry) -> Unit,
     val toggleHidden: (BrowseEntry) -> Unit,
+    val saveAsTemplate: (BrowseEntry) -> Unit,
 )
 
 /** Everything an explorer layout draws from: the view, what's in it, and how to describe each item. */
@@ -365,6 +366,7 @@ internal fun EntryMenuFor(b: ExplorerBody, e: BrowseEntry, expanded: Boolean, on
         deleteLabel = b.deleteLabel,
         hidden = b.editor.isHidden(e.documentUri),
         onToggleHidden = { m.toggleHidden(e) },
+        onSaveAsTemplate = if (DocumentKind.ofName(e.name).let { it == DocumentKind.NOTE || it == DocumentKind.CANVAS }) ({ m.saveAsTemplate(e) }) else null,
     )
 }
 

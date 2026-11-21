@@ -1094,6 +1094,12 @@
     <string name="view_show_hidden">显示隐藏的文件和文件夹</string>
     <string name="view_show_hidden_hint">在此设备上隐藏的项目，以淡色显示。点文件遵循其自身选项。</string>
     <string name="hidden">已隐藏</string>
+    <string name="note_templates">模板</string>
+    <string name="save_as_template">另存为模板</string>
+    <string name="use_template">使用模板</string>
+    <string name="saved_as_template">已另存为模板</string>
+    <string name="err_save_template">无法保存模板。</string>
+    <string name="note_templates_empty">还没有模板。可从笔记菜单将其另存为模板。</string>
     <string name="hidden_empty">此设备上没有隐藏的内容。</string>
     <string name="pref_show_hidden">显示在此设备上隐藏的文件和文件夹</string>
     <string name="reader_read_only">只读</string>

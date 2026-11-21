@@ -285,6 +285,9 @@ private const val TRASH_INFO = "trash.json"
 /** Inside the top folder's sidecar: the template library, made on the first import. */
 private const val TEMPLATES_DIR = "templates"
 
+/** Notes saved as templates, in the top folder's sidecar so they sync but never list among notes. */
+private const val NOTE_TEMPLATES_DIR = "note-templates"
+
 /** How long after a tap its settings change is written, clear of the 150 ms animations it starts. */
 private const val SETTINGS_SAVE_DELAY_MS = 400L
 
@@ -7449,6 +7452,35 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 }
             }.getOrNull()
         }.sortedBy { it.name.lowercase() }
+    }
+
+    private fun noteTemplatesDir(root: String, create: Boolean): String? {
+        val tree = android.net.Uri.parse(root)
+        val side = sidecarDir(tree, browseRootDocId(root), create) ?: return null
+        findChildDocId(tree, side, NOTE_TEMPLATES_DIR, dir = true)?.let { return it }
+        if (!create) return null
+        val parent = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, side)
+        val made = android.provider.DocumentsContract.createDocument(
+            appContext.contentResolver, parent, android.provider.DocumentsContract.Document.MIME_TYPE_DIR, NOTE_TEMPLATES_DIR,
+        ) ?: return null
+        return android.provider.DocumentsContract.getDocumentId(made)
+    }
+
+    /** The notes saved as templates under [root]. IO. */
+    fun noteTemplateEntries(root: String): List<BrowseEntry> =
+        runCatching { noteTemplatesDir(root, create = false)?.let { browseChildren(root, it) } }.getOrNull().orEmpty()
+
+    /** Copy the note at [uri] into the templates; false when it failed. IO. */
+    fun saveAsNoteTemplate(root: String, uri: String): Boolean =
+        runCatching { noteTemplatesDir(root, create = true)?.let { copyDocumentInto(root, uri, it) } }.getOrNull() == true
+
+    /** A new note under [parentDocId], a copy of [template] named by the filename template; its URI, or null. IO. */
+    fun createFromNoteTemplate(root: String, parentDocId: String, template: BrowseEntry): String? {
+        val kind = com.xnotes.core.util.DocumentKind.ofName(template.name) ?: return null
+        val name = uniqueDocumentName(root, parentDocId, "", kind)
+        return createNoteFile(root, parentDocId, name) { out ->
+            appContext.contentResolver.openInputStream(android.net.Uri.parse(template.documentUri))!!.use { it.copyTo(out, copyBuffer) }
+        }
     }
 
     fun setShowHidden(show: Boolean) {

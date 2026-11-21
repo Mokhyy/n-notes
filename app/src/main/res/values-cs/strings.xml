@@ -1341,6 +1341,12 @@
     <string name="view_show_hidden">Zobrazit skryté soubory a složky</string>
     <string name="view_show_hidden_hint">Položky skryté na tomto zařízení, ztlumeně. Soubory s tečkou mají vlastní volbu.</string>
     <string name="hidden">Skryté</string>
+    <string name="note_templates">Šablony</string>
+    <string name="save_as_template">Uložit jako šablonu</string>
+    <string name="use_template">Použít šablonu</string>
+    <string name="saved_as_template">Uloženo jako šablona</string>
+    <string name="err_save_template">Šablonu se nepodařilo uložit.</string>
+    <string name="note_templates_empty">Zatím žádné šablony. Poznámku uložíš jako šablonu z její nabídky.</string>
     <string name="hidden_empty">Na tomto zařízení není nic skryté.</string>
     <string name="pref_show_hidden">Zobrazit soubory a složky skryté na tomto zařízení</string>
     <string name="reader_read_only">Jen pro čtení</string>

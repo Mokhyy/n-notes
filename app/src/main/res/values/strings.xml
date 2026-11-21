@@ -1331,6 +1331,12 @@
     <string name="view_show_hidden">Show hidden files and folders</string>
     <string name="view_show_hidden_hint">Items you hid on this device, dimmed. Dot files follow their own option.</string>
     <string name="hidden">Hidden</string>
+    <string name="note_templates">Templates</string>
+    <string name="save_as_template">Save as template</string>
+    <string name="use_template">Use template</string>
+    <string name="saved_as_template">Saved as template</string>
+    <string name="err_save_template">Could not save the template.</string>
+    <string name="note_templates_empty">No templates yet. Save a note as a template from its menu.</string>
     <string name="hidden_empty">Nothing is hidden on this device.</string>
     <string name="pref_show_hidden">Show files and folders hidden on this device</string>
     <string name="reader_read_only">Read only</string>

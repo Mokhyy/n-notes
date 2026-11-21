@@ -1319,6 +1319,12 @@
     <string name="view_show_hidden">Mostrar archivos y carpetas ocultos</string>
     <string name="view_show_hidden_hint">Elementos ocultos en este dispositivo, atenuados. Los archivos con punto siguen su propia opción.</string>
     <string name="hidden">Ocultos</string>
+    <string name="note_templates">Plantillas</string>
+    <string name="save_as_template">Guardar como plantilla</string>
+    <string name="use_template">Usar plantilla</string>
+    <string name="saved_as_template">Guardada como plantilla</string>
+    <string name="err_save_template">No se pudo guardar la plantilla.</string>
+    <string name="note_templates_empty">Aún no hay plantillas. Guarda una nota como plantilla desde su menú.</string>
     <string name="hidden_empty">No hay nada oculto en este dispositivo.</string>
     <string name="pref_show_hidden">Mostrar archivos y carpetas ocultos en este dispositivo</string>
     <string name="reader_read_only">Solo lectura</string>
