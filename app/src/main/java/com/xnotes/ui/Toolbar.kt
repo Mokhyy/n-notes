@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -614,14 +615,20 @@ internal fun Swatch(
     onClick: () -> Unit,
 ) {
     val bar = LocalBar.current
+    val palette = LocalPalette.current
+    val panel = palette.panel.toComposeColor().luminance()
+    val lum = color.luminance()
+    // A swatch close to the bar's own colour (black on OLED, white on light) gets a hairline so it still shows.
+    val blends = (maxOf(lum, panel) + 0.05f) / (minOf(lum, panel) + 0.05f) < 1.6f
     Box(
         modifier = Modifier
             .then(if (bar.vertical) Modifier.padding(vertical = 3.dp) else Modifier.padding(horizontal = 3.dp))
             .size(bar.swatch)
             .then(if (drag != null && ink != null) Modifier.colorDragSource(drag, ink, bar.vertical) else Modifier)
             // The selection ring is white on a dark theme and black on a light one, so it shows whatever the swatch.
-            .then(if (active) Modifier.border(2.dp, if (LocalPalette.current.isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black, CircleShape) else Modifier)
+            .then(if (active) Modifier.border(2.dp, if (palette.isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black, CircleShape) else Modifier)
             .padding(4.dp)
+            .then(if (blends) Modifier.border(1.dp, palette.textDim.toComposeColor(), CircleShape) else Modifier)
             .clip(CircleShape)
             .background(color)
             .clickable(onClick = onClick),
