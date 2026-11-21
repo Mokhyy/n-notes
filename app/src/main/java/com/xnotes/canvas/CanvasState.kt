@@ -189,6 +189,9 @@ class CanvasState(
      */
     var verticalScroll: Boolean = true
 
+    /** With [verticalScroll], rows run left to right in one strip that scrolls freely: reader mode's horizontal scrolling. */
+    var horizontalStrip: Boolean = false
+
     /** The row the paginated view is on (its scroll window); moved by flips and [goToPage]. */
     var currentRow: Int = 0
 
@@ -669,7 +672,7 @@ class CanvasState(
         val rowWidths = rows.map { r -> r.sumOf { displayW(pages[it]) } + (r.last - r.first) * pageGap }
         val rowHeights = rows.map { r -> r.maxOf { displayH(pages[it]) } }
         val rects = arrayOfNulls<Rect>(pages.size)
-        if (verticalScroll) {
+        if (verticalScroll && !horizontalStrip) {
             // Rows stack top-down, centred against the widest row.
             val maxW = rowWidths.max()
             var y = vertMargin // vertical top margin (keeps the page below the toolbar)
@@ -939,6 +942,11 @@ class CanvasState(
             for (i in row) if (pageRects[i].right + pageGap / 2.0 > cx) return i
             return row.last
         }
+        if (horizontalStrip) {
+            val centerX = viewportToContent(Pt(viewportW / 2.0, viewportH / 2.0)).x
+            for (i in pageRects.indices) if (pageRects[i].right + pageGap / 2.0 > centerX) return i
+            return pageRects.size - 1
+        }
         val centerY = viewportToContent(Pt(viewportW / 2.0, viewportH / 2.0)).y
         for (i in pageRects.indices) {
             if (pageRects[i].bottom + pageGap / 2.0 > centerY) return i
@@ -1117,10 +1125,11 @@ class CanvasState(
      *  Paginated mode fits the current row (the strip as a whole is never the fit target). */
     fun fitWidthZoom(): Double {
         if (viewportW == 0) return 0.0
-        if (!verticalScroll) {
+        if (!verticalScroll || horizontalStrip) {
             val rows = rowRanges()
             if (rows.isEmpty()) return 0.0
-            val w = rowBounds(rows[currentRow.coerceIn(0, rows.lastIndex)]).w + 2 * sideMargin
+            val row = if (horizontalStrip) rowIndexOf(currentPageIndex()) else currentRow
+            val w = rowBounds(rows[row.coerceIn(0, rows.lastIndex)]).w + 2 * sideMargin
             return if (w <= 0.0) 0.0 else (clearW / w).coerceIn(minZoom, maxZoom)
         }
         if (contentW <= 0.0) return 0.0
@@ -1824,17 +1833,22 @@ class CanvasState(
         var lo: Int
         var hi: Int
         if (verticalScroll) {
+            // Along the scrolling axis: down the column, or across the horizontal strip.
             val v = visibleContentRect()
-            fun top(r: Int) = rows[r].minOf { pageRects[it].top }
-            fun bottom(r: Int) = rows[r].maxOf { pageRects[it].bottom }
+            val across = horizontalStrip
+            fun top(r: Int) = rows[r].minOf { if (across) pageRects[it].left else pageRects[it].top }
+            fun bottom(r: Int) = rows[r].maxOf { if (across) pageRects[it].right else pageRects[it].bottom }
+            val vTop = if (across) v.left else v.top
+            val vBottom = if (across) v.right else v.bottom
+            val vSize = if (across) v.w else v.h
             first = 0
-            while (first < rows.size && bottom(first) < v.top) first++
+            while (first < rows.size && bottom(first) < vTop) first++
             last = rows.lastIndex
-            while (last >= 0 && top(last) > v.bottom) last--
+            while (last >= 0 && top(last) > vBottom) last--
             hi = last + 1
-            while (hi < rows.lastIndex && top(hi + 1) <= v.bottom + v.h) hi++
+            while (hi < rows.lastIndex && top(hi + 1) <= vBottom + vSize) hi++
             lo = first - 1
-            while (lo > 0 && bottom(lo - 1) >= v.top - v.h) lo--
+            while (lo > 0 && bottom(lo - 1) >= vTop - vSize) lo--
         } else {
             first = currentRow.coerceIn(0, rows.lastIndex)
             last = first
