@@ -171,6 +171,7 @@ fun Toolbar(
             Separator()
             Item(ToolbarItem.ZOOM)
             Item(ToolbarItem.FIT)
+            Item(ToolbarItem.VIEW)
             Separator()
             Item(ToolbarItem.FULLSCREEN)
         }

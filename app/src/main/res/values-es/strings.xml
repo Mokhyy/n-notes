@@ -23,6 +23,13 @@
     <string name="tool_markup">Marcado de texto PDF</string>
     <string name="tool_reader">Lector</string>
     <string name="reader_exit">Salir del lector</string>
+    <string name="reader_settings">Ajustes del lector</string>
+    <string name="caption_page_turning">Páginas</string>
+    <string name="reader_vertical">Vertical</string>
+    <string name="reader_horizontal">Horizontal</string>
+    <string name="reader_single_page">Una página</string>
+    <string name="caption_turn_animation">Animación al pasar página</string>
+    <string name="caption_tap_to_turn">Tocar los bordes para pasar</string>
     <string name="markup_highlight">Resaltar</string>
     <string name="markup_squiggly">Ondulado</string>
     <string name="markup_colour">Color</string>

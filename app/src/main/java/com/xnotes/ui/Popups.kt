@@ -83,6 +83,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import com.xnotes.R
 import com.xnotes.canvas.PdfColorFilter
+import com.xnotes.canvas.ReaderPageMode
+import com.xnotes.canvas.ReaderSettings
 import com.xnotes.canvas.ViewOverrides
 import com.xnotes.canvas.ViewSettings
 import com.xnotes.canvas.ViewingMode
@@ -859,18 +861,22 @@ fun ViewMenuPopup(editor: Editor, onDismiss: () -> Unit) {
         editor.updateViewOverrides(new)
         if (editor.viewSettings != editor.viewDefaults) showDefaultRow = true
     }
-    fun setMode(v: ViewingMode) = apply(overrides.copy(mode = v))
+    // Reader mode edits its own settings, never the note's.
+    val reader = editor.readerMode
+    val rs = editor.readerSettings
+    fun setReader(f: ViewSettings.() -> ViewSettings) = editor.updateReaderSettings(rs.copy(view = rs.view.f()))
+    fun setMode(v: ViewingMode) = if (reader) setReader { copy(mode = v) } else apply(overrides.copy(mode = v))
     fun setVerticalScroll(v: Boolean) = apply(overrides.copy(verticalScroll = v))
-    fun setFreeMovement(v: Boolean) = apply(overrides.copy(freeMovement = v))
-    fun setContrast(v: Int) = apply(overrides.copy(contrast = v))
-    fun setInvert(v: Int) = apply(overrides.copy(invert = v))
-    fun setBrightness(v: Int) = apply(overrides.copy(brightness = v))
-    fun setSepia(v: Int) = apply(overrides.copy(sepia = v))
-    fun setMultiply(v: Rgba) = apply(overrides.copy(multiply = v))
-    fun setScreen(v: Rgba) = apply(overrides.copy(screen = v))
-    fun setKeepImages(v: Boolean) = apply(overrides.copy(keepImages = v))
-    fun setRotation(v: Int) = apply(overrides.copy(rotation = v))
-    fun setScrollbar(v: Boolean) = apply(overrides.copy(scrollbar = v))
+    fun setFreeMovement(v: Boolean) = if (reader) setReader { copy(freeMovement = v) } else apply(overrides.copy(freeMovement = v))
+    fun setContrast(v: Int) = if (reader) setReader { copy(contrast = v) } else apply(overrides.copy(contrast = v))
+    fun setInvert(v: Int) = if (reader) setReader { copy(invert = v) } else apply(overrides.copy(invert = v))
+    fun setBrightness(v: Int) = if (reader) setReader { copy(brightness = v) } else apply(overrides.copy(brightness = v))
+    fun setSepia(v: Int) = if (reader) setReader { copy(sepia = v) } else apply(overrides.copy(sepia = v))
+    fun setMultiply(v: Rgba) = if (reader) setReader { copy(multiply = v) } else apply(overrides.copy(multiply = v))
+    fun setScreen(v: Rgba) = if (reader) setReader { copy(screen = v) } else apply(overrides.copy(screen = v))
+    fun setKeepImages(v: Boolean) = if (reader) setReader { copy(keepImages = v) } else apply(overrides.copy(keepImages = v))
+    fun setRotation(v: Int) = if (reader) setReader { copy(rotation = v) } else apply(overrides.copy(rotation = v))
+    fun setScrollbar(v: Boolean) = if (reader) setReader { copy(scrollbar = v) } else apply(overrides.copy(scrollbar = v))
 
     DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
         if (filtering) Column(Modifier.width(250.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
@@ -885,7 +891,7 @@ fun ViewMenuPopup(editor: Editor, onDismiss: () -> Unit) {
             FilterColorRow(stringResource(R.string.filter_screen), vs.screen, PdfColorFilter.SCREEN_OFF) { setScreen(it) }
             ToggleRow(stringResource(R.string.caption_keep_images), vs.keepImages) { setKeepImages(it) }
         } else Column(Modifier.width(250.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
-            PopupTitle(stringResource(R.string.title_view))
+            PopupTitle(stringResource(if (reader) R.string.reader_settings else R.string.title_view))
             StyleCaption(stringResource(R.string.caption_viewing_mode))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ModeChip(stringResource(R.string.view_single), vs.mode == ViewingMode.SINGLE) { setMode(ViewingMode.SINGLE) }
@@ -894,7 +900,23 @@ fun ViewMenuPopup(editor: Editor, onDismiss: () -> Unit) {
             }
 
             Spacer(Modifier.size(10.dp))
-            ToggleRow(stringResource(R.string.caption_vertical_scrolling), vs.verticalScroll) { setVerticalScroll(it) }
+            if (reader) {
+                StyleCaption(stringResource(R.string.caption_page_turning))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        ReaderPageMode.VERTICAL to R.string.reader_vertical,
+                        ReaderPageMode.HORIZONTAL to R.string.reader_horizontal,
+                        ReaderPageMode.SINGLE to R.string.reader_single_page,
+                    ).forEach { (m, label) ->
+                        ModeChip(stringResource(label), rs.pageMode == m) { editor.updateReaderSettings(rs.copy(pageMode = m)) }
+                    }
+                }
+                val single = rs.pageMode == ReaderPageMode.SINGLE
+                ToggleRow(stringResource(R.string.caption_turn_animation), rs.turnAnimation, enabled = single) { editor.updateReaderSettings(rs.copy(turnAnimation = it)) }
+                ToggleRow(stringResource(R.string.caption_tap_to_turn), rs.tapToTurn, enabled = single) { editor.updateReaderSettings(rs.copy(tapToTurn = it)) }
+            } else {
+                ToggleRow(stringResource(R.string.caption_vertical_scrolling), vs.verticalScroll) { setVerticalScroll(it) }
+            }
             ToggleRow(stringResource(R.string.caption_free_movement), vs.freeMovement) { setFreeMovement(it) }
 
             Spacer(Modifier.size(10.dp))
@@ -922,14 +944,14 @@ fun ViewMenuPopup(editor: Editor, onDismiss: () -> Unit) {
 
             ToggleRow(stringResource(R.string.caption_scrollbar), vs.scrollbar) { setScrollbar(it) }
             // Autoscroll lives outside the View settings, so it never stirs the "Default for all notes" row.
-            ToggleRow(stringResource(R.string.caption_autoscroll), editor.autoScrollOn, enabled = vs.verticalScroll) { editor.setAutoScroll(it) }
+            ToggleRow(stringResource(R.string.caption_autoscroll), editor.autoScrollOn, enabled = vs.verticalScroll && !(reader && rs.pageMode == ReaderPageMode.HORIZONTAL)) { editor.setAutoScroll(it) }
             if (editor.autoScrollOn) SliderRow(
                 stringResource(R.string.caption_autoscroll_speed), editor.autoScrollSpeed / 10f,
                 Preferences.AUTOSCROLL_MIN / 10f..Preferences.AUTOSCROLL_MAX / 10f, step = 0.1f, suffix = " mm/s",
             ) { editor.pickAutoScrollSpeed((it * 10f).roundToInt()) }
 
             Spacer(Modifier.size(8.dp))
-            if (showDefaultRow && overrides != ViewOverrides()) {
+            if (!reader && showDefaultRow && overrides != ViewOverrides()) {
                 // The checkbox's 48dp touch frame insets the drawn box; pull the row back to align it.
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().offset(x = (-14).dp)) {
                     Checkbox(
@@ -947,7 +969,7 @@ fun ViewMenuPopup(editor: Editor, onDismiss: () -> Unit) {
                 Spacer(Modifier.size(4.dp))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                ModeChip(stringResource(R.string.reset), false) { apply(ViewOverrides()) }
+                ModeChip(stringResource(R.string.reset), false) { if (reader) editor.updateReaderSettings(ReaderSettings()) else apply(ViewOverrides()) }
             }
         }
     }

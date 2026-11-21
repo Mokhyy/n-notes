@@ -23,6 +23,13 @@
     <string name="tool_markup">Značení textu v PDF</string>
     <string name="tool_reader">Čtečka</string>
     <string name="reader_exit">Ukončit čtečku</string>
+    <string name="reader_settings">Nastavení čtečky</string>
+    <string name="caption_page_turning">Stránky</string>
+    <string name="reader_vertical">Svisle</string>
+    <string name="reader_horizontal">Vodorovně</string>
+    <string name="reader_single_page">Po stránce</string>
+    <string name="caption_turn_animation">Animace otáčení stránek</string>
+    <string name="caption_tap_to_turn">Otáčet klepnutím na okraj</string>
     <string name="markup_highlight">Zvýraznění</string>
     <string name="markup_squiggly">Vlnovka</string>
     <string name="markup_colour">Barva</string>

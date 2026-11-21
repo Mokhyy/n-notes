@@ -23,6 +23,13 @@
     <string name="tool_markup">Annotation de texte PDF</string>
     <string name="tool_reader">Lecteur</string>
     <string name="reader_exit">Quitter le lecteur</string>
+    <string name="reader_settings">Réglages du lecteur</string>
+    <string name="caption_page_turning">Pages</string>
+    <string name="reader_vertical">Vertical</string>
+    <string name="reader_horizontal">Horizontal</string>
+    <string name="reader_single_page">Une page</string>
+    <string name="caption_turn_animation">Animation de tourne-page</string>
+    <string name="caption_tap_to_turn">Toucher les bords pour tourner</string>
     <string name="markup_highlight">Surlignage</string>
     <string name="markup_squiggly">Ondulé</string>
     <string name="markup_colour">Couleur</string>
