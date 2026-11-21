@@ -64,6 +64,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
@@ -144,17 +145,17 @@ private val tapGestureOptions = listOf(
 )
 
 /** The Preferences pages, in the order the category list shows them. */
-private enum class PrefCategory(val title: Int, val summary: Int) {
-    GENERAL(R.string.pref_general, R.string.pref_general_summary),
-    APPEARANCE(R.string.pref_appearance, R.string.pref_appearance_summary),
-    INPUT(R.string.pref_input, R.string.pref_input_summary),
-    OCR(R.string.pref_ocr, R.string.pref_ocr_summary),
-    NEW_NOTES(R.string.pref_new_notes, R.string.pref_new_notes_summary),
-    HOME(R.string.pref_home_explorer, R.string.pref_home_summary),
-    EXPORT_IMPORT(R.string.pref_export_import, R.string.pref_export_import_summary),
-    PERFORMANCE(R.string.pref_performance, R.string.pref_performance_summary),
-    TOOLBAR(R.string.pref_toolbar, R.string.pref_toolbar_summary),
-    CLOUD_SYNC(R.string.pref_cloud_sync, R.string.pref_cloud_sync_summary),
+private enum class PrefCategory(val title: Int, val summary: Int, val icon: ImageVector) {
+    GENERAL(R.string.pref_general, R.string.pref_general_summary, XnotesIcons.settings),
+    APPEARANCE(R.string.pref_appearance, R.string.pref_appearance_summary, XnotesIcons.palette),
+    INPUT(R.string.pref_input, R.string.pref_input_summary, XnotesIcons.edit),
+    OCR(R.string.pref_ocr, R.string.pref_ocr_summary, XnotesIcons.scanText),
+    NEW_NOTES(R.string.pref_new_notes, R.string.pref_new_notes_summary, XnotesIcons.addPage),
+    HOME(R.string.pref_home_explorer, R.string.pref_home_summary, XnotesIcons.home),
+    EXPORT_IMPORT(R.string.pref_export_import, R.string.pref_export_import_summary, XnotesIcons.share),
+    PERFORMANCE(R.string.pref_performance, R.string.pref_performance_summary, XnotesIcons.gauge),
+    TOOLBAR(R.string.pref_toolbar, R.string.pref_toolbar_summary, XnotesIcons.sliders),
+    CLOUD_SYNC(R.string.pref_cloud_sync, R.string.pref_cloud_sync_summary, XnotesIcons.cloud),
 }
 
 /**
@@ -265,7 +266,7 @@ fun PreferencesPane(
     val sectionsPanel = @Composable {
         if (categorized) {
             val titles = PrefCategory.entries.map { stringResource(it.title) }
-            PrefSectionsPanel(titles, category?.let { titles[it.ordinal] }) { title ->
+            PrefSectionsPanel(titles, category?.let { titles[it.ordinal] }, PrefCategory.entries.map { it.icon }) { title ->
                 category = PrefCategory.entries[titles.indexOf(title)]
                 if (compact) sectionsOpen = false
             }
@@ -364,9 +365,16 @@ fun PreferencesPane(
         ) {
             if (categorized && category == null && !searching) {
                 for (c in PrefCategory.entries) {
-                    Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { category = c }.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                        Text(stringResource(c.title), color = palette.text.toComposeColor(), fontSize = 16.sp)
-                        Text(stringResource(c.summary), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                    Row(
+                        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { category = c }.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Icon(c.icon, null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(22.dp))
+                        Column {
+                            Text(stringResource(c.title), color = palette.text.toComposeColor(), fontSize = 16.sp)
+                            Text(stringResource(c.summary), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                        }
                     }
                 }
             }
@@ -1481,7 +1489,7 @@ private fun Modifier.sectionAnchor(title: String): Modifier {
 
 /** The settings' sections or categories, styled like the note's side panel; a tap goes to it. */
 @Composable
-private fun PrefSectionsPanel(titles: List<String>, current: String?, onPick: (String) -> Unit) {
+private fun PrefSectionsPanel(titles: List<String>, current: String?, icons: List<ImageVector> = emptyList(), onPick: (String) -> Unit) {
     val palette = LocalPalette.current
     Column(
         Modifier
@@ -1491,21 +1499,28 @@ private fun PrefSectionsPanel(titles: List<String>, current: String?, onPick: (S
             .verticalScroll(rememberScrollState())
             .padding(vertical = 4.dp),
     ) {
-        for (title in titles) {
+        for ((i, title) in titles.withIndex()) {
             val selected = title == current
-            Text(
-                title,
-                color = (if (selected) palette.selectionForeground else palette.text).toComposeColor(),
-                fontSize = 15.sp,
-                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
+            val color = (if (selected) palette.selectionForeground else palette.text).toComposeColor()
+            Row(
+                Modifier
                     .fillMaxWidth()
                     .then(if (selected) Modifier.background(palette.selectionBackground.toComposeColor()) else Modifier)
                     .clickable { onPick(title) }
                     .padding(horizontal = 14.dp, vertical = 10.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                icons.getOrNull(i)?.let { Icon(it, null, tint = color, modifier = Modifier.size(18.dp)) }
+                Text(
+                    title,
+                    color = color,
+                    fontSize = 15.sp,
+                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
