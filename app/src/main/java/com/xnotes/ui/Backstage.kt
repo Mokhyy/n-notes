@@ -335,8 +335,9 @@ private fun BackstageContent(
     var explorerColor by remember { mutableStateOf<Rgba?>(null) }
     var explorerRecent by remember { mutableStateOf(false) }
     var explorerHidden by remember { mutableStateOf(false) }
+    var explorerTemplates by remember { mutableStateOf(false) }
     val link = remember(explorerNav) {
-        ExplorerLink(explorerNav, { explorerNav = null }) { folder, color, recent, hidden -> explorerFolder = folder; explorerColor = color; explorerRecent = recent; explorerHidden = hidden }
+        ExplorerLink(explorerNav, { explorerNav = null }) { folder, color, recent, hidden, templates -> explorerFolder = folder; explorerColor = color; explorerRecent = recent; explorerHidden = hidden; explorerTemplates = templates }
     }
     val scope = rememberCoroutineScope()
     var renamingColor by remember { mutableStateOf<Rgba?>(null) }
@@ -354,8 +355,9 @@ private fun BackstageContent(
     val activeColor = if (view == BackstageView.HOME) explorerColor else null
     val recentActive = view == BackstageView.HOME && explorerRecent
     val hiddenActive = view == BackstageView.HOME && explorerHidden
+    val templatesActive = view == BackstageView.HOME && explorerTemplates
     val pins = if (prefs.sidebarPinned) editor.sidebarPins else emptyList()
-    val activePin = if (view != BackstageView.HOME || explorerFolder == null || activeColor != null || recentActive || hiddenActive) -1
+    val activePin = if (view != BackstageView.HOME || explorerFolder == null || activeColor != null || recentActive || hiddenActive || templatesActive) -1
     else pins.indexOfFirst { runCatching { editor.browseDocId(it.uri) }.getOrNull() == explorerFolder }
     val shownColors = if (prefs.sidebarColours) colors else emptyList()
     // With Trash off it leaves the sidebar, once whatever was already in it is restored or emptied.
@@ -364,14 +366,17 @@ private fun BackstageContent(
     // Kept while its inputs hold, so folding the sidebar never recomposes the rail or the sidebar.
     val showRecent = prefs.sidebarRecent && editor.browseRoot != null
     val showHiddenNav = prefs.sidebarHidden && editor.browseRoot != null && prefs.hiddenItems.isNotEmpty()
-    val nav = remember(view, shownColors, activeColor, pins, activePin, trashCount, showRecent, recentActive, showHiddenNav, hiddenActive, compact, prefs) {
+    val showTemplatesNav = prefs.sidebarTemplates && editor.browseRoot != null
+    val nav = remember(view, shownColors, activeColor, pins, activePin, trashCount, showRecent, recentActive, showHiddenNav, hiddenActive, showTemplatesNav, templatesActive, compact, prefs) {
         SidebarNav(
             view = view,
-            homeSelected = view == BackstageView.HOME && activePin < 0 && activeColor == null && !recentActive && !hiddenActive,
+            homeSelected = view == BackstageView.HOME && activePin < 0 && activeColor == null && !recentActive && !hiddenActive && !templatesActive,
             recent = if (!showRecent) null else recentActive,
             onRecent = { selectView(BackstageView.HOME); explorerNav = ExplorerNav(null, recent = true) },
             hidden = if (!showHiddenNav) null else hiddenActive,
             onHidden = { selectView(BackstageView.HOME); explorerNav = ExplorerNav(null, hidden = true) },
+            templates = if (!showTemplatesNav) null else templatesActive,
+            onTemplates = { selectView(BackstageView.HOME); explorerNav = ExplorerNav(null, templates = true) },
             colors = shownColors,
             activeColor = activeColor,
             pins = pins,
@@ -479,13 +484,13 @@ private fun BackstageContent(
 }
 
 /** A sidebar pick for the explorer: a pinned folder, a colour to filter the whole tree by, or neither for the root. */
-private class ExplorerNav(val folderUri: String?, val color: Rgba? = null, val recent: Boolean = false, val hidden: Boolean = false)
+private class ExplorerNav(val folderUri: String?, val color: Rgba? = null, val recent: Boolean = false, val hidden: Boolean = false, val templates: Boolean = false)
 
 /** The sidebar's line into the explorer: a pick to act on, and where the explorer reports what it shows. */
 private class ExplorerLink(
     val nav: ExplorerNav?,
     val onNavHandled: () -> Unit,
-    val onPlace: (folderDocId: String?, color: Rgba?, recent: Boolean, hidden: Boolean) -> Unit,
+    val onPlace: (folderDocId: String?, color: Rgba?, recent: Boolean, hidden: Boolean, templates: Boolean) -> Unit,
 )
 
 /** What the sidebar and its rail show and do, shared so the two never drift apart. */
@@ -498,6 +503,9 @@ private class SidebarNav(
     /** Whether Hidden is showing; null leaves Hidden out of the sidebar. */
     val hidden: Boolean?,
     val onHidden: () -> Unit,
+    /** Whether the note templates are showing; null leaves Templates out of the sidebar. */
+    val templates: Boolean?,
+    val onTemplates: () -> Unit,
     /** Named colours only, by name; unnamed ones never reach the sidebar. */
     val colors: List<Pair<Rgba, String>>,
     val activeColor: Rgba?,
@@ -546,6 +554,7 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
             nav.recent?.let { on -> Command(XnotesIcons.clock, stringResource(R.string.recent), selected = on) { nav.onRecent() } }
             Command(XnotesIcons.home, stringResource(R.string.home), selected = nav.homeSelected) { nav.onHome() }
             nav.hidden?.let { on -> Command(XnotesIcons.eyeOff, stringResource(R.string.hidden), selected = on) { nav.onHidden() } }
+            nav.templates?.let { on -> Command(XnotesIcons.pages, stringResource(R.string.note_templates), selected = on) { nav.onTemplates() } }
             if (nav.trashCount >= 0) {
                 Command(XnotesIcons.trash, stringResource(R.string.trash), selected = nav.view == BackstageView.TRASH, count = nav.trashCount.takeIf { it > 0 }?.toString()) {
                     nav.onSelectView(BackstageView.TRASH)
@@ -601,6 +610,7 @@ private fun BackstageRail(modifier: Modifier, nav: SidebarNav, onExpand: () -> U
             nav.recent?.let { on -> RailItem(XnotesIcons.clock, stringResource(R.string.recent), selected = on) { nav.onRecent() } }
             RailItem(XnotesIcons.home, stringResource(R.string.home), selected = nav.homeSelected) { nav.onHome() }
             nav.hidden?.let { on -> RailItem(XnotesIcons.eyeOff, stringResource(R.string.hidden), selected = on) { nav.onHidden() } }
+            nav.templates?.let { on -> RailItem(XnotesIcons.pages, stringResource(R.string.note_templates), selected = on) { nav.onTemplates() } }
             if (nav.trashCount >= 0) RailItem(XnotesIcons.trash, stringResource(R.string.trash), selected = nav.view == BackstageView.TRASH) { nav.onSelectView(BackstageView.TRASH) }
             if (nav.pins.isNotEmpty()) Spacer(Modifier.height(8.dp))
             nav.pins.forEachIndexed { i, pin ->
@@ -1127,6 +1137,8 @@ private fun ExplorerSection(
     var showRecent by remember(root) { mutableStateOf(false) }
     // Set from the sidebar: everything hidden on this device, in place of the folder.
     var showHiddenList by remember(root) { mutableStateOf(false) }
+    // Set from the sidebar: the notes saved as templates, in place of the folder.
+    var showTemplates by remember(root) { mutableStateOf(false) }
     var includeSubfolders by remember(root) { mutableStateOf(true) }
     var timelineMonth by remember(root) { mutableStateOf<YearMonth?>(null) }
     var columnsPick by remember(root) { mutableStateOf<BrowseEntry?>(null) }
@@ -1139,10 +1151,11 @@ private fun ExplorerSection(
         val target = nav ?: return@LaunchedEffect
         val color = target.color
         showHiddenList = target.hidden
+        showTemplates = target.templates
         if (target.recent) {
             showRecent = true
             colorFilter = null
-        } else if (target.hidden) {
+        } else if (target.hidden || target.templates) {
             showRecent = false
             colorFilter = null
         } else if (color != null) {
@@ -1166,8 +1179,8 @@ private fun ExplorerSection(
         query = ""
         link.onNavHandled()
     }
-    LaunchedEffect(currentDocId, colorFilter, showRecent, showHiddenList) { link.onPlace(if (stack.isEmpty()) null else currentDocId, colorFilter, showRecent, showHiddenList) }
-    LaunchedEffect(query) { if (query.isNotBlank()) { colorFilter = null; showRecent = false; showHiddenList = false } }
+    LaunchedEffect(currentDocId, colorFilter, showRecent, showHiddenList, showTemplates) { link.onPlace(if (stack.isEmpty()) null else currentDocId, colorFilter, showRecent, showHiddenList, showTemplates) }
+    LaunchedEffect(query) { if (query.isNotBlank()) { colorFilter = null; showRecent = false; showHiddenList = false; showTemplates = false } }
     // Home opens on the folder last shown when set to; until that's settled, nothing is saved over it.
     var settled by remember(root) { mutableStateOf(false) }
     LaunchedEffect(root) {
@@ -1196,21 +1209,22 @@ private fun ExplorerSection(
     var trail by remember(root) { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     fun trailLeadsOn() = trail.size > stack.size && trail.subList(0, stack.size) == stack.toList()
     folderSwipe.up = {
-        if (stack.isNotEmpty() && colorFilter == null && !showRecent && !showHiddenList) {
+        if (stack.isNotEmpty() && colorFilter == null && !showRecent && !showHiddenList && !showTemplates) {
             if (!trailLeadsOn()) trail = stack.toList()
             stack.removeAt(stack.lastIndex)
             clearUp()
         }
     }
     folderSwipe.deeper = {
-        if (colorFilter == null && !showRecent && !showHiddenList && trailLeadsOn()) {
+        if (colorFilter == null && !showRecent && !showHiddenList && !showTemplates && trailLeadsOn()) {
             stack.add(trail[stack.size])
             clearUp()
         }
     }
-    BackHandler(enabled = showRecent || showHiddenList) {
+    BackHandler(enabled = showRecent || showHiddenList || showTemplates) {
         showRecent = false
         showHiddenList = false
+        showTemplates = false
         selection.clear()
     }
 
@@ -1219,7 +1233,7 @@ private fun ExplorerSection(
     val setView: (ExplorerView) -> Unit = { editor.setView(folderKey, it) }
     val setViewNow = rememberUpdatedState(setView)
     val searching = query.isNotBlank()
-    val flat = searching || colorFilter != null || showRecent || showHiddenList
+    val flat = searching || colorFilter != null || showRecent || showHiddenList || showTemplates
     val layout = when {
         flat && (view.layout == ExplorerLayout.COLUMNS || view.layout == ExplorerLayout.TIMELINE) -> ExplorerLayout.GRID
         compactScreen && view.layout == ExplorerLayout.COLUMNS -> ExplorerLayout.LIST
@@ -1258,6 +1272,9 @@ private fun ExplorerSection(
     val hiddenList by produceState<List<BrowseEntry>?>(null, root, showHiddenList, refreshKey, editor.treeVersion) {
         if (showHiddenList) value = withContext(Dispatchers.IO) { editor.hiddenEntries(root) }
     }
+    val templateList by produceState<List<BrowseEntry>?>(null, root, showTemplates, refreshKey, editor.treeVersion) {
+        if (showTemplates) value = withContext(Dispatchers.IO) { editor.noteTemplateEntries(root) }
+    }
     val recentByUri = remember(recents) { recents.orEmpty().associateBy { it.entry.documentUri } }
     // Pinned notes head the top folder in the layouts that read top to bottom, nowhere else.
     val showPinned = stack.isEmpty() && !flat &&
@@ -1269,6 +1286,7 @@ private fun ExplorerSection(
     val source: List<BrowseEntry>? = when {
         showRecent -> recents?.map { it.entry }
         showHiddenList -> hiddenList
+        showTemplates -> templateList
         colorFilter != null -> colorResults
         searching -> results
         layout == ExplorerLayout.TIMELINE -> timeline?.files
@@ -1393,6 +1411,7 @@ private fun ExplorerSection(
                 colorFilter = null
                 showRecent = false
                 showHiddenList = false
+                showTemplates = false
                 query = ""
                 clearUp()
             }
@@ -1401,7 +1420,7 @@ private fun ExplorerSection(
     fun openFolder(e: BrowseEntry) {
         opError = null
         // Read afresh: the tile callbacks outlive the composition this was built in.
-        if (query.isNotBlank() || colorFilter != null || showRecent || showHiddenList) openChain(e.documentUri) else {
+        if (query.isNotBlank() || colorFilter != null || showRecent || showHiddenList || showTemplates) openChain(e.documentUri) else {
             stack.add(editor.browseDocId(e.documentUri) to e.name)
             columnsPick = null
         }
@@ -1579,6 +1598,8 @@ private fun ExplorerSection(
         showRecent && recents!!.isEmpty() -> EmptyState(stringResource(R.string.recent_empty), EmptyArt.RECENT)
         showHiddenList && hiddenList == null -> EmptyState(stringResource(R.string.loading))
         showHiddenList && hiddenList!!.isEmpty() -> EmptyState(stringResource(R.string.hidden_empty))
+        showTemplates && templateList == null -> EmptyState(stringResource(R.string.loading))
+        showTemplates && templateList!!.isEmpty() -> EmptyState(stringResource(R.string.note_templates_empty))
         source == null -> EmptyState(stringResource(R.string.loading))
         layout == ExplorerLayout.COLUMNS -> null
         pinned.isNotEmpty() -> null
@@ -1916,6 +1937,10 @@ private fun ExplorerSection(
                                 Icon(XnotesIcons.eyeOff, null, tint = palette.accent.toComposeColor(), modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
                                 Text(stringResource(R.string.hidden), color = palette.text.toComposeColor(), fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                            } else if (showTemplates) Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(XnotesIcons.pages, null, tint = palette.accent.toComposeColor(), modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.note_templates), color = palette.text.toComposeColor(), fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
                             } else if (filter != null) Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(Modifier.size(12.dp).clip(CircleShape).background(codeTint(filter, palette)))
                                 Spacer(Modifier.width(8.dp))

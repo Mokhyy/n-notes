@@ -147,6 +147,7 @@ data class Preferences(
     val switcherLayouts: List<ExplorerLayout> = ExplorerLayout.entries,
     val sidebarRecent: Boolean = true,
     val sidebarHidden: Boolean = true,
+    val sidebarTemplates: Boolean = true,
     val sidebarPinned: Boolean = true,
     val sidebarColours: Boolean = true,
     val sidebarTrash: Boolean = true,
@@ -287,6 +288,7 @@ data class Preferences(
         .put("switcher_layouts", org.json.JSONArray().apply { switcherLayouts.forEach { put(it.id) } })
         .put("sidebar_recent", sidebarRecent)
         .put("sidebar_hidden", sidebarHidden)
+        .put("sidebar_templates", sidebarTemplates)
         .put("sidebar_pinned", sidebarPinned)
         .put("sidebar_colours", sidebarColours)
         .put("sidebar_trash", sidebarTrash)
@@ -453,6 +455,7 @@ data class Preferences(
                 } ?: ExplorerLayout.entries,
                 sidebarRecent = o.optBoolean("sidebar_recent", true),
                 sidebarHidden = o.optBoolean("sidebar_hidden", true),
+                sidebarTemplates = o.optBoolean("sidebar_templates", true),
                 sidebarPinned = o.optBoolean("sidebar_pinned", true),
                 sidebarColours = o.optBoolean("sidebar_colours", true),
                 sidebarTrash = o.optBoolean("sidebar_trash", true),
