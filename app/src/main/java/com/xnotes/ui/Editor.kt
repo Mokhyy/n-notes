@@ -7365,12 +7365,20 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun isHidden(docUri: String): Boolean = documentKey(docUri) in preferences.hiddenItems
 
     /** Hides or shows one file or folder on this device only; the list never syncs. */
-    fun setHidden(docUri: String, hide: Boolean) {
-        val key = documentKey(docUri)
+    fun setHidden(docUri: String, hide: Boolean) = setHiddenKey(documentKey(docUri), hide)
+
+    fun setHiddenKey(key: String, hide: Boolean) {
         val items = if (hide) preferences.hiddenItems + key else preferences.hiddenItems - key
         if (items == preferences.hiddenItems) return
         applyHomePreferences(preferences.copy(hiddenItems = items))
         relistAll()
+    }
+
+    /** A hidden item's path under the notes folder, for listing it in Preferences. */
+    fun hiddenLabel(key: String): String {
+        val id = key.substringAfter('|')
+        val root = browseRoot?.let { runCatching { browseRootDocId(it) }.getOrNull() }
+        return if (root != null && id.startsWith("$root/")) id.removePrefix("$root/") else id.substringAfterLast(':')
     }
 
     fun setShowHidden(show: Boolean) {

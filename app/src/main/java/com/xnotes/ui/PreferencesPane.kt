@@ -152,6 +152,7 @@ private enum class PrefCategory(val title: Int, val summary: Int, val icon: Imag
     OCR(R.string.pref_ocr, R.string.pref_ocr_summary, XnotesIcons.scanText),
     NEW_NOTES(R.string.pref_new_notes, R.string.pref_new_notes_summary, XnotesIcons.addPage),
     HOME(R.string.pref_home_explorer, R.string.pref_home_summary, XnotesIcons.home),
+    HIDDEN(R.string.pref_hidden, R.string.pref_hidden_summary, XnotesIcons.eyeOff),
     EXPORT_IMPORT(R.string.pref_export_import, R.string.pref_export_import_summary, XnotesIcons.share),
     PERFORMANCE(R.string.pref_performance, R.string.pref_performance_summary, XnotesIcons.gauge),
     TOOLBAR(R.string.pref_toolbar, R.string.pref_toolbar_summary, XnotesIcons.sliders),
@@ -505,6 +506,11 @@ fun PreferencesPane(
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
                 if (all) SectionTitle(stringResource(R.string.pref_home_explorer))
                 HomeExplorerControls(editor, prefs, ::updateHome)
+            }
+            if (shown(PrefCategory.HIDDEN)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_hidden))
+                HiddenItemsControls(editor, prefs)
             }
             if (shown(PrefCategory.EXPORT_IMPORT)) {
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
@@ -1105,6 +1111,22 @@ internal fun PermissionsSection(syncOn: Boolean) {
 
 /** Home screen and file explorer settings; shared by Preferences and onboarding. */
 @OptIn(ExperimentalLayoutApi::class)
+/** What this device hides from the explorer, each with a way back. */
+@Composable
+private fun HiddenItemsControls(editor: Editor, prefs: Preferences) {
+    val palette = LocalPalette.current
+    CheckRow(stringResource(R.string.pref_show_hidden), prefs.showHidden) { editor.setShowHidden(it) }
+    if (prefs.hiddenItems.isEmpty()) {
+        Text(stringResource(R.string.pref_hidden_none), color = palette.textDim.toComposeColor(), fontSize = 13.sp)
+    }
+    for (key in prefs.hiddenItems.sortedBy { editor.hiddenLabel(it).lowercase() }) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(editor.hiddenLabel(key), color = palette.text.toComposeColor(), fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            TextButton(onClick = { editor.setHiddenKey(key, false) }) { Text(stringResource(R.string.unhide), fontSize = 13.sp) }
+        }
+    }
+}
+
 @Composable
 internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome: (Preferences) -> Unit) {
     val palette = LocalPalette.current
@@ -1206,7 +1228,6 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
     CheckRow(stringResource(R.string.pref_show_folder_counts), prefs.showFolderCounts) { updateHome(prefs.copy(showFolderCounts = it)) }
     CheckRow(stringResource(R.string.pref_show_extensions), prefs.showExtensions) { updateHome(prefs.copy(showExtensions = it)) }
     CheckRow(stringResource(R.string.pref_hide_dot_items), prefs.hideDotItems) { editor.setHideDotItems(it) }
-    CheckRow(stringResource(R.string.pref_show_hidden), prefs.showHidden) { editor.setShowHidden(it) }
 }
 
 /** Pen, finger and gesture settings; shared by Preferences and onboarding. */
