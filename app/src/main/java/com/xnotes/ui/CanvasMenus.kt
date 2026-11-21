@@ -230,6 +230,9 @@ interface SelectionMenuHost : SwatchHost {
     /** Put the selection, drawn alone over what lies beneath it and cut to its bounds, on the clipboard as a picture. */
     fun copySelectionAsImage()
 
+    /** Keep copies of the selection in the sticker library, to be placed again as editable items. */
+    fun saveSelectionAsSticker()
+
     /** That picture as a PNG ready for the share sheet, or null (with a message) when it could not be made. */
     fun selectionImageForShare(): java.io.File?
 
@@ -362,6 +365,7 @@ fun SelectionMenu(
             SelectionAction.UNGROUP -> host.ungroupSelection()
             SelectionAction.COPY_IMAGE -> host.copySelectionAsImage()
             SelectionAction.SHARE_IMAGE -> host.selectionImageForShare()?.let { onShareImage?.invoke(it) }
+            SelectionAction.SAVE_STICKER -> { host.saveSelectionAsSticker(); host.dismissSelectionMenu() }
         }
     }
 
@@ -506,6 +510,7 @@ val SelectionAction.icon: ImageVector
         SelectionAction.UNGROUP -> XnotesIcons.ungroup
         SelectionAction.COPY_IMAGE -> XnotesIcons.copyImage
         SelectionAction.SHARE_IMAGE -> XnotesIcons.share
+        SelectionAction.SAVE_STICKER -> XnotesIcons.sticker
     }
 
 /** The Arrange menu's rows, top of the stack first. */

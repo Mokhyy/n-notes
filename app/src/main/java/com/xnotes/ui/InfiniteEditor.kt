@@ -749,6 +749,14 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         onMessage?.invoke(appContext.getString(if (ok) R.string.image_copied else R.string.err_copy_image), null)
     }
 
+    /** Hands a saved selection to the sticker library the paged editor owns. */
+    var onSaveSticker: ((List<CanvasItem>, Int, android.graphics.Bitmap?) -> Unit)? = null
+
+    override fun saveSelectionAsSticker() {
+        if (selection.isEmpty) return
+        onSaveSticker?.invoke(selection.items.deepCopyAll(textMeasurer), document.dpi, renderSelectionBitmap())
+    }
+
     override fun selectionImageForShare(): java.io.File? {
         val file = renderSelectionBitmap()?.let { com.xnotes.platform.ShareFiles.png(appContext, it, document.title) }
         if (file == null) onMessage?.invoke(appContext.getString(R.string.err_share_image), null)

@@ -28,7 +28,8 @@ enum class SelectionAction(val id: String, val onBarByDefault: Boolean) {
     GROUP("group", false),
     UNGROUP("ungroup", false),
     COPY_IMAGE("copy_image", false),
-    SHARE_IMAGE("share_image", false);
+    SHARE_IMAGE("share_image", false),
+    SAVE_STICKER("save_sticker", false);
 
     companion object {
         fun fromId(id: String?): SelectionAction? = entries.firstOrNull { it.id == id }

@@ -1013,6 +1013,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             // Both editors write inserted images into the same purged-on-launch temp dir.
             it.imageDir = imageDir
             it.onMessage = { m, action -> say(m, action) }
+            it.onSaveSticker = { items, dpi, thumb -> saveSticker(items, dpi, thumb) }
             for (t in ToolDefaults.persistedTools) it.setToolConfig(t, settings.configFor(t))
             it.armShapeConfig(settings.shapeConfig)
             it.onDetectShapesChanged = { v -> snapHeldToShapes = v }
@@ -3015,6 +3016,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             message = appContext.getString(if (ok) R.string.sticker_saved else R.string.err_save_sticker)
             refreshStickers()
         }
+    }
+
+    override fun saveSelectionAsSticker() {
+        val picked = controller.selectedItems()
+        if (picked.isEmpty()) return
+        saveSticker(picked.deepCopyAll(textMeasurer), state.document.dpi, renderSelectionBitmap())
     }
 
     /** Insert a sticker as a fresh copy, so the note never references the library file itself. */

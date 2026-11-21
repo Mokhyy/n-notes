@@ -122,6 +122,7 @@ val com.xnotes.core.tools.SelectionAction.labelRes: Int
         com.xnotes.core.tools.SelectionAction.UNGROUP -> R.string.ungroup
         com.xnotes.core.tools.SelectionAction.COPY_IMAGE -> R.string.copy_as_image
         com.xnotes.core.tools.SelectionAction.SHARE_IMAGE -> R.string.share_as_image
+        com.xnotes.core.tools.SelectionAction.SAVE_STICKER -> R.string.save_as_sticker
     }
 
 @get:StringRes
