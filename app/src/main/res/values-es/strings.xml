@@ -1316,9 +1316,6 @@
     <string name="view_show_hidden">Mostrar archivos y carpetas ocultos</string>
     <string name="view_show_hidden_hint">Elementos ocultos en este dispositivo, atenuados. Los archivos con punto siguen su propia opción.</string>
     <string name="pref_show_hidden">Mostrar archivos y carpetas ocultos en este dispositivo</string>
-    <string name="pref_hidden">Ocultos</string>
-    <string name="pref_hidden_summary">Archivos y carpetas ocultos en este dispositivo</string>
-    <string name="pref_hidden_none">No hay nada oculto en este dispositivo.</string>
     <string name="reader_read_only">Solo lectura</string>
     <string name="reader_open_failed">No se pudo abrir este archivo.</string>
     <string name="reader_link_missing">No se encontró \"%1$s\" en esta carpeta.</string>
