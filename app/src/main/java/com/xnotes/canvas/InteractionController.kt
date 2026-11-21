@@ -5048,9 +5048,33 @@ class InteractionController(
         }
     }
 
+    /** Whether paginated turns slide; off, a turn lands at once, the e-ink way. */
+    var animateTurns: Boolean = true
+
+    /** Turn the paginated view to [rowIndex]: a slide to a neighbouring row, a jump to any other. */
+    fun turnToRow(rowIndex: Int) {
+        if (state.verticalScroll) return
+        if (pageFlipAnimating) finishPageFlip()
+        val rows = state.rowRanges()
+        if (rowIndex !in rows.indices || rowIndex == state.currentRow) return
+        if (abs(rowIndex - state.currentRow) == 1) {
+            flipTo(rowIndex)
+        } else {
+            state.goToPage(rows[rowIndex].first)
+            onViewChanged()
+            requestRender()
+        }
+    }
+
     /** Continue the existing drag until the linked neighbouring row fully occupies the viewport. */
     private fun flipTo(rowIndex: Int) {
         stopFling()
+        if (!animateTurns) {
+            stopPageFlipAnimation()
+            pageFlipDestinationRow = rowIndex
+            finishPageFlip()
+            return
+        }
         val direction = if (rowIndex > state.currentRow) 1.0 else -1.0
         val target = direction * state.linkedPageTravel(rowIndex)
         beginPageFlipAnimation(state.flipOffsetX, target, rowIndex)

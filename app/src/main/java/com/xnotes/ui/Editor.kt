@@ -763,6 +763,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     var viewSettings by mutableStateOf(settings.viewDefaults)
         private set
 
+    /** Reader mode's own display settings, the same for every note. */
+    var readerSettings by mutableStateOf(settings.readerSettings)
+        private set
+
     /** The View menu's autoscroll. Never a View setting: it starts off in every note, and only its speed is remembered. */
     var autoScrollOn by mutableStateOf(false)
         private set
@@ -1979,7 +1983,14 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             autosaveScope.launch(Dispatchers.IO) { com.xnotes.platform.MathTraining.relearn(appContext, origin, from, to) }
         }
         controller.onMarkupTap = { at, withLink -> tapMarkup(at, withLink) }
-        controller.onTap = { at -> tapClosesNotePeek(at) }
+        controller.onTap = { at ->
+            tapClosesNotePeek(at)
+            // One page at a time, a tap in the outer third of the screen turns the page, like an e-ink reader.
+            if (readerMode && readerSettings.tapToTurn && !state.verticalScroll) {
+                val third = state.viewportW / 3.0
+                if (at.x < third) prevPage() else if (at.x > state.viewportW - third) nextPage()
+            }
+        }
         controller.onItemLinkTap = onItemLinkTap@{ pageIndex, pageLocal ->
             val page = state.document.pages.getOrNull(pageIndex) ?: return@onItemLinkTap false
             // A canvas item with a hyperlink wins over everything under the same point (it sits on top).
@@ -7252,6 +7263,15 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         applyResolvedViewSettings()
     }
 
+    /** Update reader mode's display settings and persist them; notes' own View settings stay as they are. */
+    fun updateReaderSettings(new: com.xnotes.canvas.ReaderSettings) {
+        if (readerSettings == new) return
+        readerSettings = new
+        settings = settings.copy(readerSettings = new)
+        settingsRepo.save(settings)
+        applyResolvedViewSettings()
+    }
+
     /** Update the open note's View-menu overrides and persist them. */
     fun updateViewOverrides(new: com.xnotes.canvas.ViewOverrides) {
         if (viewOverrides == new) return
@@ -7268,7 +7288,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     /** Start or stop autoscroll; it only runs in vertical scrolling, and keeps the screen awake while it does. */
     fun setAutoScroll(on: Boolean) {
-        val run = on && viewSettings.verticalScroll
+        val run = on && viewSettings.verticalScroll && !state.horizontalStrip
         if (run == autoScrollOn) return
         autoScrollOn = run
         view.keepScreenOn = run
@@ -7292,17 +7312,23 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     /** Re-resolve the effective settings and react to whatever actually changed. */
     private fun applyResolvedViewSettings() {
         val prev = viewSettings
-        val resolved = viewOverrides.resolve(viewDefaults)
-        if (prev == resolved) return
+        val resolved = if (readerMode) readerSettings.resolved else viewOverrides.resolve(viewDefaults)
+        val strip = readerMode && readerSettings.pageMode == com.xnotes.canvas.ReaderPageMode.HORIZONTAL
+        controller.animateTurns = !readerMode || readerSettings.turnAnimation
+        if (prev == resolved && state.horizontalStrip == strip) return
         viewSettings = resolved
-        onViewSettingsChanged(prev, resolved)
+        onViewSettingsChanged(prev, resolved, strip)
     }
 
     /** Push a settings change into the canvas/caches; each View-menu feature reacts here. */
-    private fun onViewSettingsChanged(prev: com.xnotes.canvas.ViewSettings, new: com.xnotes.canvas.ViewSettings) {
+    private fun onViewSettingsChanged(
+        prev: com.xnotes.canvas.ViewSettings,
+        new: com.xnotes.canvas.ViewSettings,
+        strip: Boolean = state.horizontalStrip,
+    ) {
         val beforeOrigin = state.origin()
         state.freeMovement = new.freeMovement
-        if (prev.mode != new.mode || prev.rotation != new.rotation || prev.verticalScroll != new.verticalScroll) {
+        if (prev.mode != new.mode || prev.rotation != new.rotation || prev.verticalScroll != new.verticalScroll || state.horizontalStrip != strip) {
             // Re-group / re-orient / re-flow the pages, keep the reader on the same page, and
             // re-fit a fit-width view to the new row width (a Double spread is about twice as
             // wide; a 90 degree turn swaps every page's footprint).
@@ -7310,6 +7336,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             state.viewingMode = new.mode
             state.rotationDeg = new.rotation
             state.verticalScroll = new.verticalScroll
+            state.horizontalStrip = strip
             state.flipOffsetX = 0.0
             if (new.verticalScroll) state.fitHeightActive = false // a paginated-only magnet
             state.relayout()
@@ -8423,11 +8450,13 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         selectTool(Tool.PAN)
         controller.readOnly = true
         readerMode = true
+        applyResolvedViewSettings()
     }
 
     fun exitReader() {
         if (!readerMode) return
         readerMode = false
+        applyResolvedViewSettings()
         controller.readOnly = false
         notePeek = null
         toolBeforeReader?.let { selectTool(it) }
@@ -8818,8 +8847,14 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun fitWidth() { state.fitWidth(); afterView() }
     fun fitHeight() { state.fitHeight(); afterView() }
     fun fitPage() { state.fitPage(); afterView() }
-    fun prevPage() { state.goToPage(state.prevPageIndex(state.currentPageIndex())); afterView() }
-    fun nextPage() { state.goToPage(state.nextPageIndex(state.currentPageIndex())); afterView() }
+    fun prevPage() = turnTo(state.prevPageIndex(state.currentPageIndex()))
+    fun nextPage() = turnTo(state.nextPageIndex(state.currentPageIndex()))
+
+    /** Page-nav stepping: a paginated view turns (sliding when set to), a scrolling one jumps. */
+    private fun turnTo(index: Int) {
+        if (state.verticalScroll) state.goToPage(index) else controller.turnToRow(state.rowIndexOf(index))
+        afterView()
+    }
     fun goToPage(index: Int) { state.goToPage(index); afterView() }
 
     fun toggleZoomLock() {
