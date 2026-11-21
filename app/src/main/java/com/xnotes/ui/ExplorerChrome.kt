@@ -377,10 +377,12 @@ internal fun ViewOptionsContent(
     layouts: List<ExplorerLayout>,
     everyFolder: Boolean,
     hideDotItems: Boolean,
+    showHidden: Boolean,
     onChange: (ExplorerView) -> Unit,
     onReset: () -> Unit,
     onEveryFolder: (Boolean) -> Unit,
     onHideDotItems: (Boolean) -> Unit,
+    onShowHidden: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
     val palette = LocalPalette.current
@@ -501,6 +503,7 @@ internal fun ViewOptionsContent(
         HorizontalDivider(color = palette.border.toComposeColor())
         CheckOption(everyFolder, stringResource(R.string.view_every_folder), stringResource(R.string.view_every_folder_hint)) { onEveryFolder(!everyFolder) }
         CheckOption(hideDotItems, stringResource(R.string.view_hide_dot_items), stringResource(R.string.view_hide_dot_items_hint)) { onHideDotItems(!hideDotItems) }
+        CheckOption(showHidden, stringResource(R.string.view_show_hidden), stringResource(R.string.view_show_hidden_hint)) { onShowHidden(!showHidden) }
     }
 }
 

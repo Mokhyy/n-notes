@@ -1290,6 +1290,11 @@
     <string name="pref_hide_dot_items">Masquer les fichiers et dossiers commençant par un point (.obsidian, .git)</string>
     <string name="view_hide_dot_items">Masquer les fichiers et dossiers commençant par un point</string>
     <string name="view_hide_dot_items_hint">Noms commençant par un point, comme .obsidian. S\'applique à tous les dossiers.</string>
+    <string name="hide_on_device">Masquer sur cet appareil</string>
+    <string name="unhide">Afficher</string>
+    <string name="view_show_hidden">Afficher les fichiers et dossiers masqués</string>
+    <string name="view_show_hidden_hint">Éléments masqués sur cet appareil, atténués. Les fichiers commençant par un point suivent leur propre option.</string>
+    <string name="pref_show_hidden">Afficher les fichiers et dossiers masqués sur cet appareil</string>
     <string name="reader_read_only">Lecture seule</string>
     <string name="reader_open_failed">Impossible d\'ouvrir ce fichier.</string>
     <string name="reader_link_missing">Impossible de trouver \"%1$s\" dans ce dossier.</string>

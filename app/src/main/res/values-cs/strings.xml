@@ -1333,6 +1333,11 @@
     <string name="pref_hide_dot_items">Skrýt soubory a složky začínající tečkou (.obsidian, .git)</string>
     <string name="view_hide_dot_items">Skrýt soubory a složky začínající tečkou</string>
     <string name="view_hide_dot_items_hint">Názvy začínající tečkou, například .obsidian. Platí pro všechny složky.</string>
+    <string name="hide_on_device">Skrýt na tomto zařízení</string>
+    <string name="unhide">Zrušit skrytí</string>
+    <string name="view_show_hidden">Zobrazit skryté soubory a složky</string>
+    <string name="view_show_hidden_hint">Položky skryté na tomto zařízení, ztlumeně. Soubory s tečkou mají vlastní volbu.</string>
+    <string name="pref_show_hidden">Zobrazit soubory a složky skryté na tomto zařízení</string>
     <string name="reader_read_only">Jen pro čtení</string>
     <string name="reader_open_failed">Tento soubor se nepodařilo otevřít.</string>
     <string name="reader_link_missing">V této složce se nepodařilo najít \"%1$s\".</string>

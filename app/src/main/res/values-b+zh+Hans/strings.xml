@@ -1086,6 +1086,11 @@
     <string name="pref_hide_dot_items">隐藏以点开头的文件和文件夹（.obsidian、.git）</string>
     <string name="view_hide_dot_items">隐藏以点开头的文件和文件夹</string>
     <string name="view_hide_dot_items_hint">名称以点开头的项目，例如 .obsidian。对所有文件夹生效。</string>
+    <string name="hide_on_device">在此设备上隐藏</string>
+    <string name="unhide">取消隐藏</string>
+    <string name="view_show_hidden">显示隐藏的文件和文件夹</string>
+    <string name="view_show_hidden_hint">在此设备上隐藏的项目，以淡色显示。点文件遵循其自身选项。</string>
+    <string name="pref_show_hidden">显示在此设备上隐藏的文件和文件夹</string>
     <string name="reader_read_only">只读</string>
     <string name="reader_open_failed">无法打开此文件。</string>
     <string name="reader_link_missing">在此文件夹中找不到 \"%1$s\"。</string>

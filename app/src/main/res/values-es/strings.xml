@@ -1311,6 +1311,11 @@
     <string name="pref_hide_dot_items">Ocultar archivos y carpetas con punto (.obsidian, .git)</string>
     <string name="view_hide_dot_items">Ocultar archivos y carpetas con punto</string>
     <string name="view_hide_dot_items_hint">Nombres que empiezan por un punto, como .obsidian. Se aplica a todas las carpetas.</string>
+    <string name="hide_on_device">Ocultar en este dispositivo</string>
+    <string name="unhide">Mostrar</string>
+    <string name="view_show_hidden">Mostrar archivos y carpetas ocultos</string>
+    <string name="view_show_hidden_hint">Elementos ocultos en este dispositivo, atenuados. Los archivos con punto siguen su propia opción.</string>
+    <string name="pref_show_hidden">Mostrar archivos y carpetas ocultos en este dispositivo</string>
     <string name="reader_read_only">Solo lectura</string>
     <string name="reader_open_failed">No se pudo abrir este archivo.</string>
     <string name="reader_link_missing">No se encontró \"%1$s\" en esta carpeta.</string>

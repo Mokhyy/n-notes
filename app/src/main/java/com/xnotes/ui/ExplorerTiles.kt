@@ -83,7 +83,8 @@ import java.time.ZoneId
 internal class TileHost(
     val isSelected: (BrowseEntry) -> Boolean,
     val selecting: () -> Boolean,
-    val isCut: (BrowseEntry) -> Boolean,
+    /** Cut to the clipboard, or hidden on this device while hidden items are shown. */
+    val isDimmed: (BrowseEntry) -> Boolean,
     val isPinned: (BrowseEntry) -> Boolean,
     val isNotePinned: (BrowseEntry) -> Boolean,
     val isDropTarget: (BrowseEntry) -> Boolean,
@@ -115,6 +116,7 @@ internal class EntryActions(
     val convertToNote: (BrowseEntry) -> Unit,
     val importInto: (BrowseEntry) -> Unit,
     val syncConflict: (BrowseEntry) -> Unit,
+    val toggleHidden: (BrowseEntry) -> Unit,
 )
 
 /** Everything an explorer layout draws from: the view, what's in it, and how to describe each item. */
@@ -361,6 +363,8 @@ internal fun EntryMenuFor(b: ExplorerBody, e: BrowseEntry, expanded: Boolean, on
         onImportInto = if (DocumentKind.ofName(e.name) == DocumentKind.NOTE) ({ m.importInto(e) }) else null,
         onSyncConflict = if (!e.isDir && SyncConflict.isCopy(e.name)) ({ m.syncConflict(e) }) else null,
         deleteLabel = b.deleteLabel,
+        hidden = b.editor.isHidden(e.documentUri),
+        onToggleHidden = { m.toggleHidden(e) },
     )
 }
 
@@ -382,7 +386,7 @@ internal fun GridFileTile(b: ExplorerBody, e: BrowseEntry) {
     val shape = MaterialTheme.shapes.medium
     Column(
         Modifier
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { b.host.onClick(e) }
             .registered(b, e),
     ) {
@@ -454,7 +458,7 @@ internal fun FolderChipTile(b: ExplorerBody, e: BrowseEntry, height: Dp = 60.dp)
                 onClick = { b.host.onClick(e) },
                 onLongClick = { b.host.onLongClick(e) },
             )
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .padding(start = 12.dp, end = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -489,7 +493,7 @@ internal fun FolderCardTile(b: ExplorerBody, e: BrowseEntry) {
     val shape = MaterialTheme.shapes.medium
     Column(
         Modifier
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .registered(b, e)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
@@ -539,7 +543,7 @@ internal fun ListRow(b: ExplorerBody, e: BrowseEntry, wide: Boolean) {
         Modifier
             .fillMaxWidth()
             .height(if (compact) 40.dp else 56.dp)
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .background(if (selected) palette.selectionBackground.toComposeColor() else Color.Transparent)
             .registered(b, e)
             .combinedClickable(
@@ -611,7 +615,7 @@ internal fun GalleryItem(b: ExplorerBody, e: BrowseEntry, shelf: Dp) {
     Column(
         Modifier
             .fillMaxWidth()
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { b.host.onClick(e) }
             .registered(b, e),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -659,7 +663,7 @@ internal fun TimelineCard(b: ExplorerBody, e: BrowseEntry, side: Dp) {
     Column(
         Modifier
             .width(side)
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { b.host.onClick(e) }
             .registered(b, e),
         verticalArrangement = Arrangement.spacedBy(7.dp),
@@ -830,7 +834,7 @@ internal fun PinnedCard(b: ExplorerBody, e: BrowseEntry, whole: Boolean) {
     Column(
         Modifier
             .width(width)
-            .alpha(if (b.host.isCut(e)) 0.4f else 1f)
+            .alpha(if (b.host.isDimmed(e)) 0.4f else 1f)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { b.host.onClick(e) }
             .registered(b, e),
         verticalArrangement = Arrangement.spacedBy(3.dp),

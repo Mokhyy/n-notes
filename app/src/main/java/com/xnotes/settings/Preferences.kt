@@ -168,6 +168,10 @@ data class Preferences(
     val showExtensions: Boolean = false,
     /** Hides files and folders whose name starts with a dot (.obsidian, .git) from the explorer. */
     val hideDotItems: Boolean = true,
+    /** Document keys of files and folders hidden on this device; kept out of settings sync. */
+    val hiddenItems: Set<String> = emptySet(),
+    /** Lists the [hiddenItems] anyway, dimmed, so they can be unhidden. */
+    val showHidden: Boolean = false,
     /** The reader's light/dark choice; null follows the app theme. Never written to the file. */
     val readerDark: Boolean? = null,
     /** Whether an exported PDF gets a bookmark for each heading of the note's text. */
@@ -296,6 +300,8 @@ data class Preferences(
         .put("show_folder_counts", showFolderCounts)
         .put("show_extensions", showExtensions)
         .put("hide_dot_items", hideDotItems)
+        .put("hidden_items", org.json.JSONArray(hiddenItems.sorted()))
+        .put("show_hidden", showHidden)
         .apply { readerDark?.let { put("reader_dark", it) } }
         .put("pdf_heading_bookmarks", pdfHeadingBookmarks)
         .apply { if (hiddenShapes.isNotEmpty()) put("hidden_shapes", org.json.JSONArray(hiddenShapes.sorted())) }
@@ -459,6 +465,8 @@ data class Preferences(
                 showFolderCounts = o.optBoolean("show_folder_counts", true),
                 showExtensions = o.optBoolean("show_extensions", false),
                 hideDotItems = o.optBoolean("hide_dot_items", true),
+                hiddenItems = o.optJSONArray("hidden_items")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).ifEmpty { null } }.toSet() }.orEmpty(),
+                showHidden = o.optBoolean("show_hidden", false),
                 readerDark = if (o.has("reader_dark")) o.optBoolean("reader_dark") else null,
                 pdfHeadingBookmarks = o.optBoolean("pdf_heading_bookmarks", true),
                 hiddenShapes = o.optJSONArray("hidden_shapes")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).ifEmpty { null } }.toSet() }.orEmpty(),

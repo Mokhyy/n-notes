@@ -1431,7 +1431,7 @@ private fun ExplorerSection(
         TileHost(
             isSelected = { e -> selection.any { it.documentUri == e.documentUri } },
             selecting = { selection.isNotEmpty() },
-            isCut = { e -> clipboard?.let { c -> c.isCut && c.entries.any { it.documentUri == e.documentUri } } == true },
+            isDimmed = { e -> clipboard?.let { c -> c.isCut && c.entries.any { it.documentUri == e.documentUri } } == true || editor.isHidden(e.documentUri) },
             isPinned = { e -> e.isDir && editor.isPinned(e.documentUri) },
             isNotePinned = { e -> !e.isDir && editor.isNotePinned(e.documentUri) },
             isDropTarget = { e -> dragPos != null && dropTargetUri == e.documentUri },
@@ -1478,6 +1478,7 @@ private fun ExplorerSection(
                 convertToNote = { convertToNote(it) },
                 importInto = { callsNow.value.importInto(it.documentUri) },
                 syncConflict = { conflictOf = it },
+                toggleHidden = { e -> editor.setHidden(e.documentUri, !editor.isHidden(e.documentUri)); refreshKey++ },
             ),
         )
     }
@@ -1921,11 +1922,13 @@ private fun ExplorerSection(
                                 layouts = ExplorerLayout.entries.filter { !(compactScreen && it == ExplorerLayout.COLUMNS) },
                                 everyFolder = !prefs.perFolderViews,
                                 hideDotItems = prefs.hideDotItems,
+                                showHidden = prefs.showHidden,
                                 // Results shown in the grid for now leave the folder's own layout alone unless another is picked.
                                 onChange = { v -> setView(if (v.layout == layout) v.copy(layout = view.layout) else v); if (v.layout != layout) columnsPick = null },
                                 onReset = { editor.setView(folderKey, null) },
                                 onEveryFolder = { every -> editor.applyHomePreferences(editor.preferences.copy(perFolderViews = !every)) },
                                 onHideDotItems = { editor.setHideDotItems(it) },
+                                onShowHidden = { editor.setShowHidden(it) },
                                 onClose = { optionsOpen = false },
                             )
                         }
@@ -2406,6 +2409,8 @@ internal fun EntryMenu(
     onImportInto: (() -> Unit)? = null,
     onSyncConflict: (() -> Unit)? = null,
     deleteLabel: String = stringResource(R.string.delete),
+    hidden: Boolean = false,
+    onToggleHidden: (() -> Unit)? = null,
 ) {
     val palette = LocalPalette.current
     // "Colour code" swaps the menu's contents for the swatch picker until a colour (or None) is chosen;
@@ -2431,6 +2436,9 @@ internal fun EntryMenu(
             }
             if (onToggleNotePin != null) {
                 DropdownMenuItem(text = { Text(if (notePinned) stringResource(R.string.unpin_from_top) else stringResource(R.string.pin_to_top)) }, onClick = { onDismiss(); onToggleNotePin() })
+            }
+            if (onToggleHidden != null) {
+                DropdownMenuItem(text = { Text(stringResource(if (hidden) R.string.unhide else R.string.hide_on_device)) }, onClick = { onDismiss(); onToggleHidden() })
             }
             DropdownMenuItem(text = { Text(deleteLabel) }, onClick = { onDismiss(); onDelete?.invoke() })
             if (onShare != null) {

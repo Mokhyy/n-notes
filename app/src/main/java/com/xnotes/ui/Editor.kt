@@ -5180,7 +5180,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val colors = HashMap<String, Map<String, Rgba>>()
         val folders = HashMap<String, String?>()
         val gone = ArrayList<String>()
-        val out = recentDocs.filter { isUnderTree(it.uri, treeUri) }.mapNotNull { r ->
+        val hidden = if (preferences.showHidden) emptySet() else preferences.hiddenItems
+        val out = recentDocs.filter { r ->
+            isUnderTree(r.uri, treeUri) && hidden.none { com.xnotes.core.util.DocKeys.within(documentKey(r.uri), it) }
+        }.mapNotNull { r ->
             val docId = runCatching { android.provider.DocumentsContract.getDocumentId(android.net.Uri.parse(r.uri)) }.getOrNull() ?: return@mapNotNull null
             val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, docId)
             val stamp = stampOf(uri.toString()) ?: run { gone.add(r.uri); return@mapNotNull null }
@@ -6191,6 +6194,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 saveSettingsSoon()
             }
             settings.lastFolder?.let { last -> follow(last)?.let { setLastFolder(it) } }
+            val movedHidden = preferences.hiddenItems.map { com.xnotes.core.util.DocKeys.moved(it, from, to) ?: it }.toSet()
+            if (movedHidden != preferences.hiddenItems) applyHomePreferences(preferences.copy(hiddenItems = movedHidden))
             savePins(pinnedFolders.map { pin ->
                 val key = com.xnotes.core.util.DocKeys.moved(documentKey(pin.uri), from, to) ?: return@map pin
                 val uri = if (key == documentKey(pin.uri)) pin.uri
@@ -6268,6 +6273,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         invalidateThumb(docUri)
         dropPinsWithin(docUri)
         dropRecentsWithin(docUri)
+        autosaveScope.launch {
+            val kept = preferences.hiddenItems.filterNot { com.xnotes.core.util.DocKeys.within(it, keyPrefix) }.toSet()
+            if (kept != preferences.hiddenItems) applyHomePreferences(preferences.copy(hiddenItems = kept))
+        }
     }
 
     /** Drop every pin at or under [docUri], a deleted or trashed folder. */
@@ -7351,13 +7360,36 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     private fun hiddenByDot(name: String): Boolean = name.startsWith(".") && preferences.hideDotItems
 
+    private fun hiddenByUser(key: String): Boolean = !preferences.showHidden && key in preferences.hiddenItems
+
+    fun isHidden(docUri: String): Boolean = documentKey(docUri) in preferences.hiddenItems
+
+    /** Hides or shows one file or folder on this device only; the list never syncs. */
+    fun setHidden(docUri: String, hide: Boolean) {
+        val key = documentKey(docUri)
+        val items = if (hide) preferences.hiddenItems + key else preferences.hiddenItems - key
+        if (items == preferences.hiddenItems) return
+        applyHomePreferences(preferences.copy(hiddenItems = items))
+        relistAll()
+    }
+
+    fun setShowHidden(show: Boolean) {
+        if (show == preferences.showHidden) return
+        applyHomePreferences(preferences.copy(showHidden = show))
+        relistAll()
+    }
+
+    private fun relistAll() {
+        browseCache.clear()
+        folderCounts.clear()
+        treeVersion++
+    }
+
     /** Flips the dot-item filter and re-lists every open folder. */
     fun setHideDotItems(hide: Boolean) {
         if (hide == preferences.hideDotItems) return
         applyHomePreferences(preferences.copy(hideDotItems = hide))
-        browseCache.clear()
-        folderCounts.clear()
-        treeVersion++
+        relistAll()
     }
 
     /** Lists folders, documents and reader files under [parentDocId] within tree [treeUri]; IO, call off-thread. */
@@ -7389,6 +7421,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                     } else if (!com.xnotes.core.util.ReaderKind.isListed(name) || hiddenByDot(name)) {
                         continue
                     }
+                    if (hiddenByUser("${tree.authority}|$id")) continue
                     val docUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, id).toString()
                     val size = if (!c.isNull(3)) c.getLong(3) else 0L
                     val modified = if (!c.isNull(4)) c.getLong(4) else 0L
@@ -7755,12 +7788,17 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         runCatching {
             appContext.contentResolver.query(
                 childrenUri,
-                arrayOf(android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME, android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE),
+                arrayOf(
+                    android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                    android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
+                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                ),
                 null, null, null,
             )?.use { c ->
                 while (c.moveToNext()) {
                     val name = c.getString(0) ?: continue
                     val isDir = c.getString(1) == android.provider.DocumentsContract.Document.MIME_TYPE_DIR
+                    if (hiddenByUser("${tree.authority}|${c.getString(2)}")) continue
                     if (name != SIDECAR_DIR && !hiddenByDot(name) && (isDir || com.xnotes.core.util.ReaderKind.isListed(name))) n++
                 }
             }
