@@ -322,6 +322,9 @@
     <string name="no_stickers">尚无贴纸。</string>
     <string name="stickers_hint">点按插入，长按移除</string>
     <string name="sticker">贴纸</string>
+    <string name="save_as_sticker">保存为贴纸</string>
+    <string name="sticker_saved">已保存到贴纸</string>
+    <string name="err_save_sticker">无法保存贴纸。</string>
     <string name="fit_page">显示完整页面</string>
     <string name="fit_width">适应页面宽度</string>
     <string name="fit_height">适应页面高度</string>

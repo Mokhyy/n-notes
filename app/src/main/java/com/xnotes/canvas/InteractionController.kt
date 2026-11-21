@@ -4828,9 +4828,16 @@ class InteractionController(
         pasteOnPage(pageIndex, centre, centred = true)
     }
 
+    /** Land copies of [items] (from a document at [dpi]) centred in the view, without touching the clipboard. */
+    fun pasteItemsAtViewCentre(items: List<CanvasItem>, dpi: Int) {
+        val centre = state.viewportToContent(Pt(state.viewportW / 2.0, state.viewportH / 2.0))
+        val pageIndex = state.pageIndexAtContent(centre) ?: state.currentPageIndex()
+        pasteOnPage(pageIndex, centre, centred = true, ItemClipboard.Clip(items, dpi, Any(), cut = false))
+    }
+
     /** Land fresh copies of the clipboard's items on page [pageIndex], their box's top-left (or centre, when [centred]) at [target]. */
-    private fun pasteOnPage(pageIndex: Int, target: Pt, centred: Boolean) {
-        val clip = ItemClipboard.clip ?: return
+    private fun pasteOnPage(pageIndex: Int, target: Pt, centred: Boolean, from: ItemClipboard.Clip? = ItemClipboard.clip) {
+        val clip = from ?: return
         if (state.pageRects.getOrNull(pageIndex) == null) return
         val clones = ItemClipboard.copiesFor(clip, state.document.dpi, clip.isFrom(state.document), textMeasurer)
         // Collective bounds (page-local) of the clones.

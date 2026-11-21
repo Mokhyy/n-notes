@@ -335,6 +335,9 @@
     <string name="no_stickers">Zatím žádné samolepky.</string>
     <string name="stickers_hint">Klepnutím vložíš, podržením odebereš</string>
     <string name="sticker">Samolepka</string>
+    <string name="save_as_sticker">Uložit jako samolepku</string>
+    <string name="sticker_saved">Uloženo do samolepek</string>
+    <string name="err_save_sticker">Samolepku se nepodařilo uložit.</string>
     <string name="fit_page">Přizpůsobit celé stránce</string>
     <string name="fit_width">Přizpůsobit šířce stránky</string>
     <string name="fit_height">Přizpůsobit výšce stránky</string>

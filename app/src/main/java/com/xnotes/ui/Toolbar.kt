@@ -740,7 +740,7 @@ private fun StickersMenu(editor: Editor, onAddStickers: () -> Unit, onDismiss: (
             ) {
                 items(editor.stickers, key = { it.name }) { file ->
                     StickerTile(
-                        file = file,
+                        file = editor.stickerThumb(file),
                         onInsert = { editor.insertSticker(file); onDismiss() },
                         onRemove = { editor.removeSticker(file) },
                     )

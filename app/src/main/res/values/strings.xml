@@ -338,6 +338,9 @@
     <string name="no_stickers">No stickers yet.</string>
     <string name="stickers_hint">Tap to insert, hold to remove</string>
     <string name="sticker">Sticker</string>
+    <string name="save_as_sticker">Save as sticker</string>
+    <string name="sticker_saved">Saved to stickers</string>
+    <string name="err_save_sticker">Could not save the sticker.</string>
     <string name="fit_page">Fit whole page</string>
     <string name="fit_width">Fit page width</string>
     <string name="fit_height">Fit page height</string>

@@ -81,6 +81,7 @@ import com.xnotes.core.search.SearchText
 import com.xnotes.core.search.TypedText
 import com.xnotes.core.search.TypedTexts
 import com.xnotes.core.model.deepCopy
+import com.xnotes.core.model.deepCopyAll
 import com.xnotes.core.model.snapshot
 import com.xnotes.core.model.insets
 import com.xnotes.core.model.sourceHeight
@@ -483,7 +484,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     var stickers: List<java.io.File> by mutableStateOf(listStickers())
         private set
 
-    private fun listStickers(): List<java.io.File> = stickerDir.listFiles()?.sortedBy { it.name }.orEmpty()
+    // A saved selection is a one-page .xnote with a same-named .png beside it as its thumbnail.
+    private fun listStickers(): List<java.io.File> = stickerDir.listFiles()
+        ?.filterNot { it.extension == "png" && java.io.File(stickerDir, it.nameWithoutExtension + ".xnote").exists() }
+        ?.sortedBy { it.name }.orEmpty()
 
     /** Re-read the library into both panes: they browse one shared directory, so a sticker added
      *  or removed on one toolbar has to show up on the other. */
@@ -2986,11 +2990,46 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     fun removeSticker(file: java.io.File) {
         file.delete()
+        if (file.extension == "xnote") stickerThumb(file).delete()
         refreshStickers()
+    }
+
+    fun stickerThumb(file: java.io.File): java.io.File =
+        if (file.extension == "xnote") java.io.File(file.parentFile, file.nameWithoutExtension + ".png") else file
+
+    /** Keep [items] (already copies) as an item sticker: placed again later, they stay editable. */
+    fun saveSticker(items: List<CanvasItem>, dpi: Int, thumb: android.graphics.Bitmap?) {
+        val box = items.map { it.bounds() }.reduceOrNull { a, b -> a.union(b) } ?: return
+        for (item in items) item.translate(-box.left, -box.top)
+        val doc = Document(dpi = dpi)
+        doc.pages.add(Page(box.w.coerceAtLeast(1.0), box.h.coerceAtLeast(1.0), items.toMutableList()))
+        val base = "stamp-${System.currentTimeMillis()}"
+        val note = java.io.File(stickerDir, "$base.xnote")
+        autosaveScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching {
+                    note.outputStream().use { codec.write(doc, it) }
+                    thumb?.let { b -> java.io.File(stickerDir, "$base.png").outputStream().use { b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } }
+                }.onFailure { note.delete() }.isSuccess
+            }
+            message = appContext.getString(if (ok) R.string.sticker_saved else R.string.err_save_sticker)
+            refreshStickers()
+        }
     }
 
     /** Insert a sticker as a fresh copy, so the note never references the library file itself. */
     fun insertSticker(file: java.io.File) {
+        if (file.extension == "xnote") {
+            val doc = runCatching { java.io.FileInputStream(file).use { codec.read(it, null, imageDir) } }.getOrNull()
+            val items = doc?.pages?.firstOrNull()?.items
+            if (items.isNullOrEmpty()) {
+                message = appContext.getString(R.string.err_read_sticker)
+                refreshStickers()
+            } else {
+                controller.pasteItemsAtViewCentre(items, doc.dpi)
+            }
+            return
+        }
         val bytes = runCatching { file.takeIf { it.isFile }?.readBytes() }.getOrNull()
         if (bytes == null) {
             message = appContext.getString(R.string.err_read_sticker)

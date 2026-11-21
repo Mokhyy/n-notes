@@ -335,6 +335,9 @@
     <string name="no_stickers">Aucun autocollant pour l\'instant.</string>
     <string name="stickers_hint">Appuyez pour insérer, maintenez pour supprimer</string>
     <string name="sticker">Autocollant</string>
+    <string name="save_as_sticker">Enregistrer comme autocollant</string>
+    <string name="sticker_saved">Enregistré dans les autocollants</string>
+    <string name="err_save_sticker">Impossible d\'enregistrer l\'autocollant.</string>
     <string name="fit_page">Ajuster à la page entière</string>
     <string name="fit_width">Ajuster à la largeur de la page</string>
     <string name="fit_height">Ajuster à la hauteur de la page</string>

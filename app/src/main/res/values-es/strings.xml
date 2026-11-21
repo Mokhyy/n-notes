@@ -335,6 +335,9 @@
     <string name="no_stickers">Aún no hay pegatinas.</string>
     <string name="stickers_hint">Toca para insertar, mantén pulsado para quitar</string>
     <string name="sticker">Pegatina</string>
+    <string name="save_as_sticker">Guardar como pegatina</string>
+    <string name="sticker_saved">Guardada en pegatinas</string>
+    <string name="err_save_sticker">No se pudo guardar la pegatina.</string>
     <string name="fit_page">Ajustar a la página</string>
     <string name="fit_width">Ajustar al ancho</string>
     <string name="fit_height">Ajustar al alto</string>
