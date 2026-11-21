@@ -183,7 +183,7 @@ import kotlin.math.roundToInt
 enum class BackstageView { HOME, PREFERENCES, ABOUT, TRASH }
 
 /** Whether the Home explorer is awaiting a new file/folder name. */
-private enum class CreateMode { NONE, FILE, CANVAS, FOLDER }
+private enum class CreateMode { NONE, FILE, CANVAS, FOLDER, TEMPLATE }
 
 /** Entries copied or cut in the explorer; each remembers the folder it was listed in. */
 private data class ClipItem(val entries: List<BrowseEntry>, val isCut: Boolean)
@@ -928,6 +928,7 @@ private fun NewItemMenuItems(
     )
     item(XnotesIcons.edit, stringResource(R.string.new_note_menu)) { onCreateMode(CreateMode.FILE) }
     item(XnotesIcons.canvas, stringResource(R.string.new_canvas_menu)) { onCreateMode(CreateMode.CANVAS) }
+    item(XnotesIcons.pages, stringResource(R.string.use_template)) { onCreateMode(CreateMode.TEMPLATE) }
     item(XnotesIcons.importDoc, stringResource(R.string.import_file)) { onImportPdf() }
     item(XnotesIcons.newFolder, stringResource(R.string.new_folder_menu)) { onCreateMode(CreateMode.FOLDER) }
 }
@@ -2237,6 +2238,15 @@ private fun ExplorerSection(
         )
     }
 
+    if (createMode == CreateMode.TEMPLATE) {
+        NoteTemplateDialog(editor, root, onDismiss = { onCreateMode(CreateMode.NONE) }) { t ->
+            scope.launch {
+                val uri = withContext(Dispatchers.IO) { editor.createFromNoteTemplate(root, currentDocId, t) }
+                onCreateMode(CreateMode.NONE)
+                if (uri != null) { refreshKey++; callsNow.value.openFile(uri) } else opError = context.getString(R.string.err_create_note)
+            }
+        }
+    }
     namingColor?.let { c -> ColorNameDialog(editor, c) { namingColor = null } }
     if (converting != null) com.xnotes.SpinnerDialog(stringResource(R.string.converting_to_note)) { converting?.cancel(); converting = null }
 
