@@ -2492,42 +2492,64 @@ internal fun EntryMenu(
     onToggleHidden: (() -> Unit)? = null,
     onSaveAsTemplate: (() -> Unit)? = null,
 ) {
-    val palette = LocalPalette.current
-    // "Colour code" swaps the menu's contents for the swatch picker until a colour (or None) is chosen;
+    // A submenu (and the colour swatches) swaps the menu's contents in place, with a back row on top;
     // closing the menu resets it so it always reopens on the main list.
+    var page by remember { mutableStateOf<Int?>(null) }
     var showColors by remember { mutableStateOf(false) }
-    LaunchedEffect(expanded) { if (!expanded) showColors = false }
+    LaunchedEffect(expanded) { if (!expanded) { page = null; showColors = false } }
+    val run: (() -> Unit) -> () -> Unit = { f -> { onDismiss(); f() } }
+    val organize = listOfNotNull(
+        onMoveTo?.let { stringResource(R.string.move_to_folder_ellipsis) to run(it) },
+        onCopy?.let { stringResource(R.string.copy) to run(it) },
+        onCut?.let { stringResource(R.string.cut) to run(it) },
+        onTogglePin?.let { stringResource(if (pinned) R.string.unpin_from_sidebar else R.string.pin_to_sidebar) to run(it) },
+        onToggleNotePin?.let { stringResource(if (notePinned) R.string.unpin_from_top else R.string.pin_to_top) to run(it) },
+        onToggleHidden?.let { stringResource(if (hidden) R.string.unhide else R.string.hide_on_device) to run(it) },
+    )
+    val colour = listOfNotNull(
+        onColor?.let { stringResource(R.string.colour_code) to { showColors = true } },
+        onNameColor?.let { stringResource(R.string.name_colour_ellipsis) to run(it) },
+    )
+    val export = if (onShare == null) emptyList() else listOfNotNull(
+        stringResource(R.string.save_copy_ellipsis) to run { onSaveCopy?.invoke() },
+        stringResource(R.string.export_pdf) to run { onExportPdf?.invoke() },
+        convertLabel?.let { stringResource(it) to run { onConvert?.invoke() } },
+    )
+    val useIn = listOfNotNull(
+        onImportInto?.let { stringResource(R.string.import_into_note) to run(it) },
+        onSaveAsTemplate?.let { stringResource(R.string.save_as_template) to run(it) },
+        onConvertToNote?.let { stringResource(R.string.convert_to_note) to run(it) },
+    )
+    val groups = listOf(
+        R.string.menu_organize to organize,
+        R.string.colour to colour,
+        R.string.menu_export to export,
+        R.string.menu_use_in to useIn,
+    )
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
-        if (showColors) {
-            ColorCodeMenuContent { c -> onDismiss(); onColor?.invoke(c) }
-        } else {
-            if (onSyncConflict != null) DropdownMenuItem(text = { Text(stringResource(R.string.sync_conflict)) }, onClick = { onDismiss(); onSyncConflict() })
-            if (onPreview != null) DropdownMenuItem(text = { Text(stringResource(R.string.preview)) }, onClick = { onDismiss(); onPreview() })
-            if (onConvertToNote != null) DropdownMenuItem(text = { Text(stringResource(R.string.convert_to_note)) }, onClick = { onDismiss(); onConvertToNote() })
-            if (onImportInto != null) DropdownMenuItem(text = { Text(stringResource(R.string.import_into_note)) }, onClick = { onDismiss(); onImportInto() })
-            DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = { onDismiss(); onRename?.invoke() })
-            if (onMoveTo != null) DropdownMenuItem(text = { Text(stringResource(R.string.move_to_folder_ellipsis)) }, onClick = { onDismiss(); onMoveTo() })
-            DropdownMenuItem(text = { Text(stringResource(R.string.copy)) }, onClick = { onDismiss(); onCopy?.invoke() })
-            DropdownMenuItem(text = { Text(stringResource(R.string.cut)) }, onClick = { onDismiss(); onCut?.invoke() })
-            if (onColor != null) DropdownMenuItem(text = { Text(stringResource(R.string.colour_code)) }, onClick = { showColors = true })
-            if (onNameColor != null) DropdownMenuItem(text = { Text(stringResource(R.string.name_colour_ellipsis)) }, onClick = { onDismiss(); onNameColor() })
-            if (onTogglePin != null) {
-                DropdownMenuItem(text = { Text(if (pinned) stringResource(R.string.unpin_from_sidebar) else stringResource(R.string.pin_to_sidebar)) }, onClick = { onDismiss(); onTogglePin() })
+        val open = groups.firstOrNull { it.first == page }
+        when {
+            showColors -> ColorCodeMenuContent { c -> onDismiss(); onColor?.invoke(c) }
+            open != null -> {
+                DropdownMenuItem(text = { Text("\u2039  " + stringResource(open.first)) }, onClick = { page = null })
+                for ((label, action) in open.second) DropdownMenuItem(text = { Text(label) }, onClick = action)
             }
-            if (onToggleNotePin != null) {
-                DropdownMenuItem(text = { Text(if (notePinned) stringResource(R.string.unpin_from_top) else stringResource(R.string.pin_to_top)) }, onClick = { onDismiss(); onToggleNotePin() })
-            }
-            if (onToggleHidden != null) {
-                DropdownMenuItem(text = { Text(stringResource(if (hidden) R.string.unhide else R.string.hide_on_device)) }, onClick = { onDismiss(); onToggleHidden() })
-            }
-            if (onSaveAsTemplate != null) DropdownMenuItem(text = { Text(stringResource(R.string.save_as_template)) }, onClick = { onDismiss(); onSaveAsTemplate() })
-            DropdownMenuItem(text = { Text(deleteLabel) }, onClick = { onDismiss(); onDelete?.invoke() })
-            if (onShare != null) {
-                HorizontalDivider(color = palette.border.toComposeColor())
-                DropdownMenuItem(text = { Text(stringResource(R.string.share)) }, onClick = { onDismiss(); onShare() })
-                DropdownMenuItem(text = { Text(stringResource(R.string.save_copy_ellipsis)) }, onClick = { onDismiss(); onSaveCopy?.invoke() })
-                DropdownMenuItem(text = { Text(stringResource(R.string.export_pdf)) }, onClick = { onDismiss(); onExportPdf?.invoke() })
-                if (convertLabel != null) DropdownMenuItem(text = { Text(stringResource(convertLabel)) }, onClick = { onDismiss(); onConvert?.invoke() })
+            else -> {
+                if (onSyncConflict != null) DropdownMenuItem(text = { Text(stringResource(R.string.sync_conflict)) }, onClick = run(onSyncConflict))
+                if (onPreview != null) DropdownMenuItem(text = { Text(stringResource(R.string.preview)) }, onClick = run(onPreview))
+                DropdownMenuItem(text = { Text(stringResource(R.string.rename)) }, onClick = run { onRename?.invoke() })
+                if (onShare != null) DropdownMenuItem(text = { Text(stringResource(R.string.share)) }, onClick = run(onShare))
+                // A group with a single entry shows that entry itself rather than a submenu of one.
+                for ((title, entries) in groups) when (entries.size) {
+                    0 -> Unit
+                    1 -> DropdownMenuItem(text = { Text(entries[0].first) }, onClick = entries[0].second)
+                    else -> DropdownMenuItem(
+                        text = { Text(stringResource(title)) },
+                        trailingIcon = { Icon(XnotesIcons.next, null, modifier = Modifier.size(16.dp)) },
+                        onClick = { page = title },
+                    )
+                }
+                DropdownMenuItem(text = { Text(deleteLabel) }, onClick = run { onDelete?.invoke() })
             }
         }
     }

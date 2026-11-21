@@ -1340,6 +1340,9 @@
     <string name="hidden">Hidden</string>
     <string name="note_templates">Templates</string>
     <string name="save_as_template">Save as template</string>
+    <string name="menu_organize">Organize</string>
+    <string name="menu_export">Export</string>
+    <string name="menu_use_in">Use in</string>
     <string name="use_template">Use template</string>
     <string name="saved_as_template">Saved as template</string>
     <string name="err_save_template">Could not save the template.</string>

@@ -1307,6 +1307,9 @@
     <string name="hidden">Masqués</string>
     <string name="note_templates">Modèles</string>
     <string name="save_as_template">Enregistrer comme modèle</string>
+    <string name="menu_organize">Organiser</string>
+    <string name="menu_export">Exporter</string>
+    <string name="menu_use_in">Utiliser dans</string>
     <string name="use_template">Utiliser un modèle</string>
     <string name="saved_as_template">Enregistré comme modèle</string>
     <string name="err_save_template">Impossible d\'enregistrer le modèle.</string>

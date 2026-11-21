@@ -1350,6 +1350,9 @@
     <string name="hidden">Skryté</string>
     <string name="note_templates">Šablony</string>
     <string name="save_as_template">Uložit jako šablonu</string>
+    <string name="menu_organize">Uspořádat</string>
+    <string name="menu_export">Exportovat</string>
+    <string name="menu_use_in">Použít v</string>
     <string name="use_template">Použít šablonu</string>
     <string name="saved_as_template">Uloženo jako šablona</string>
     <string name="err_save_template">Šablonu se nepodařilo uložit.</string>
