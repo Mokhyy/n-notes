@@ -1871,6 +1871,7 @@ private fun EditorPane(
     modifier: Modifier = Modifier,
 ) {
     val palette = LocalPalette.current
+    val activity = LocalContext.current as ComponentActivity
     val focusRequester = remember { FocusRequester() }
     val focused = app.active === editor
     SideEffect { editor.openInPane = { uri -> actions.onOpenFile(editor, uri) } }
@@ -1927,7 +1928,11 @@ private fun EditorPane(
                 ToolbarAround(bar, onCover = canvas::setToolbarCover) { floatingBar ->
                     Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
                         AndroidView(
-                            factory = { detached(canvas.surfaces) },
+                            factory = {
+                                detached(canvas.surfaces).acceptImageDrops(activity) { bytes, x, y ->
+                                    canvas.insertImage(bytes, canvas.viewport.viewportToContent(com.xnotes.core.geometry.Pt(x, y)))
+                                }
+                            },
                             modifier = Modifier.fillMaxSize(),
                             update = { canvas.view.publish() },
                         )
@@ -1999,7 +2004,11 @@ private fun EditorPane(
                         }
                         Box(modifier = Modifier.weight(1f).fillMaxHeight().clipToBounds().endsPageSelection(editor)) {
                             AndroidView(
-                                factory = { detached(editor.surfaces) },
+                                factory = {
+                                    detached(editor.surfaces).acceptImageDrops(activity) { bytes, x, y ->
+                                        editor.insertImageAt(bytes, editor.state.viewportToContent(com.xnotes.core.geometry.Pt(x, y)))
+                                    }
+                                },
                                 modifier = Modifier.fillMaxSize(),
                                 update = { editor.view.requestRender() }, // repaint on (re)attach so a push never flashes blank
                             )
@@ -2122,6 +2131,34 @@ private fun SplitDivider(
  */
 private fun <T : android.view.View> detached(view: T): T =
     view.also { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+
+/** Takes images dragged in from other apps (Samsung Smart Select's pin, a gallery) and inserts each at the drop point. */
+private fun <T : android.view.View> T.acceptImageDrops(activity: ComponentActivity, insert: (ByteArray, Double, Double) -> Unit): T = apply {
+    setOnDragListener { _, event ->
+        when (event.action) {
+            android.view.DragEvent.ACTION_DRAG_STARTED -> event.clipDescription?.hasMimeType("image/*") == true
+            android.view.DragEvent.ACTION_DROP -> {
+                val clip = event.clipData
+                val uris = clip?.let { c -> (0 until c.itemCount).mapNotNull { c.getItemAt(it).uri } }.orEmpty()
+                if (uris.isEmpty()) return@setOnDragListener false
+                val permissions = activity.requestDragAndDropPermissions(event)
+                val x = event.x.toDouble()
+                val y = event.y.toDouble()
+                activity.lifecycleScope.launch {
+                    for (uri in uris) {
+                        val bytes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            runCatching { activity.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+                        }
+                        if (bytes != null) insert(bytes, x, y)
+                    }
+                    permissions?.release()
+                }
+                true
+            }
+            else -> true
+        }
+    }
+}
 
 /**
  * "Exporting to PDF…" dialog shown while a (possibly large) note is flattened to a PDF off the main
