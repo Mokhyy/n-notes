@@ -60,6 +60,8 @@ data class PinnedFolder(val uri: String, val name: String)
 data class Settings(
     /** Global View-menu defaults; per-note [com.xnotes.canvas.ViewOverrides] shadow them. */
     val viewDefaults: com.xnotes.canvas.ViewSettings = com.xnotes.canvas.ViewSettings(),
+    /** Reader mode's display settings, the same for every note and apart from [viewDefaults]. */
+    val readerSettings: com.xnotes.canvas.ReaderSettings = com.xnotes.canvas.ReaderSettings(),
     val tools: Map<Tool, ToolConfig> = emptyMap(),
     val shapeConfig: ShapeConfig = ShapeConfig(),
     /** The toolbar swatches while the app is dark, and while it is light; slot for slot partners. */
@@ -179,6 +181,7 @@ data class Settings(
             .apply { if (!newTable.isFactory) put("new_table", tableDefaultsJson(newTable)) }
             .put("prefs", prefs.toJson())
             .put("view_defaults", com.xnotes.platform.ViewSettingsJson.write(JSONObject(), viewDefaults))
+            .put("reader_settings", com.xnotes.platform.ReaderSettingsJson.write(readerSettings))
             .put("finger_draw_auto_checked", fingerDrawAutoChecked)
             .put("pdf_notifications_asked", pdfNotificationsAsked)
             .put("onboarding_done", onboardingDone)
@@ -206,6 +209,9 @@ data class Settings(
                 viewDefaults = o.optJSONObject("view_defaults")
                     ?.let { com.xnotes.platform.ViewSettingsJson.read(it) }
                     ?: legacyViewDefaults(o.optJSONObject("prefs")),
+                readerSettings = o.optJSONObject("reader_settings")
+                    ?.let { com.xnotes.platform.ReaderSettingsJson.read(it) }
+                    ?: com.xnotes.canvas.ReaderSettings(),
                 tools = tools,
                 shapeConfig = shape,
                 toolbarColorsDark = darkColors,

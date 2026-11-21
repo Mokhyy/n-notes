@@ -51,6 +51,19 @@ class SettingsTest {
         assertEquals(original.viewDefaults, back.viewDefaults)
     }
 
+    @Test fun readerSettingsRoundTripApartFromViewDefaults() {
+        val reader = com.xnotes.canvas.ReaderSettings(
+            view = com.xnotes.canvas.ViewSettings(sepia = 60, mode = com.xnotes.canvas.ViewingMode.DOUBLE),
+            pageMode = com.xnotes.canvas.ReaderPageMode.HORIZONTAL,
+            turnAnimation = false,
+            tapToTurn = false,
+        )
+        val back = Settings.fromJson(Settings(readerSettings = reader).toJson())
+        assertEquals(reader, back.readerSettings)
+        assertEquals(com.xnotes.canvas.ViewSettings(), back.viewDefaults)
+        assertEquals(com.xnotes.canvas.ReaderSettings(), Settings.fromJson(JSONObject()).readerSettings)
+    }
+
     @Test fun legacyPdfDarkModeSeedsTheViewDefaults() {
         // Settings written before the View menu's Global tab: the old checkboxes migrate.
         val legacy = JSONObject().put(

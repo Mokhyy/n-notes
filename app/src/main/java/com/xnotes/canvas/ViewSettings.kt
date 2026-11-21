@@ -55,6 +55,31 @@ data class ViewSettings(
     }
 }
 
+/** How reader mode moves between pages. */
+enum class ReaderPageMode(val id: String) {
+    VERTICAL("vertical"),
+    HORIZONTAL("horizontal"),
+
+    /** One page at a time, turned by a swipe, a tap at the side or a key, like an e-ink reader. */
+    SINGLE("single");
+
+    companion object {
+        fun fromId(id: String?): ReaderPageMode = entries.firstOrNull { it.id == id } ?: VERTICAL
+    }
+}
+
+/** Reader mode's own display settings, kept apart from the View settings notes are edited with. */
+data class ReaderSettings(
+    /** Its [ViewSettings.verticalScroll] is ignored: [pageMode] decides. */
+    val view: ViewSettings = ViewSettings(),
+    val pageMode: ReaderPageMode = ReaderPageMode.VERTICAL,
+    val turnAnimation: Boolean = true,
+    val tapToTurn: Boolean = true,
+) {
+    /** The settings the canvas runs on while reading. */
+    val resolved: ViewSettings get() = view.copy(verticalScroll = pageMode != ReaderPageMode.SINGLE)
+}
+
 /**
  * Per-note View-menu overrides: null fields inherit the global [ViewSettings]
  * defaults, set fields shadow them for this note. Scoped to the
