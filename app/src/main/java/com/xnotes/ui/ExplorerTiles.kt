@@ -55,7 +55,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -629,6 +628,7 @@ internal fun GalleryItem(b: ExplorerBody, e: BrowseEntry, shelf: Dp) {
                     if (selected) Box(Modifier.fillMaxSize().background(palette.selectionBackground.withAlpha(77).toComposeColor()))
                     if (selecting) CheckRing(selected, Modifier.align(Alignment.TopStart).padding(6.dp))
                     ExportRing(e, Modifier.align(Alignment.TopEnd).padding(6.dp))
+                    if (b.view.showPages && pages > 1) TileBadge(XnotesIcons.pages, "$pages", Modifier.align(Alignment.BottomEnd).padding(6.dp))
                 }
             }
         }
@@ -642,12 +642,7 @@ internal fun GalleryItem(b: ExplorerBody, e: BrowseEntry, shelf: Dp) {
             if (b.view.showKind && (kind == EntryKind.PDF || kind == EntryKind.CANVAS)) {
                 Icon(kindIcon(kind), null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(13.dp))
             }
-            val count = when {
-                !b.view.showPages -> null
-                kind == EntryKind.CANVAS -> stringResource(R.string.kind_canvas)
-                pages > 0 -> pluralStringResource(R.plurals.pages_count, pages, pages)
-                else -> null
-            }
+            val count = if (b.view.showPages && kind == EntryKind.CANVAS) stringResource(R.string.kind_canvas) else null
             Text(listOfNotNull(count, b.metaText(e).ifEmpty { null }).joinToString(" · "), color = palette.textDim.toComposeColor(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
