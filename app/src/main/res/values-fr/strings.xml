@@ -1294,6 +1294,8 @@
     <string name="unhide">Afficher</string>
     <string name="view_show_hidden">Afficher les fichiers et dossiers masqués</string>
     <string name="view_show_hidden_hint">Éléments masqués sur cet appareil, atténués. Les fichiers commençant par un point suivent leur propre option.</string>
+    <string name="hidden">Masqués</string>
+    <string name="hidden_empty">Rien n\'est masqué sur cet appareil.</string>
     <string name="pref_show_hidden">Afficher les fichiers et dossiers masqués sur cet appareil</string>
     <string name="reader_read_only">Lecture seule</string>
     <string name="reader_open_failed">Impossible d\'ouvrir ce fichier.</string>

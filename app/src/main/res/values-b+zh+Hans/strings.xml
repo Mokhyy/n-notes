@@ -1090,6 +1090,8 @@
     <string name="unhide">取消隐藏</string>
     <string name="view_show_hidden">显示隐藏的文件和文件夹</string>
     <string name="view_show_hidden_hint">在此设备上隐藏的项目，以淡色显示。点文件遵循其自身选项。</string>
+    <string name="hidden">已隐藏</string>
+    <string name="hidden_empty">此设备上没有隐藏的内容。</string>
     <string name="pref_show_hidden">显示在此设备上隐藏的文件和文件夹</string>
     <string name="reader_read_only">只读</string>
     <string name="reader_open_failed">无法打开此文件。</string>

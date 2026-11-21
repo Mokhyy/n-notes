@@ -1337,6 +1337,8 @@
     <string name="unhide">Zrušit skrytí</string>
     <string name="view_show_hidden">Zobrazit skryté soubory a složky</string>
     <string name="view_show_hidden_hint">Položky skryté na tomto zařízení, ztlumeně. Soubory s tečkou mají vlastní volbu.</string>
+    <string name="hidden">Skryté</string>
+    <string name="hidden_empty">Na tomto zařízení není nic skryté.</string>
     <string name="pref_show_hidden">Zobrazit soubory a složky skryté na tomto zařízení</string>
     <string name="reader_read_only">Jen pro čtení</string>
     <string name="reader_open_failed">Tento soubor se nepodařilo otevřít.</string>

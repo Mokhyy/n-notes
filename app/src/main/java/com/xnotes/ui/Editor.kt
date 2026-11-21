@@ -7373,6 +7373,38 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         relistAll()
     }
 
+    /** Every item hidden on this device under [root], as it is now; ones that have gone are skipped. IO. */
+    fun hiddenEntries(root: String): List<BrowseEntry> {
+        val tree = android.net.Uri.parse(root)
+        val rootId = browseRootDocId(root)
+        return preferences.hiddenItems.mapNotNull { key ->
+            val id = key.substringAfter('|')
+            if (key.substringBefore('|') != tree.authority || !com.xnotes.core.util.DocKeys.within(id, rootId)) return@mapNotNull null
+            val uri = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, id)
+            runCatching {
+                appContext.contentResolver.query(
+                    uri,
+                    arrayOf(
+                        android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                        android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE,
+                        android.provider.DocumentsContract.Document.COLUMN_SIZE,
+                        android.provider.DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                    ),
+                    null, null, null,
+                )?.use { c ->
+                    if (!c.moveToFirst()) return@use null
+                    val name = c.getString(0) ?: return@use null
+                    val modified = if (!c.isNull(3)) c.getLong(3) else 0L
+                    BrowseEntry(
+                        name, uri.toString(), c.getString(1) == android.provider.DocumentsContract.Document.MIME_TYPE_DIR,
+                        if (!c.isNull(2)) c.getLong(2) else 0L, modified,
+                        created = createdStore.get(key) ?: modified, parentDocId = parentDocIdOf(uri.toString()).orEmpty(),
+                    )
+                }
+            }.getOrNull()
+        }.sortedBy { it.name.lowercase() }
+    }
+
     fun setShowHidden(show: Boolean) {
         if (show == preferences.showHidden) return
         applyHomePreferences(preferences.copy(showHidden = show))

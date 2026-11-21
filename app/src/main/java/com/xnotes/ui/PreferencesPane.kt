@@ -1135,6 +1135,7 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
         fun section(label: String, on: Boolean, flip: () -> Preferences) =
             CheckChip(label, on) { updateHome(flip()) }
         section(stringResource(R.string.recent), prefs.sidebarRecent) { prefs.copy(sidebarRecent = !prefs.sidebarRecent) }
+        section(stringResource(R.string.hidden), prefs.sidebarHidden) { prefs.copy(sidebarHidden = !prefs.sidebarHidden) }
         section(stringResource(R.string.pinned), prefs.sidebarPinned) { prefs.copy(sidebarPinned = !prefs.sidebarPinned) }
         section(stringResource(R.string.toolbar_colours), prefs.sidebarColours) { prefs.copy(sidebarColours = !prefs.sidebarColours) }
         if (prefs.trashDays != 0) section(stringResource(R.string.trash), prefs.sidebarTrash) { prefs.copy(sidebarTrash = !prefs.sidebarTrash) }
