@@ -7493,6 +7493,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         return android.provider.DocumentsContract.getDocumentId(made)
     }
 
+    /** Doc id of the folder note templates are kept in, made when missing; null on failure. IO. */
+    fun noteTemplatesDocId(root: String): String? = runCatching { noteTemplatesDir(root, create = true) }.getOrNull()
+
     /** The notes saved as templates under [root]. IO. */
     fun noteTemplateEntries(root: String): List<BrowseEntry> =
         runCatching { noteTemplatesDir(root, create = false)?.let { browseChildren(root, it) } }.getOrNull().orEmpty()

@@ -911,6 +911,7 @@ private fun NewItemMenuItems(
     onClose: () -> Unit,
     onCreateMode: (CreateMode) -> Unit,
     onImportPdf: () -> Unit,
+    folders: Boolean = true,
 ) {
     val tint = LocalPalette.current.text.toComposeColor()
     // Taller than a default menu row (the explorer's primary create affordance), but only as wide
@@ -930,7 +931,7 @@ private fun NewItemMenuItems(
     item(XnotesIcons.canvas, stringResource(R.string.new_canvas_menu)) { onCreateMode(CreateMode.CANVAS) }
     item(XnotesIcons.pages, stringResource(R.string.use_template)) { onCreateMode(CreateMode.TEMPLATE) }
     item(XnotesIcons.importDoc, stringResource(R.string.import_file)) { onImportPdf() }
-    item(XnotesIcons.newFolder, stringResource(R.string.new_folder_menu)) { onCreateMode(CreateMode.FOLDER) }
+    if (folders) item(XnotesIcons.newFolder, stringResource(R.string.new_folder_menu)) { onCreateMode(CreateMode.FOLDER) }
 }
 
 /** What the explorer hands back to the activity: opening, sharing and exporting files it can't do itself. */
@@ -1020,6 +1021,7 @@ private fun CreateButton(
     onImportPdf: () -> Unit,
     onExport: () -> Unit,
     modifier: Modifier = Modifier,
+    folders: Boolean = true,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val createLabel = stringResource(R.string.create_new)
@@ -1040,7 +1042,7 @@ private fun CreateButton(
             )
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            NewItemMenuItems({ menuOpen = false }, onCreateMode, onImportPdf)
+            NewItemMenuItems({ menuOpen = false }, onCreateMode, onImportPdf, folders)
         }
     }
 }
@@ -1273,6 +1275,12 @@ private fun ExplorerSection(
     val hiddenList by produceState<List<BrowseEntry>?>(null, root, showHiddenList, refreshKey, editor.treeVersion) {
         if (showHiddenList) value = withContext(Dispatchers.IO) { editor.hiddenEntries(root) }
     }
+    // In the Templates view, what's created or pasted becomes a template.
+    val templatesDocId by produceState<String?>(null, root, showTemplates) {
+        if (showTemplates) value = withContext(Dispatchers.IO) { editor.noteTemplatesDocId(root) }
+    }
+    // shortcut: a create tapped before the folder id loads lands in the open folder; a few ms after the Templates view opens.
+    val createDocId = if (showTemplates) templatesDocId ?: currentDocId else currentDocId
     val templateList by produceState<List<BrowseEntry>?>(null, root, showTemplates, refreshKey, editor.treeVersion) {
         if (showTemplates) value = withContext(Dispatchers.IO) { editor.noteTemplateEntries(root) }
     }
@@ -1579,8 +1587,8 @@ private fun ExplorerSection(
         opError = null
         scope.launch {
             val allOk = withContext(Dispatchers.IO) {
-                val done = if (clip.isCut) editor.moveEntriesInto(root, clip.entries, currentDocId)
-                else editor.copyEntriesInto(root, clip.entries, currentDocId)
+                val done = if (clip.isCut) editor.moveEntriesInto(root, clip.entries, createDocId)
+                else editor.copyEntriesInto(root, clip.entries, createDocId)
                 done == clip.entries.size
             }
             refreshKey++
@@ -2094,6 +2102,7 @@ private fun ExplorerSection(
             }
         }
         CreateButton(
+            folders = !showTemplates,
             exporting = selection.isNotEmpty(),
             onCreateMode = onCreateMode,
             onImportPdf = calls.importPdf,
@@ -2113,7 +2122,7 @@ private fun ExplorerSection(
     val pendingImports = editor.pendingImports
     fun landImports(asPdf: Boolean) {
         scope.launch {
-            val n = editor.commitImportsAsync(root, currentDocId, asPdf)
+            val n = editor.commitImportsAsync(root, createDocId, asPdf)
             refreshKey++
             if (n > 0) editor.message = context.resources.getQuantityString(R.plurals.imported_pdfs, n, n)
         }
@@ -2148,7 +2157,7 @@ private fun ExplorerSection(
         NewNoteScreen(
             editor = editor,
             folderName = stack.lastOrNull()?.second ?: rootName ?: stringResource(R.string.folder),
-            initialName = remember { nextUntitled(editor, editor.cachedChildren(root, currentDocId)) },
+            initialName = remember { nextUntitled(editor, editor.cachedChildren(root, createDocId)) },
             error = fieldError,
             busy = busy,
             onImportTemplate = { callsNow.value.importTemplate() },
@@ -2156,7 +2165,7 @@ private fun ExplorerSection(
             onCreate = { n, setup ->
                 busy = true
                 scope.launch {
-                    val uri = withContext(Dispatchers.IO) { editor.createNoteFile(root, currentDocId, n, setup) }
+                    val uri = withContext(Dispatchers.IO) { editor.createNoteFile(root, createDocId, n, setup) }
                     busy = false
                     if (uri != null) {
                         fieldError = null
@@ -2178,7 +2187,7 @@ private fun ExplorerSection(
         val default = when {
             pendingImport != null -> pendingImport.defaultName // import names default to the source file
             createMode == CreateMode.FILE || createMode == CreateMode.CANVAS ->
-                nextUntitled(editor, editor.cachedChildren(root, currentDocId))
+                nextUntitled(editor, editor.cachedChildren(root, createDocId))
             else -> "" // new folder
         }
         NameDialog(
@@ -2198,7 +2207,7 @@ private fun ExplorerSection(
             secondLabel = if (pendingImport != null && pendingImport.kind == ImportKind.PDF && !pendingImport.markdown) stringResource(R.string.keep_as_pdf) else null,
             onSecond = { n ->
                 scope.launch {
-                    val uri = editor.commitImportAsync(root, currentDocId, n, asPdf = true)
+                    val uri = editor.commitImportAsync(root, createDocId, n, asPdf = true)
                     when {
                         uri != null -> refreshKey++
                         editor.pendingImport != null -> fieldError = context.getString(
@@ -2215,7 +2224,7 @@ private fun ExplorerSection(
                     pendingImport != null -> scope.launch {
                         // Land the import in the current folder; it opens only when the user taps it.
                         // commitImportAsync drives the "Importing…" dialog and runs the copy off-thread.
-                        val uri = editor.commitImportAsync(root, pendingImport.parentDocId ?: currentDocId, n)
+                        val uri = editor.commitImportAsync(root, pendingImport.parentDocId ?: createDocId, n)
                         when {
                             uri != null -> refreshKey++
                             editor.pendingImport != null -> fieldError = context.getString( // genuine failure; keep the prompt
@@ -2229,7 +2238,7 @@ private fun ExplorerSection(
                         if (ok) { onCreateMode(CreateMode.NONE); refreshKey++ } else fieldError = context.getString(R.string.err_create_folder)
                     }
                     createMode == CreateMode.CANVAS -> scope.launch {
-                        val uri = withContext(Dispatchers.IO) { editor.createBlankCanvasFile(root, currentDocId, n) }
+                        val uri = withContext(Dispatchers.IO) { editor.createBlankCanvasFile(root, createDocId, n) }
                         if (uri != null) { onCreateMode(CreateMode.NONE); refreshKey++; calls.openFile(uri) } else fieldError = context.getString(R.string.err_create_canvas)
                     }
                 }
@@ -2241,7 +2250,7 @@ private fun ExplorerSection(
     if (createMode == CreateMode.TEMPLATE) {
         NoteTemplateDialog(editor, root, onDismiss = { onCreateMode(CreateMode.NONE) }) { t ->
             scope.launch {
-                val uri = withContext(Dispatchers.IO) { editor.createFromNoteTemplate(root, currentDocId, t) }
+                val uri = withContext(Dispatchers.IO) { editor.createFromNoteTemplate(root, createDocId, t) }
                 onCreateMode(CreateMode.NONE)
                 if (uri != null) { refreshKey++; callsNow.value.openFile(uri) } else opError = context.getString(R.string.err_create_note)
             }
