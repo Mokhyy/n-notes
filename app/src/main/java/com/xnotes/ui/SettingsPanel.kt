@@ -81,11 +81,17 @@ internal fun panelColors(): PanelColors {
     else PanelColors(p.menuBg.toComposeColor(), p.surface.toComposeColor(), p.surfaceHi.toComposeColor())
 }
 
-/** The gear, and the panel [content] fills while [open]. */
+/** The gear (or [icon]), and the panel [content] fills while [open]. */
 @Composable
-internal fun SettingsButton(open: Boolean, onOpen: (Boolean) -> Unit, content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsButton(
+    open: Boolean,
+    onOpen: (Boolean) -> Unit,
+    icon: ImageVector = XnotesIcons.settings,
+    label: String = stringResource(R.string.settings),
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Box {
-        ToolbarIcon(XnotesIcons.settings, stringResource(R.string.settings), active = open) { onOpen(!open) }
+        ToolbarIcon(icon, label, active = open) { onOpen(!open) }
         DropdownMenu(expanded = open, onDismissRequest = { onOpen(false) }, shape = MaterialTheme.shapes.large, containerColor = panelColors().sheet) {
             // Sized text keeps material's 24sp line otherwise, which the panel's fixed rows and tiles clip.
             ProvideTextStyle(LocalTextStyle.current.copy(lineHeight = 1.3.em)) {

@@ -152,6 +152,8 @@ val ToolbarItem.labelRes: Int
         ToolbarItem.REDO -> R.string.redo
         ToolbarItem.SEARCH -> R.string.search
         ToolbarItem.ADD_PAGE -> R.string.add_page
+        ToolbarItem.MARGINS -> R.string.title_margins
+        ToolbarItem.VIEW -> R.string.toolbar_view
         ToolbarItem.COLORS -> R.string.toolbar_colours
         ToolbarItem.PENCILCASE -> R.string.toolbar_pencilcase
     }

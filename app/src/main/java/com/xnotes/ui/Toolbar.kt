@@ -242,6 +242,8 @@ private fun ToolbarItemView(
             }
         }
         ToolbarItem.ADD_PAGE -> ToolbarIcon(XnotesIcons.addPage, stringResource(R.string.add_page)) { editor.addPage() }
+        ToolbarItem.MARGINS -> MarginsButton(editor)
+        ToolbarItem.VIEW -> ViewButton(editor)
 
         ToolbarItem.PENCILCASE ->
             ToolbarIcon(Icons.Outlined.DesignServices, stringResource(R.string.toolbar_pencilcase), active = editor.showPencilcase) { editor.toggleShowPencilcase() }

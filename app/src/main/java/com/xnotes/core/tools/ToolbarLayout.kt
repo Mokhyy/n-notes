@@ -47,7 +47,13 @@ enum class ToolbarItem(val id: String) {
     INSERT_SPACE("insert_space"),
 
     /** Notes only: adds a blank page below the current one. Off by default. */
-    ADD_PAGE("add_page");
+    ADD_PAGE("add_page"),
+
+    /** Notes only: opens the gear panel's Margins page on its own. Off by default. */
+    MARGINS("margins"),
+
+    /** Notes only: opens the gear panel's View page on its own. Off by default. */
+    VIEW("view");
 
     companion object {
         fun fromId(id: String?): ToolbarItem? = entries.firstOrNull { it.id == id }
@@ -156,10 +162,12 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
             ToolbarItem.ADD_PAGE to ToolbarItem.SEARCH,
             ToolbarItem.READER to ToolbarItem.ADD_PAGE,
             ToolbarItem.PENCILCASE to ToolbarItem.PAN,
+            ToolbarItem.MARGINS to ToolbarItem.READER,
+            ToolbarItem.VIEW to ToolbarItem.MARGINS,
         )
 
         /** Items that join the bar hidden, both in [DEFAULT] and when added to a stored layout. */
-        private val HIDDEN_BY_DEFAULT = setOf(ToolbarItem.ADD_PAGE)
+        private val HIDDEN_BY_DEFAULT = setOf(ToolbarItem.ADD_PAGE, ToolbarItem.MARGINS, ToolbarItem.VIEW)
 
         /**
          * The two bars hold different things, so each has its own set and neither can be handed the
@@ -187,7 +195,7 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
             listOf(ToolbarItem.IMAGE, ToolbarItem.TABLE),
             listOf(ToolbarItem.COLORS),
             listOf(ToolbarItem.UNDO, ToolbarItem.REDO),
-            listOf(ToolbarItem.SEARCH, ToolbarItem.ADD_PAGE, ToolbarItem.READER),
+            listOf(ToolbarItem.SEARCH, ToolbarItem.ADD_PAGE, ToolbarItem.READER, ToolbarItem.MARGINS, ToolbarItem.VIEW),
         )
 
         /** Mirrors the hardcoded canvas bar (see InfiniteToolbar.kt). */

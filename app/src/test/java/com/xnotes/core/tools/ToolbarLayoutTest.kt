@@ -31,7 +31,8 @@ class ToolbarLayoutTest {
             d.sections[4].entries.map { it.item },
         )
         assertEquals(listOf(ToolbarItem.UNDO, ToolbarItem.REDO), d.sections[7].entries.map { it.item })
-        assertEquals(listOf(ToolbarItem.SEARCH, ToolbarItem.ADD_PAGE, ToolbarItem.READER), d.sections[8].entries.map { it.item })
+        assertEquals(listOf(ToolbarItem.SEARCH, ToolbarItem.ADD_PAGE, ToolbarItem.READER, ToolbarItem.MARGINS, ToolbarItem.VIEW), d.sections[8].entries.map { it.item })
+        assertEquals(listOf(true, false, true, false, false), d.sections[8].entries.map { it.visible })
     }
 
     @Test fun defaultContainsEveryItemOnce() {
@@ -97,8 +98,8 @@ class ToolbarLayoutTest {
     }
 
     @Test fun aStoredBarLosesThePageAndViewItems() {
-        // A bar stored before the gear: everything that moved behind it is dropped, nothing else.
-        val old = listOf("page_nav", "styles", "margins", "view", "zoom", "fit", "zoom_lock", "fullscreen")
+        // A bar stored before the gear: everything that moved behind it is dropped, nothing else. Margins and view came back as items.
+        val old = listOf("page_nav", "styles", "zoom", "fit", "zoom_lock", "fullscreen")
         val raw = ToolbarLayout.DEFAULT.toRaw() + listOf(old.map { it to true })
         val back = ToolbarLayout.fromRaw(raw)
         assertEquals(ToolbarLayout.NOTE_ITEMS, back.items().toSet())

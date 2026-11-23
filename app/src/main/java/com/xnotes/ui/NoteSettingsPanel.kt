@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -109,9 +110,25 @@ internal fun NoteSettingsButton(
     SettingsButton(open, { open = it }) { NotePanel(editor, fullscreen, onToggleFullscreen, onImportTemplate) { open = false } }
 }
 
+/** A toolbar button that opens the gear panel straight on Margins. */
 @Composable
-private fun NotePanel(editor: Editor, fullscreen: Boolean, onToggleFullscreen: () -> Unit, onImportTemplate: () -> Unit, close: () -> Unit) {
-    var page by remember { mutableStateOf(NotePage.HOME) }
+internal fun MarginsButton(editor: Editor) = NotePageButton(editor, XnotesIcons.margins, R.string.title_margins, NotePage.MARGINS)
+
+/** A toolbar button that opens the gear panel straight on View. */
+@Composable
+internal fun ViewButton(editor: Editor) = NotePageButton(editor, XnotesIcons.view, R.string.toolbar_view, NotePage.VIEW)
+
+@Composable
+private fun NotePageButton(editor: Editor, icon: ImageVector, label: Int, start: NotePage) {
+    var open by remember { mutableStateOf(false) }
+    // Back from [start] closes, so the front page and its fullscreen and template hooks are never reached.
+    SettingsButton(open, { open = it }, icon, stringResource(label)) { NotePanel(editor, false, {}, {}, start) { open = false } }
+}
+
+@Composable
+private fun NotePanel(editor: Editor, fullscreen: Boolean, onToggleFullscreen: () -> Unit, onImportTemplate: () -> Unit, start: NotePage = NotePage.HOME, close: () -> Unit) {
+    var page by remember { mutableStateOf(start) }
+    fun home() = if (page == start) close() else page = NotePage.HOME
     // Each trip in from the front page reads the page as it is now, since the panel can turn pages.
     var visit by remember { mutableIntStateOf(0) }
     val styles = remember(visit) { StylesState(editor) }
@@ -126,8 +143,8 @@ private fun NotePanel(editor: Editor, fullscreen: Boolean, onToggleFullscreen: (
             NotePage.HOME -> HomePage(editor, fullscreen, onToggleFullscreen, ::go, close)
             NotePage.STYLES -> StylesPage(editor, styles, onImportTemplate, onBack = { page = NotePage.HOME }, onCustomize = { page = NotePage.CUSTOMIZE })
             NotePage.CUSTOMIZE -> CustomizePage(editor, styles) { page = NotePage.STYLES }
-            NotePage.MARGINS -> MarginsPage(editor, margins) { page = NotePage.HOME }
-            NotePage.VIEW -> ViewPage(editor, view, onBack = { page = NotePage.HOME }, onFilters = { page = NotePage.FILTERS })
+            NotePage.MARGINS -> MarginsPage(editor, margins) { home() }
+            NotePage.VIEW -> ViewPage(editor, view, onBack = { home() }, onFilters = { page = NotePage.FILTERS })
             NotePage.FILTERS -> FiltersPage(editor, view) { page = NotePage.VIEW }
             NotePage.LIMITS -> LimitsPage(editor) { page = NotePage.HOME }
         }
