@@ -33,7 +33,7 @@ fun CanvasItem.deepCopy(measurer: TextMeasurer): CanvasItem = when (this) {
             it.labelAt = labelAt
         }
     is TableItem ->
-        TableItem(rect, colFractions.toList(), rowFractions.toList(), strokeRgba, strokeWidth)
+        TableItem(rect, colFractions.toList(), rowFractions.toList(), strokeRgba, strokeWidth).also { it.box = box }
     else -> this
     // Carried, not reset: autosave snapshots the document through this, so dropping the lock here
     // would quietly unlock everything on the next save.

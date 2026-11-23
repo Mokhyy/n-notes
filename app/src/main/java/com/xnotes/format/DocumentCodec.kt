@@ -650,6 +650,16 @@ class DocumentCodec(
         j.name("stroke_rgba")
         writeRgba(j, t.strokeRgba)
         j.name("stroke_width").value(t.strokeWidth)
+        t.box.fill?.let {
+            j.name("box_fill")
+            writeRgba(j, it)
+        }
+        t.box.border?.let {
+            j.name("box_border")
+            writeRgba(j, it)
+        }
+        if (t.box.borderWidth != 0.0) j.name("box_border_width").value(t.box.borderWidth)
+        if (t.box.corner != 0.0) j.name("box_corner").value(t.box.corner)
         if (t.locked) j.name("locked").value(true)
         t.link?.let { j.name("link").value(it) }
         t.group?.let { j.name("group").value(it) }
@@ -1684,7 +1694,9 @@ class DocumentCodec(
         val rect = s.rect ?: return null
         val cols = s.tableCols?.takeIf { it.isNotEmpty() } ?: return null
         val rows = s.tableRows?.takeIf { it.isNotEmpty() } ?: return null
-        return TableItem(rect, cols, rows, s.strokeRgba ?: Rgba(0, 0, 0, 255), s.strokeWidth)
+        return TableItem(rect, cols, rows, s.strokeRgba ?: Rgba(0, 0, 0, 255), s.strokeWidth).also {
+            it.box = BoxStyle(s.boxFill, s.boxBorder, s.boxBorderWidth.coerceIn(0.0, BoxStyle.MAX_BORDER), s.boxCorner.coerceIn(0.0, BoxStyle.MAX_CORNER))
+        }
     }
 
     private fun parseConfig(p: JsonPull): ConfigScratch? {

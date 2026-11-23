@@ -27,6 +27,9 @@ class TableItem(
     override var locked = false
     override var link: String? = null
 
+    /** The frame around the grid: its fill, an outline of its own and rounded corners. */
+    var box: BoxStyle = BoxStyle.NONE
+
     val colFractions: MutableList<Double> = colFractions.toMutableList()
     val rowFractions: MutableList<Double> = rowFractions.toMutableList()
 
@@ -49,12 +52,18 @@ class TableItem(
 
     override fun paint(r: Renderer) {
         val pen = Pen(color = strokeRgba, width = strokeWidth, cosmetic = false)
-        r.strokeRect(rect, pen)
+        val frame = box.border?.takeIf { box.outlined }?.let { Pen(it, box.borderWidth, cosmetic = false) } ?: pen
+        // No rounder than the outer cells, so no inner line pokes out past a corner.
+        val corner = listOf(box.corner, colFractions.first() * rect.w, colFractions.last() * rect.w, rowFractions.first() * rect.h, rowFractions.last() * rect.h)
+            .min().coerceAtLeast(0.0)
+        val ring = if (corner > 0.0) TextItem.roundedRect(rect, corner) else null
+        box.fill?.let { if (ring != null) r.fillPolygon(ring, it) else r.fillRect(rect, it) }
         for (i in 1 until cols) r.strokePolyline(listOf(Pt(colX(i), rect.top), Pt(colX(i), rect.bottom)), pen)
         for (j in 1 until rows) r.strokePolyline(listOf(Pt(rect.left, rowY(j)), Pt(rect.right, rowY(j))), pen)
+        if (ring != null) r.strokePolygon(ring, frame) else r.strokeRect(rect, frame)
     }
 
-    override fun bounds(): Rect = rect.outset(strokeWidth / 2.0 + 1.0)
+    override fun bounds(): Rect = rect.outset(maxOf(strokeWidth, if (box.outlined) box.borderWidth else 0.0) / 2.0 + 1.0)
 
     override fun translate(dx: Double, dy: Double) { rect = rect.translate(dx, dy) }
 

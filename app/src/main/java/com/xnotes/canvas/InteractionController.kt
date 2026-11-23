@@ -4753,6 +4753,11 @@ class InteractionController(
 
     private val shapeLook = com.xnotes.core.history.LiveRestyle.shapes()
     private val penLook = com.xnotes.core.history.LiveRestyle.pens()
+    private val tableBox = com.xnotes.core.history.LiveRestyle.tables()
+
+    fun selectionTableBox() = tableBox.first(selection.map { it.item })
+    fun restyleSelectionTables(preview: Boolean, change: (BoxStyle) -> BoxStyle) =
+        settleLook(tableBox.apply(selection.map { it.item }, preview, change))
 
     fun selectionShapeLook() = shapeLook.first(selection.map { it.item })
     fun selectionPenLook() = penLook.first(selection.map { it.item })

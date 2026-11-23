@@ -202,6 +202,8 @@ interface SelectionMenuHost : SwatchHost {
     fun restyleSelectionShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) {}
     fun selectionPenLook(): com.xnotes.core.history.PenLook? = null
     fun restyleSelectionPens(preview: Boolean = false, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) {}
+    fun selectionTableBox(): com.xnotes.core.model.BoxStyle? = null
+    fun restyleSelectionTables(preview: Boolean = false, change: (com.xnotes.core.model.BoxStyle) -> com.xnotes.core.model.BoxStyle) {}
 
     /** The first selected tape's pattern, for the restyle popup to open on; null when no tape is selected. */
     fun selectionTapePattern(): com.xnotes.core.model.TapePattern?
@@ -853,6 +855,7 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
     var boxStyle by remember { mutableStateOf(textBox?.box) }
     var look by remember { mutableStateOf(host.selectionShapeLook()) }
     var pen by remember { mutableStateOf(host.selectionPenLook()) }
+    var tableBox by remember { mutableStateOf(host.selectionTableBox()) }
     fun restyleShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook = { it }) {
         host.restyleSelectionShapes(preview, change)
         look = host.selectionShapeLook()
@@ -866,6 +869,7 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
         boxStyle?.let { host.setSelectedBoxStyle(it, preview = false) }
         if (look != null) restyleShapes()
         if (pen != null) restylePens()
+        if (tableBox != null) host.restyleSelectionTables { it }
         onDismiss()
     }
 
@@ -874,6 +878,12 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
             BoxStyleCard(style, host.hostRecentColors) { next, preview ->
                 boxStyle = next
                 host.setSelectedBoxStyle(next, preview)
+            }
+        }
+        tableBox?.let { style ->
+            BoxStyleCard(style, host.hostRecentColors) { next, preview ->
+                tableBox = next
+                host.restyleSelectionTables(preview) { next }
             }
         }
         pen?.let { p ->
