@@ -23,7 +23,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -58,6 +57,9 @@ import com.xnotes.ui.icons.XnotesIcons
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.toComposeColor
 import kotlin.math.roundToInt
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.ui.draw.scale
 
 /*
  * The pieces of a tool's menu, the one a second tap on an armed tool opens. They are the settings
@@ -132,7 +134,7 @@ internal fun MenuSwitch(label: String, checked: Boolean, enabled: Boolean = true
         Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .clickable(enabled = enabled, role = Role.Checkbox) { onChange(!checked) }
+            .clickable(enabled = enabled, role = Role.Switch) { onChange(!checked) }
             .padding(start = ROW_START, end = ROW_END),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -144,7 +146,10 @@ internal fun MenuSwitch(label: String, checked: Boolean, enabled: Boolean = true
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Checkbox(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        // Scaled to a checkbox's height; the box holds the scaled size so the row's end stays put.
+        Box(Modifier.size(32.dp, 20.dp), contentAlignment = Alignment.Center) {
+            Switch(checked = checked, onCheckedChange = onChange, enabled = enabled, modifier = Modifier.requiredSize(52.dp, 32.dp).scale(0.6f))
+        }
     }
 }
 
