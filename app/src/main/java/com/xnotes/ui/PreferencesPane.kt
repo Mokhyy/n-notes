@@ -61,6 +61,9 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -184,6 +187,10 @@ fun PreferencesPane(
     onOpenAbout: () -> Unit = {},
     /** Told whether the wide-screen settings sidebar is showing, so Home can fold its own away. */
     onOwnSidebar: (Boolean) -> Unit = {},
+    /** Whether Home's sidebar can show the categories in place of its own items, instead of the pane drawing its own. */
+    canHostNav: Boolean = false,
+    /** Handed the categories while Home's sidebar shows them, null otherwise. */
+    onSidebarNav: (State<PrefsNav>?) -> Unit = {},
 ) {
     val palette = LocalPalette.current
     val focusManager = LocalFocusManager.current
@@ -238,7 +245,18 @@ fun PreferencesPane(
     var mathPracticeOpen by remember { mutableStateOf(false) }
     // Full-pane pages draw no settings sidebar, so Home keeps its own while they are up.
     val showsOwnSidebar = ownSidebar && !syncLogOpen && !mathPracticeOpen
-    LaunchedEffect(showsOwnSidebar) { onOwnSidebar(showsOwnSidebar) }
+    val hosted = canHostNav && categorized
+    val nav = rememberUpdatedState(
+        PrefsNav(
+            PrefCategory.entries.map { stringResource(it.title) }, PrefCategory.entries.map { it.icon }, category?.ordinal,
+            stringResource(R.string.preferences), onBack = { category = null }, onPick = { category = PrefCategory.entries[it] },
+        ),
+    )
+    LaunchedEffect(showsOwnSidebar, hosted) {
+        onOwnSidebar(showsOwnSidebar && !hosted)
+        onSidebarNav(if (showsOwnSidebar && hosted) nav else null)
+    }
+    DisposableEffect(Unit) { onDispose { onSidebarNav(null) } }
     BackHandler(enabled = syncLogOpen) { onSyncLog(false) }
     if (syncLogOpen) {
         SyncLogPage(onBack = { onSyncLog(false) })
@@ -297,7 +315,7 @@ fun PreferencesPane(
         )
     }
     Row(Modifier.fillMaxSize()) {
-    if (ownSidebar) {
+    if (ownSidebar && !hosted) {
         Column(Modifier.width(224.dp).fillMaxHeight().background(palette.panel.toComposeColor())) {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { if (categorized) category = null else onBackToHome() }.padding(horizontal = 10.dp),
@@ -308,7 +326,7 @@ fun PreferencesPane(
             Box(Modifier.weight(1f)) { sectionsPanel() }
         }
     }
-    Column(Modifier.weight(1f).fillMaxHeight().then(if (ownSidebar) Modifier.padding(start = 16.dp, top = 4.dp, bottom = 12.dp) else Modifier)) {
+    Column(Modifier.weight(1f).fillMaxHeight().then(if (ownSidebar && !hosted) Modifier.padding(start = 16.dp, top = 4.dp, bottom = 12.dp) else Modifier)) {
         // Leading button inline with the title, at a constant row height so toggling the sidebar never
         // shifts the settings below: a back arrow to Home on compact, else a hamburger when hidden.
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1514,6 +1532,16 @@ private fun Modifier.sectionAnchor(title: String): Modifier {
 }
 
 /** The settings' sections or categories, styled like the note's side panel; a tap goes to it. */
+/** The categories as Home's sidebar shows them: [current] is an index into [titles]. */
+class PrefsNav(
+    val titles: List<String>,
+    val icons: List<ImageVector>,
+    val current: Int?,
+    val backLabel: String,
+    val onBack: () -> Unit,
+    val onPick: (Int) -> Unit,
+)
+
 @Composable
 private fun PrefSectionsPanel(titles: List<String>, current: String?, icons: List<ImageVector> = emptyList(), onPick: (String) -> Unit) {
     val palette = LocalPalette.current

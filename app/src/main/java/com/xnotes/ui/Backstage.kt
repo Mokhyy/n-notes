@@ -68,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -321,6 +322,7 @@ private fun BackstageContent(
     var createMode by remember { mutableStateOf(CreateMode.NONE) }
     var drawerOpen by remember { mutableStateOf(false) }
     var prefsSidebar by remember { mutableStateOf(false) }
+    var prefsNav by remember { mutableStateOf<State<PrefsNav>?>(null) }
     val railed = editor.backstageRail
     val prefs = remember(editor.prefsVersion) { editor.preferences }
     // Close animates only on a true dismiss (scrim, back); a command swaps the pane already composed
@@ -451,7 +453,7 @@ private fun BackstageContent(
                     Modifier.background(palette.panel.toComposeColor())
                 }
                 CompositionLocalProvider(LocalFloatingSidebar provides prefs.sidebarFloating) {
-                    BackstageSidebar(Modifier.width(DRAWER_WIDTH).swipeToClose(prefs, dismissDrawer).then(surface), editor, nav, dismissDrawer)
+                    BackstageSidebar(Modifier.width(DRAWER_WIDTH).swipeToClose(prefs, dismissDrawer).then(surface), editor, nav, onCollapse = dismissDrawer)
                 }
             }
         }
@@ -473,7 +475,7 @@ private fun BackstageContent(
                 },
                 editor, view, compact, true, { setRailed(false) }, { setRailed(true) }, { selectView(BackstageView.HOME) },
                 calls, createMode, { createMode = it }, onImportCodeTheme, onImportFont, onBackup, link, { selectView(BackstageView.PREFERENCES) }, { selectView(BackstageView.ABOUT) },
-                focusSync, { focusSync = false }, syncLogOpen, { syncLogOpen = it }, prefsSidebar, { prefsSidebar = it },
+                focusSync, { focusSync = false }, syncLogOpen, { syncLogOpen = it }, prefsSidebar, { prefsSidebar = it }, canHostNav = !railed, onSidebarNav = { prefsNav = it },
             )
             // Both stay composed so a fold never pays to build one; only the current one is measured and placed.
             val floating = prefs.sidebarFloating
@@ -482,7 +484,7 @@ private fun BackstageContent(
                 content = {
                     CompositionLocalProvider(LocalFloatingSidebar provides floating) {
                         BackstageRail(Modifier.width(RAIL_WIDTH - margin), nav) { setRailed(false) }
-                        BackstageSidebar(Modifier.width(SIDEBAR_WIDTH - margin), editor, nav) { setRailed(true) }
+                        BackstageSidebar(Modifier.width(SIDEBAR_WIDTH - margin), editor, nav, prefsNav?.value) { setRailed(true) }
                     }
                 },
                 modifier = Modifier
@@ -554,7 +556,7 @@ private class SidebarNav(
 
 /** The full sidebar, drawn on the surface its caller gives it: a floating sheet on wide screens, a slide-over drawer on phones. */
 @Composable
-private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav, onCollapse: () -> Unit) {
+private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav, prefsNav: PrefsNav? = null, onCollapse: () -> Unit) {
     val palette = LocalPalette.current
     Column(modifier.fillMaxHeight().padding(vertical = if (LocalFloatingSidebar.current) 8.dp else 12.dp)) {
         Row(
@@ -572,7 +574,11 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
             }
         }
         Spacer(Modifier.height(4.dp))
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        // Kept through the slide back out, when Preferences has already let go of it.
+        val lastPrefs = remember { mutableStateOf<PrefsNav?>(null) }.apply { if (prefsNav != null) value = prefsNav }
+        Box(Modifier.weight(1f)) { PanelPages(prefsNav != null, { if (it) 1 else 0 }) { inPrefs ->
+        val p = lastPrefs.value
+        if (inPrefs && p != null) PrefsNavItems(p) else Column(Modifier.verticalScroll(rememberScrollState())) {
             nav.recent?.let { on -> Command(XnotesIcons.clock, stringResource(R.string.recent), selected = on) { nav.onRecent() } }
             Command(XnotesIcons.home, stringResource(R.string.home), selected = nav.homeSelected) { nav.onHome() }
             nav.hidden?.let { on -> Command(XnotesIcons.eyeOff, stringResource(R.string.hidden), selected = on) { nav.onHidden() } }
@@ -607,10 +613,21 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
                 }
             }
         }
+        } }
         RailDivider()
         if (nav.showSync) SyncNowCommand(nav.onSyncSettings)
         Command(XnotesIcons.sliders, stringResource(R.string.preferences), selected = nav.view == BackstageView.PREFERENCES) { nav.onSelectView(BackstageView.PREFERENCES) }
         SyncSidebarStatus()
+    }
+}
+
+/** Preferences' categories in the sidebar's own rows, under a row back to the category list. */
+@Composable
+private fun PrefsNavItems(p: PrefsNav) {
+    Column(Modifier.verticalScroll(rememberScrollState())) {
+        Command(XnotesIcons.prev, p.backLabel) { p.onBack() }
+        RailDivider()
+        p.titles.forEachIndexed { i, title -> Command(p.icons[i], title, selected = i == p.current) { p.onPick(i) } }
     }
 }
 
@@ -678,6 +695,8 @@ private fun BackstageMain(
     onSyncLog: (Boolean) -> Unit,
     prefsSidebar: Boolean,
     onPrefsSidebar: (Boolean) -> Unit,
+    canHostNav: Boolean = false,
+    onSidebarNav: (State<PrefsNav>?) -> Unit = {},
 ) {
     val palette = LocalPalette.current
     Column(modifier) {
@@ -708,7 +727,7 @@ private fun BackstageMain(
         Box(Modifier.weight(1f).fillMaxWidth().padding(start = if (flush) 0.dp else PANE_GUTTER, end = PANE_GUTTER, top = if (flush) 0.dp else 4.dp, bottom = if (flush) 0.dp else 12.dp)) {
             when (view) {
                 BackstageView.HOME -> HomePane(editor, calls, createMode, onCreateMode, sidebarOpen, onShowSidebar, onHideSidebar, link)
-                BackstageView.PREFERENCES -> PreferencesPane(editor, compact, sidebarOpen, onShowSidebar, onBackToHome, onImportCodeTheme, onImportFont, focusSync, onSyncFocused, onBackup, syncLogOpen, onSyncLog, onOpenAbout, onPrefsSidebar)
+                BackstageView.PREFERENCES -> PreferencesPane(editor, compact, sidebarOpen, onShowSidebar, onBackToHome, onImportCodeTheme, onImportFont, focusSync, onSyncFocused, onBackup, syncLogOpen, onSyncLog, onOpenAbout, onPrefsSidebar, canHostNav, onSidebarNav)
                 BackstageView.TRASH -> TrashPane(editor, sidebarOpen, onShowSidebar, onOpenPreferences)
                 BackstageView.ABOUT -> AboutPane()
             }
