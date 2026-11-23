@@ -32,26 +32,20 @@ internal fun TableLook.groups(
     val frame = buildList<MenuGroup> {
         if (colour != null) add(colour)
         add {
-            MenuSwitch(stringResource(R.string.caption_fill), box.fill != null) { on -> set(copy(box = box.copy(fill = if (on) ink.copy(a = 64) else null))) }
-            box.fill?.let { fill ->
-                MenuRow(stringResource(R.string.caption_fill_colour)) {
-                    ColorPickerDot(fill, custom = true, onPick = { set(copy(box = box.copy(fill = it))) }, dismissOnPick = false) { d, p ->
-                        ColorPickerPopup(fill, recents, d, p)
-                    }
+            MenuRow(stringResource(R.string.box_fill)) {
+                ColorOrNone(stringResource(R.string.none), box.fill, ink.withAlpha(64), onChange = { set(copy(box = box.copy(fill = it))) }) { d, p ->
+                    ColorPickerPopup(box.fill ?: ink, recents, d, p)
                 }
             }
         }
         add {
-            MenuSwitch(stringResource(R.string.box_border), box.outlined) { on ->
-                set(copy(box = if (on) box.copy(border = box.border ?: ink, borderWidth = box.borderWidth.takeIf { it > 0.0 } ?: FIRST_BORDER) else box.copy(border = null)))
+            MenuRow(stringResource(R.string.box_border)) {
+                ColorOrNone(
+                    stringResource(R.string.none), box.border.takeIf { box.outlined }, box.border ?: ink,
+                    onChange = { set(copy(box = box.copy(border = it, borderWidth = if (it == null || box.borderWidth > 0.0) box.borderWidth else FIRST_BORDER))) },
+                ) { d, p -> ColorPickerPopup(box.border ?: ink, recents, d, p) }
             }
             if (box.outlined) {
-                val border = box.border ?: ink
-                MenuRow(stringResource(R.string.caption_colour)) {
-                    ColorPickerDot(border, custom = true, onPick = { set(copy(box = box.copy(border = it))) }, dismissOnPick = false) { d, p ->
-                        ColorPickerPopup(border, recents, d, p)
-                    }
-                }
                 MenuSlider(
                     stringResource(R.string.caption_thickness), box.borderWidth.toFloat(), 0.5f..BoxStyle.MAX_BORDER.toFloat(),
                     step = 0.5f, child = true, onChangeFinished = settle,
