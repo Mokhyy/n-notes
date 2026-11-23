@@ -480,27 +480,24 @@ fun PanConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
     var cfg by remember { mutableStateOf(editor.toolConfig(Tool.PAN)) }
     fun emit(next: ToolConfig) { cfg = next; editor.updateToolConfig(Tool.PAN, next) }
 
-    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
-        Column(Modifier.width(250.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
-            PopupTitle(stringResource(R.string.tool_pan))
-            StyleCaption(stringResource(R.string.caption_pan_axes))
+    fun reset() {
+        val d = ToolDefaults.configFor(Tool.PAN)
+        emit(cfg.copy(lockPanX = d.lockPanX, lockPanY = d.lockPanY, panSensitivity = d.panSensitivity, panGlide = d.panGlide))
+    }
+
+    ToolMenu(stringResource(R.string.tool_pan), onDismiss, action = { PanelChip(stringResource(R.string.reset), onClick = ::reset) }) {
+        PanelCard(padding = PaddingValues(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 12.dp)) {
+            PanelCaption(stringResource(R.string.caption_pan_axes))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ModeChip(stringResource(R.string.pan_axis_x), selected = !cfg.lockPanX) { emit(cfg.copy(lockPanX = !cfg.lockPanX)) }
                 ModeChip(stringResource(R.string.pan_axis_y), selected = !cfg.lockPanY) { emit(cfg.copy(lockPanY = !cfg.lockPanY)) }
                 ModeChip(stringResource(R.string.pan_axis_zoom), selected = !editor.hostZoomLocked) { editor.toggleHostZoomLock() }
             }
-            Spacer(Modifier.size(12.dp))
-            // Snaps to whole steps without the slider's tick dots.
-            SliderRow(stringResource(R.string.caption_pan_sensitivity), cfg.panSensitivity.toFloat(), 1f..10f) { emit(cfg.copy(panSensitivity = it.roundToInt())) }
-            ToggleRow(stringResource(R.string.caption_pan_glide), cfg.panGlide) { emit(cfg.copy(panGlide = it)) }
-            Spacer(Modifier.size(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                ModeChip(stringResource(R.string.reset), false) {
-                    val d = ToolDefaults.configFor(Tool.PAN)
-                    emit(cfg.copy(lockPanX = d.lockPanX, lockPanY = d.lockPanY, panSensitivity = d.panSensitivity, panGlide = d.panGlide))
-                }
-            }
         }
+        MenuCard(buildList<MenuGroup> {
+            add { MenuSlider(stringResource(R.string.caption_pan_sensitivity), cfg.panSensitivity.toFloat(), 1f..10f, step = 1f) { emit(cfg.copy(panSensitivity = it.roundToInt())) } }
+            add { MenuSwitch(stringResource(R.string.caption_pan_glide), cfg.panGlide) { emit(cfg.copy(panGlide = it)) } }
+        })
     }
 }
 @Composable
