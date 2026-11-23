@@ -220,7 +220,7 @@ fun BoxScope.Pencilcase(
                     modifier = Modifier
                         .onGloballyPositioned { handleBounds = it.boundsInRoot() }
                         .padding(8.dp)
-                        .size(20.dp)
+                        .size(18.dp)
                         .rotate(if (vertical) 90f else 0f),
                 )
             }
@@ -414,7 +414,7 @@ private fun CaseButton(
         icon,
         contentDescription = description,
         tint = tint,
-        modifier = Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(enabled = enabled, onClick = onClick).padding(8.dp).size(20.dp).rotate(rotation),
+        modifier = Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(enabled = enabled, onClick = onClick).padding(8.dp).size(18.dp).rotate(rotation),
     )
 }
 
