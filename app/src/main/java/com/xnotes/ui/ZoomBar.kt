@@ -72,7 +72,7 @@ fun BoxScope.ZoomBar(
                         )
                     }
                 },
-            shape = MenuDefaults.shape,
+            shape = MaterialTheme.shapes.large,
             color = MenuDefaults.containerColor,
             tonalElevation = MenuDefaults.TonalElevation,
             shadowElevation = MenuDefaults.ShadowElevation,

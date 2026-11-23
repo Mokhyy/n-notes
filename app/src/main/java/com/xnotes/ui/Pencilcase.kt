@@ -194,7 +194,7 @@ fun BoxScope.Pencilcase(
                         moveBy(drag, snap)
                     }
                 },
-            shape = MenuDefaults.shape,
+            shape = MaterialTheme.shapes.large,
             color = MenuDefaults.containerColor,
             tonalElevation = MenuDefaults.TonalElevation,
             shadowElevation = MenuDefaults.ShadowElevation,
