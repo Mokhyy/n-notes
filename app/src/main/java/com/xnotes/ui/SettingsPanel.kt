@@ -33,7 +33,6 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -287,12 +286,12 @@ internal fun PanelSwitch(label: String, checked: Boolean, enabled: Boolean = tru
         Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .clickable(enabled = enabled, role = Role.Switch) { onChange(!checked) }
+            .clickable(enabled = enabled, role = Role.Checkbox) { onChange(!checked) }
             .padding(start = 16.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, color = (if (enabled) palette.text else palette.disabled).toComposeColor(), fontSize = 14.sp, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        Checkbox(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
 

@@ -10,7 +10,7 @@ import com.xnotes.core.pal.TextMeasurer
  */
 fun CanvasItem.deepCopy(measurer: TextMeasurer): CanvasItem = when (this) {
     is Stroke -> Stroke(this)
-    is ImageItem -> ImageItem(image, rect, orientation, angle, flip, part)
+    is ImageItem -> ImageItem(image, rect, orientation, angle, flip, part).also { it.paper = paper }
     is AudioItem -> AudioItem(audio, rect, name, rid, measurer)
     // The shape is immutable, so the copy can share it; a copy starts covered.
     is TapeItem -> TapeItem(shape, rgba, pattern)
@@ -23,6 +23,7 @@ fun CanvasItem.deepCopy(measurer: TextMeasurer): CanvasItem = when (this) {
             it.flip = flip
             it.label = label
             it.labelAt = labelAt
+            it.function = function
         }
     is ConnectorItem ->
         ConnectorItem(routing, start, end, strokeRgba, strokeWidth, headStart, headEnd, dashed, dashLength, dashGap, neon, neonStrength).also {
@@ -31,11 +32,14 @@ fun CanvasItem.deepCopy(measurer: TextMeasurer): CanvasItem = when (this) {
             it.label = label
             it.labelAt = labelAt
         }
+    is TableItem ->
+        TableItem(rect, colFractions.toList(), rowFractions.toList(), strokeRgba, strokeWidth)
     else -> this
     // Carried, not reset: autosave snapshots the document through this, so dropping the lock here
     // would quietly unlock everything on the next save.
 }.also {
     it.locked = locked
+    it.link = link
     it.sync = sync
     it.group = group
 }
@@ -57,9 +61,9 @@ fun List<CanvasItem>.deepCopyAll(measurer: TextMeasurer): List<CanvasItem> {
     return out
 }
 
-/** A deep copy of a page — its items cloned ([deepCopyAll]) — keeping the size, PDF link, style, margins, markups and room. */
+/** A deep copy of a page — its items cloned ([deepCopyAll]) — keeping the size, PDF link, style, margins, markups, room and text margins. */
 fun Page.deepCopy(measurer: TextMeasurer): Page =
-    Page(width, height, items.deepCopyAll(measurer).toMutableList(), pdfPage, style, margins, markups, pdfTurn, rooms)
+    Page(width, height, items.deepCopyAll(measurer).toMutableList(), pdfPage, style, margins, markups, pdfTurn, rooms, textMargins)
 
 /**
  * A deep copy of a document: pages cloned, bookmarks copied, the source PDF file and styles shared

@@ -6,11 +6,13 @@ import com.xnotes.core.geometry.Rect
 import com.xnotes.core.model.AudioData
 import com.xnotes.core.model.AudioItem
 import com.xnotes.core.model.Bookmark
+import com.xnotes.core.model.MathOrigin
 import com.xnotes.core.model.CanvasItem
 import com.xnotes.core.model.ConnectorEnd
 import com.xnotes.core.model.ConnectorItem
 import com.xnotes.core.model.CutEdge
 import com.xnotes.core.model.Document
+import com.xnotes.core.model.FunctionSpec
 import com.xnotes.core.model.ImageCrop
 import com.xnotes.core.model.ImageData
 import com.xnotes.core.model.ImageItem
@@ -21,6 +23,7 @@ import com.xnotes.core.model.PageTemplates
 import com.xnotes.core.model.PageSize
 import com.xnotes.core.model.PageSizeChoice
 import com.xnotes.core.model.PageMargins
+import com.xnotes.core.text.FlowMargins
 import com.xnotes.core.model.PageStyle
 import com.xnotes.core.model.PageTurn
 import com.xnotes.core.model.Rgba
@@ -28,6 +31,7 @@ import com.xnotes.core.model.Room
 import com.xnotes.core.model.Routing
 import com.xnotes.core.model.ShapeItem
 import com.xnotes.core.model.ShapeLabel
+import com.xnotes.core.model.TableItem
 import com.xnotes.core.model.Stroke
 import com.xnotes.core.model.SyncMark
 import com.xnotes.core.model.TapeItem
@@ -362,6 +366,7 @@ class DocumentCodec(
                 is TextItem -> writeText(j, item, ids[item])
                 is ShapeItem -> writeShape(j, item, ids[item])
                 is ConnectorItem -> writeConnector(j, item, ids)
+                is TableItem -> writeTable(j, item)
                 is TapeItem -> writeTape(j, item)
                 else -> {} // unrecognized kind: not written
             }
@@ -369,6 +374,7 @@ class DocumentCodec(
         j.endArray()
         writeStyle(j, page.style)
         writeMargins(j, page.margins)
+        page.textMargins?.let { writeTextMargins(j, it) }
         writeRooms(j, page.rooms)
         j.endObject()
     }
@@ -456,6 +462,7 @@ class DocumentCodec(
         writeCuts(j, s.cuts)
         s.sync?.let { writeSync(j, it) }
         if (s.locked) j.name("locked").value(true)
+        s.link?.let { j.name("link").value(it) }
         s.group?.let { j.name("group").value(it) }
         j.endObject()
     }
@@ -476,6 +483,8 @@ class DocumentCodec(
         item.part?.let { j.name("part").beginArray().value(it.x).value(it.y).value(it.w).value(it.h).endArray() }
         item.sync?.let { writeSync(j, it) }
         if (item.locked) j.name("locked").value(true)
+        if (item.paper) j.name("paper").value(true)
+        item.link?.let { j.name("link").value(it) }
         item.group?.let { j.name("group").value(it) }
         j.endObject()
     }
@@ -532,8 +541,14 @@ class DocumentCodec(
         }
         if (box.borderWidth != 0.0) j.name("box_border_width").value(box.borderWidth)
         if (box.corner != 0.0) j.name("box_corner").value(box.corner)
+        if (t.math) j.name("math").value(true)
+        t.ocr?.let {
+            j.name("math_ocr_model").value(it.model)
+            j.name("math_ocr_raw").value(it.raw)
+        }
         t.sync?.let { writeSync(j, it) }
         if (t.locked) j.name("locked").value(true)
+        t.link?.let { j.name("link").value(it) }
         t.group?.let { j.name("group").value(it) }
         j.endObject()
     }
@@ -572,12 +587,13 @@ class DocumentCodec(
         }
         if (standIn != null || own) {
             // A mirrored shape names its kind under a key readers before flips skip, so they keep the stand-in.
-            if (!s.isFree) j.name(if (s.flip == Flip.NONE) "geom" else "flip_geom").value(s.shape.id)
+            if (!s.isFree || s.shape == ShapeKind.FUNCTION || s.shape == ShapeKind.SPLINE) j.name(if (s.flip == Flip.NONE) "geom" else "flip_geom").value(s.shape.id)
             if (s.flip != Flip.NONE) j.name("flip").value(s.flip.id)
             val f = s.box
             j.name("rect").beginArray().value(f.x).value(f.y).value(f.w).value(f.h).endArray()
             if (s.rotation != 0.0) j.name("angle").value(s.rotation)
-            s.path?.takeIf { s.isFree && (own || !FreePath.isVertexList(it)) }?.let { j.name("path").value(FreePath.toSvg(it)) }
+            // A spline's points are not the line its stand-in draws, so they are always written.
+            s.path?.takeIf { s.isFree && (own || s.shape == ShapeKind.SPLINE || !FreePath.isVertexList(it)) }?.let { j.name("path").value(FreePath.toSvg(it)) }
         }
         if (s.n != s.shape.defaultN) j.name("n").value(s.n)
         if (s.headStart != s.shape.defaultHeadStart) j.name("head_start").value(s.headStart.id)
@@ -609,9 +625,34 @@ class DocumentCodec(
             if (s.labelAt != 0.5) j.name("at").value(s.labelAt)
             j.endObject()
         }
+        s.function?.let {
+            j.name("function").value(it.expr)
+            j.name("function_from").value(it.from)
+            j.name("function_to").value(it.to)
+            if (it.yMin != null && it.yMax != null) {
+                j.name("function_ymin").value(it.yMin)
+                j.name("function_ymax").value(it.yMax)
+            }
+        }
         s.sync?.let { writeSync(j, it) }
         if (s.locked) j.name("locked").value(true)
+        s.link?.let { j.name("link").value(it) }
         s.group?.let { j.name("group").value(it) }
+        j.endObject()
+    }
+
+    private fun writeTable(j: JsonWrite, t: TableItem) {
+        j.beginObject()
+        j.name("kind").value(TableItem.KIND)
+        j.name("rect").beginArray().value(t.rect.x).value(t.rect.y).value(t.rect.w).value(t.rect.h).endArray()
+        j.name("cols").beginArray(); t.colFractions.forEach { j.value(it) }; j.endArray()
+        j.name("rows").beginArray(); t.rowFractions.forEach { j.value(it) }; j.endArray()
+        j.name("stroke_rgba")
+        writeRgba(j, t.strokeRgba)
+        j.name("stroke_width").value(t.strokeWidth)
+        if (t.locked) j.name("locked").value(true)
+        t.link?.let { j.name("link").value(it) }
+        t.group?.let { j.name("group").value(it) }
         j.endObject()
     }
 
@@ -730,6 +771,10 @@ class DocumentCodec(
             writeRgba(j, it)
         }
         s.spacing?.let { j.name("spacing").value(it) }
+        s.textColor?.let {
+            j.name("text_color")
+            writeRgba(j, it)
+        }
         s.accentColor?.let {
             j.name("accent_color")
             writeRgba(j, it)
@@ -765,6 +810,20 @@ class DocumentCodec(
         j.endObject()
     }
 
+    /** A page's own text margins in mm, written only when it has them. */
+    private fun writeTextMargins(j: JsonWrite, m: FlowMargins) {
+        j.name("text_margins").beginObject()
+        j.name("left").value(m.leftMm)
+        j.name("top").value(m.topMm)
+        j.name("right").value(m.rightMm)
+        j.name("bottom").value(m.bottomMm)
+        j.endObject()
+    }
+
+    /** How many shapes the last [read] took from the fork's own kinds onto upstream's. */
+    var forkShapesRead = 0
+        private set
+
     /** The size of pages added to the note, written only when it sets one (else they copy the page before). */
     private fun writeNewPageSize(j: JsonWrite, c: PageSizeChoice) {
         j.name("new_page_size").beginObject()
@@ -787,6 +846,7 @@ class DocumentCodec(
         imageDir: File? = null,
         timing: ReadTiming? = null,
     ): Document {
+        forkShapesRead = 0
         var manifest: ParsedManifest? = null
         var flowBytes: ByteArray? = null
         var markupBytes: ByteArray? = null
@@ -911,6 +971,12 @@ class DocumentCodec(
                     if (spec is PendingImage) glue.named(item, spec.id)
                 }
             }
+            // Notes from before the paper flag: an image imported as the page sits under any colour, filling it exactly.
+            (page.items.firstOrNull { (it as? ShapeItem)?.isFill != true } as? ImageItem)?.let {
+                if (it.angle == 0.0 && it.orientation == 0 && it.part == null &&
+                    it.rect.x == 0.0 && it.rect.y == 0.0 && it.rect.w == page.width && it.rect.h == page.height
+                ) it.paper = true
+            }
         }
         // A recording whose item did not survive leaves its file behind; nothing else will delete it.
         val used = m.pageImages.flatMap { it.second }.filterIsInstance<PendingAudio>().map { it.asset }.toSet()
@@ -973,9 +1039,11 @@ class DocumentCodec(
         val flip: Flip,
         val locked: Boolean,
         val id: Int?,
+        val link: String?,
         val sync: SyncMark?,
         val group: Int? = null,
         val part: Rect? = null,
+        val paper: Boolean = false,
     ) : Pending(index, asset)
 
     private class PendingAudio(
@@ -1102,6 +1170,7 @@ class DocumentCodec(
             var cover = false
             var style = PageStyle()
             var margins = PageMargins()
+            var textMargins: FlowMargins? = null
             var rooms = emptyList<Room>()
             val items = mutableListOf<CanvasItem>()
             val pending = ArrayList<Pending>()
@@ -1116,6 +1185,7 @@ class DocumentCodec(
                     "cover" -> cover = boolOr(p, false)
                     "style" -> style = parseStyle(p)
                     "margins" -> margins = parseMargins(p)
+                    "text_margins" -> textMargins = parseTextMargins(p)
                     "rooms" -> rooms = parseRooms(p)
                     "items" -> parseItems(p, items, pending, glue)
                     else -> p.skipValue()
@@ -1132,7 +1202,7 @@ class DocumentCodec(
             val page = Page(
                 width = width, height = height, items = items, pdfPage = pdfPage, style = style, margins = margins,
                 pdfTurn = if (pdfPage == null) 0 else PageTurn.normalize(pdfTurn),
-                rooms = roomsWithin(rooms, width, height),
+                rooms = roomsWithin(rooms, width, height), textMargins = textMargins,
             )
             // Only the first page can be the cover; a flag anywhere else is dropped.
             page.cover = cover && m.pages.isEmpty()
@@ -1153,6 +1223,8 @@ class DocumentCodec(
     /** Union of every kind's fields, so an item parses in one pass whatever its key order. */
     private class ItemScratch {
         var locked = false
+        var paper = false
+        var link: String? = null
         var group: Int? = null
         var kind: String? = null
         var id: Int? = null
@@ -1183,6 +1255,14 @@ class DocumentCodec(
         var boxBorder: Rgba? = null
         var boxBorderWidth = 0.0
         var boxCorner = 0.0
+        var textBold = false
+        var textItalic = false
+        var textMath = false
+        var ocrModel: String? = null
+        var ocrRaw: String? = null
+        var textUnderline = false
+        var textStrike = false
+        var textAlign = "left"
         var shape: String? = null
         var geom: String? = null
         var flipGeom: String? = null
@@ -1204,6 +1284,13 @@ class DocumentCodec(
         var dashed = false
         var dashLength = 10.0
         var dashGap = 8.0
+        var function: String? = null
+        var functionFrom = 0.0
+        var functionTo = 0.0
+        var functionYMin: Double? = null
+        var functionYMax: Double? = null
+        var tableCols: List<Double>? = null
+        var tableRows: List<Double>? = null
         var rid = 0
         var name = ""
         var durationMs = 0
@@ -1274,6 +1361,14 @@ class DocumentCodec(
                 "box_border" -> s.boxBorder = rgbaOrNull(p)
                 "box_border_width" -> s.boxBorderWidth = doubleOr(p, 0.0)
                 "box_corner" -> s.boxCorner = doubleOr(p, 0.0)
+                "bold" -> s.textBold = boolOr(p, false)
+                "italic" -> s.textItalic = boolOr(p, false)
+                "math" -> s.textMath = boolOr(p, false)
+                "math_ocr_model" -> s.ocrModel = stringOrNull(p)
+                "math_ocr_raw" -> s.ocrRaw = stringOrNull(p)
+                "underline" -> s.textUnderline = boolOr(p, false)
+                "strike" -> s.textStrike = boolOr(p, false)
+                "align" -> s.textAlign = stringOr(p, "left")
                 "shape" -> s.shape = stringOr(p, "")
                 "geom" -> s.geom = stringOrNull(p)
                 "flip_geom" -> s.flipGeom = stringOrNull(p)
@@ -1295,7 +1390,16 @@ class DocumentCodec(
                 "dashed" -> s.dashed = boolOr(p, false)
                 "dash_length" -> s.dashLength = doubleOr(p, 10.0)
                 "dash_gap" -> s.dashGap = doubleOr(p, 8.0)
+                "function" -> s.function = stringOr(p, "")
+                "function_from" -> s.functionFrom = doubleOr(p, 0.0)
+                "function_to" -> s.functionTo = doubleOr(p, 0.0)
+                "function_ymin" -> s.functionYMin = doubleOr(p, 0.0)
+                "function_ymax" -> s.functionYMax = doubleOr(p, 0.0)
+                "cols" -> s.tableCols = doubleListOrNull(p)
+                "rows" -> s.tableRows = doubleListOrNull(p)
                 "locked" -> s.locked = boolOr(p, false)
+                "paper" -> s.paper = boolOr(p, false)
+                "link" -> s.link = stringOr(p, "").ifEmpty { null }
                 "group" -> s.group = intOrNull(p)
                 "rid" -> s.rid = intOr(p, 0)
                 "name" -> s.name = stringOr(p, "")
@@ -1321,7 +1425,7 @@ class DocumentCodec(
                     pending.add(
                         PendingImage(
                             items.size + pending.size, asset, s.rect, s.srcW, s.srcH,
-                            s.orientation, s.angle, Flip.fromId(s.flip), s.locked, s.id, sync, s.group, s.part,
+                            s.orientation, s.angle, Flip.fromId(s.flip), s.locked, s.id, s.link, sync, s.group, s.part, s.paper,
                         ),
                     )
                 }
@@ -1338,12 +1442,15 @@ class DocumentCodec(
                 val c = s.connector
                 items.add(if (c != null && s.kind == ShapeItem.KIND) buildConnector(s, c, glue) else buildShape(s))
             }
+            TableItem.KIND -> buildTable(s)?.let { items.add(it) }
             TapeItem.KIND -> buildTape(s)?.let { items.add(it) }
             else -> {} // unrecognized kind: skipped (forgiving)
         }
         if (items.size > before) glue.named(items[before], s.id)
         // Absent on every note written before locking existed, which reads back as unlocked.
         if (s.locked && items.size > before) items[before].locked = true
+        // Links are additive too; images carry theirs on the PendingImage since they materialize later.
+        if (s.link != null && items.size > before) items[before].link = s.link
         if (s.group != null && items.size > before) items[before].group = s.group
         if (sync != null && items.size > before) items[before].sync = sync
     }
@@ -1541,11 +1648,22 @@ class DocumentCodec(
     private fun buildDrawnShape(s: ItemScratch): ShapeItem {
         val kind = ShapeKind.fromId(s.shape)
         val strokeRgba = s.strokeRgba ?: Rgba(0, 230, 118, 255)
+        val spec = s.function?.let { FunctionSpec(it, s.functionFrom, s.functionTo, s.functionYMin, s.functionYMax) }
+        ForkShapes.build(s.shape, s.start, s.end, s.points, s.angle, spec, s.rect, strokeRgba, s.strokeWidth)?.let { shape ->
+            forkShapesRead++
+            shape.fillRgba = s.fillRgba?.takeIf { shape.shape.isClosed }
+            shape.neon = s.neon
+            shape.neonStrength = s.neonStrength
+            shape.dashed = s.dashed
+            shape.dashLength = s.dashLength
+            shape.dashGap = s.dashGap
+            return shape
+        }
         s.points?.let { verts ->
             return ShapeItem.poly(
                 kind, verts, strokeRgba, s.strokeWidth, s.fillRgba, s.neon, s.neonStrength,
                 s.dashed, s.dashLength, s.dashGap,
-            )
+            ).also { shape -> shape.function = spec }
         }
         return ShapeItem(
             shape = kind,
@@ -1560,6 +1678,13 @@ class DocumentCodec(
             dashLength = s.dashLength,
             dashGap = s.dashGap,
         )
+    }
+
+    private fun buildTable(s: ItemScratch): TableItem? {
+        val rect = s.rect ?: return null
+        val cols = s.tableCols?.takeIf { it.isNotEmpty() } ?: return null
+        val rows = s.tableRows?.takeIf { it.isNotEmpty() } ?: return null
+        return TableItem(rect, cols, rows, s.strokeRgba ?: Rgba(0, 0, 0, 255), s.strokeWidth)
     }
 
     private fun parseConfig(p: JsonPull): ConfigScratch? {
@@ -1638,6 +1763,7 @@ class DocumentCodec(
         var accent: Rgba? = null
         var params: Map<String, Double>? = null
         var colors: Map<String, Rgba>? = null
+        var textColor: Rgba? = null
         p.beginObject()
         while (p.hasNext()) {
             when (p.nextName()) {
@@ -1649,6 +1775,7 @@ class DocumentCodec(
                 "accent_color" -> accent = rgbaOrNull(p)
                 "params" -> params = namedValues(p) { doubleOrNull(it) }
                 "colors" -> colors = namedValues(p) { rgbaOrNull(it) }
+                "text_color" -> textColor = rgbaOrNull(p)
                 else -> p.skipValue()
             }
         }
@@ -1661,6 +1788,7 @@ class DocumentCodec(
             accentColor = accent,
             params = params,
             colors = colors,
+            textColor = textColor,
         )
     }
 
@@ -1677,6 +1805,27 @@ class DocumentCodec(
         }
         p.endObject()
         return out.takeIf { it.isNotEmpty() }
+    }
+
+    private fun parseTextMargins(p: JsonPull): FlowMargins? {
+        if (p.peek() != JsonPull.Token.BEGIN_OBJECT) {
+            p.skipValue()
+            return null
+        }
+        var m = FlowMargins()
+        fun mm(): Double = (doubleOrNull(p) ?: FlowMargins.DEFAULT_MM).coerceIn(FlowMargins.MIN_MM, FlowMargins.MAX_MM)
+        p.beginObject()
+        while (p.hasNext()) {
+            when (p.nextName()) {
+                "left" -> m = m.copy(leftMm = mm())
+                "top" -> m = m.copy(topMm = mm())
+                "right" -> m = m.copy(rightMm = mm())
+                "bottom" -> m = m.copy(bottomMm = mm())
+                else -> p.skipValue()
+            }
+        }
+        p.endObject()
+        return m
     }
 
     private fun parseMargins(p: JsonPull): PageMargins {
@@ -1745,8 +1894,10 @@ class DocumentCodec(
         return ImageItem(ImageData(file, w, h), rect, spec.orientation, spec.angle, spec.flip, spec.part)
             .also {
                 it.locked = spec.locked
+                it.link = spec.link
                 it.sync = spec.sync
                 it.group = spec.group
+                it.paper = spec.paper
             }
     }
 
@@ -1809,6 +1960,11 @@ class DocumentCodec(
         } else {
             TextItem(s.pos ?: Pt.ZERO, s.width, s.text, color, s.pointSize, face, textMeasurer, s.autoWidth)
         }
+        item.math = s.textMath
+        val model = s.ocrModel
+        val raw = s.ocrRaw
+        if (model != null && raw != null) item.ocr = MathOrigin(model, raw)
+        if (rich == null) applyOldBoxStyle(item, s)
         if (s.boxFill != null || s.boxBorder != null || s.boxBorderWidth != 0.0 || s.boxCorner != 0.0) {
             item.box = BoxStyle(
                 s.boxFill, s.boxBorder,
@@ -1816,6 +1972,29 @@ class DocumentCodec(
             )
         }
         return item
+    }
+
+    /** Older fork notes styled a whole box with flags; carry them onto every run and paragraph of its flow. */
+    private fun applyOldBoxStyle(item: TextItem, s: ItemScratch) {
+        val align = when (s.textAlign) {
+            "center" -> com.xnotes.core.text.ParaAlign.CENTER
+            "right" -> com.xnotes.core.text.ParaAlign.RIGHT
+            else -> null
+        }
+        if (!s.textBold && !s.textItalic && !s.textUnderline && !s.textStrike && align == null) return
+        for (para in item.flow.paragraphs) {
+            for (run in para.runs) {
+                run.style = run.style.copy(
+                    bold = run.style.bold || s.textBold,
+                    italic = run.style.italic || s.textItalic,
+                    underline = run.style.underline || s.textUnderline,
+                    strike = run.style.strike || s.textStrike,
+                )
+            }
+            if (align != null) para.align = align
+            para.touch()
+        }
+        item.reflow()
     }
 
     private fun boolOr(p: JsonPull, def: Boolean): Boolean = boolOrNull(p) ?: def
@@ -1992,9 +2171,23 @@ class DocumentCodec(
         }
         val out = ArrayList<Pt>()
         p.beginArray()
-        while (p.hasNext()) ptOrNull(p)?.let { out.add(it) }
+        while (p.hasNext()) out.add(ptOrNull(p) ?: FunctionSpec.BREAK)
         p.endArray()
-        return if (out.size >= 2) out else null
+        while (out.isNotEmpty() && out.last().x.isNaN()) out.removeAt(out.size - 1)
+        while (out.isNotEmpty() && out.first().x.isNaN()) out.removeAt(0)
+        return if (out.count { !it.x.isNaN() } >= 2) out else null
+    }
+
+    private fun doubleListOrNull(p: JsonPull): List<Double>? {
+        if (p.peek() != JsonPull.Token.BEGIN_ARRAY) {
+            p.skipValue()
+            return null
+        }
+        val out = ArrayList<Double>()
+        p.beginArray()
+        while (p.hasNext()) doubleOrNull(p)?.let { out.add(it) }
+        p.endArray()
+        return out.ifEmpty { null }
     }
 
     companion object {

@@ -1,5 +1,9 @@
 package com.xnotes.ui
 
+import com.xnotes.core.text.FlowMargins
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,7 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -53,6 +57,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xnotes.R
 import com.xnotes.canvas.PdfColorFilter
+import com.xnotes.canvas.ReaderPageMode
+import com.xnotes.canvas.ReaderSettings
 import com.xnotes.canvas.ViewOverrides
 import com.xnotes.canvas.ViewSettings
 import com.xnotes.canvas.ViewingMode
@@ -150,6 +156,7 @@ private fun ColumnScope.HomePage(editor: Editor, fullscreen: Boolean, onToggleFu
             FitTile(stringResource(R.string.fit_width_short), XnotesIcons.fitWidth, Modifier.weight(1f), shortcut = Keys.FIT_ALL) { editor.fitWidth() }
             FitTile(stringResource(R.string.fit_height_short), XnotesIcons.fitHeight, Modifier.weight(1f)) { editor.fitHeight() }
         }
+        SavedZooms(editor, editor.zoomPercent, editor.zoomLocked, editor::setZoom)
     }
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -445,6 +452,8 @@ private class StylesState(editor: Editor) {
     var tab by mutableIntStateOf(0) // 0 = All Pages, 1 = Current Page
     var docStyle by mutableStateOf(editor.documentStyle)
     var pageStyle by mutableStateOf(editor.currentPageStyle)
+    /** The note's own text colour, or null for Auto against the paper. */
+    var textColor by mutableStateOf(editor.flowConfigValue().color)
     // "Default for new notes" shows once All Pages differs from the saved default and stays for the visit.
     var showNewNoteRow by mutableStateOf(editor.documentStyle != editor.newNoteStyle)
     val memory = TemplateMemory()
@@ -495,9 +504,10 @@ private fun StylesPage(editor: Editor, s: StylesState, onImportTemplate: () -> U
     PanelSegmented(listOf(stringResource(R.string.all_pages), stringResource(R.string.current_page)), s.tab, { s.tab = it })
 
     Spacer(Modifier.height(12.dp))
-    MenuCard(listOf {
-        ColourRow(stringResource(R.string.caption_page_colour), style.pageColor, v.look.paper, editor, SwatchRole.PAPER) { s.apply(editor, style.copy(pageColor = it)) }
-    })
+    MenuCard(listOf(
+        { ColourRow(stringResource(R.string.caption_page_colour), style.pageColor, v.look.paper, editor, SwatchRole.PAPER) { s.apply(editor, style.copy(pageColor = it)) } },
+        { TextColourRow(editor, s) },
+    ))
 
     Spacer(Modifier.height(16.dp))
     PanelCaption(stringResource(R.string.caption_template))
@@ -545,6 +555,26 @@ private fun StylesPage(editor: Editor, s: StylesState, onImportTemplate: () -> U
 
     Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().height(1.dp).background(palette.border.toComposeColor()))
     NewPageSize(editor)
+}
+
+/** The text colour: the note's on All Pages (Auto follows the paper), the page's own on Current Page (Default follows the note's). */
+@Composable
+private fun TextColourRow(editor: Editor, s: StylesState) {
+    val own = if (s.tab == 0) s.textColor else s.pageStyle.textColor
+    val shown = own ?: if (s.tab == 0) editor.flowDefaultColor() else editor.currentPageTextColor()
+    fun set(c: Rgba?) {
+        if (s.tab == 0) {
+            editor.setFlowConfig(editor.flowConfigValue().copy(color = c))
+            s.textColor = c
+        } else {
+            s.apply(editor, s.pageStyle.copy(textColor = c))
+        }
+    }
+    MenuRow(stringResource(R.string.text_colour)) {
+        ColorOrNone(stringResource(if (s.tab == 0) R.string.auto else R.string.default_choice), own, shown, onChange = ::set) { d, p ->
+            ColorPickerPopup(shown, editor.recentColors, d, p)
+        }
+    }
 }
 
 /** The size of pages added to the note: the page before's, a named size turned either way, or Custom's sides. */
@@ -710,7 +740,78 @@ private fun MarginsPage(editor: Editor, s: MarginsState, onBack: () -> Unit) {
         PanelChip(stringResource(R.string.default_choice), margins.color == null) { s.apply(editor, margins.copy(color = null)) }
         SwatchCircles(editor, SwatchRole.PAPER, margins.color) { s.apply(editor, margins.copy(color = it)) }
     }
+
+    Box(Modifier.padding(vertical = 16.dp).fillMaxWidth().height(1.dp).background(palette.border.toComposeColor()))
+    TextMargins(editor, s.tab)
 }
+
+/**
+ * The text margins, the box text flows in and selections snap to: the note's on All Pages, the
+ * page's own on Current Page (Reset there follows the note's again). Shown as dashed lines while
+ * the slider is held, or always with Show margins.
+ */
+@Composable
+private fun TextMargins(editor: Editor, tab: Int) {
+    var edge by remember { mutableStateOf<PageEdge?>(null) } // null = all edges
+    var docMargins by remember { mutableStateOf(editor.flowMargins) }
+    var pageMargins by remember { mutableStateOf(editor.currentPageTextMargins) }
+    val margins = if (tab == 0) docMargins else pageMargins ?: docMargins
+    fun apply(next: FlowMargins?) {
+        if (tab == 0) {
+            docMargins = next ?: FlowMargins()
+            editor.setFlowMargins(docMargins)
+        } else {
+            pageMargins = next
+            editor.setCurrentPageTextMargins(next)
+        }
+    }
+    fun FlowMargins.mm(e: PageEdge?) = when (e) {
+        null, PageEdge.LEFT -> leftMm
+        PageEdge.RIGHT -> rightMm
+        PageEdge.TOP -> topMm
+        PageEdge.BOTTOM -> bottomMm
+    }
+    fun FlowMargins.withMm(e: PageEdge?, v: Double) = when (e) {
+        null -> FlowMargins(v, v, v, v)
+        PageEdge.LEFT -> copy(leftMm = v)
+        PageEdge.RIGHT -> copy(rightMm = v)
+        PageEdge.TOP -> copy(topMm = v)
+        PageEdge.BOTTOM -> copy(bottomMm = v)
+    }
+    val held = remember { MutableInteractionSource() }
+    val pressed by held.collectIsPressedAsState()
+    val dragged by held.collectIsDraggedAsState()
+    LaunchedEffect(pressed || dragged) { editor.setMarginPreview(pressed || dragged) }
+    DisposableEffect(Unit) { onDispose { editor.setMarginPreview(false) } }
+    // Opens expanded when any edge already sits past the narrow range, so its slider never pins short.
+    var expanded by remember {
+        mutableStateOf(listOfNotNull(docMargins, pageMargins).any { maxOf(it.leftMm, it.topMm, it.rightMm, it.bottomMm) > NARROW_MARGIN_MM })
+    }
+    val maxMm = if (expanded) FlowMargins.MAX_MM else NARROW_MARGIN_MM
+    val mm = margins.mm(edge)
+    val px = PageSize.mmToPx(mm, editor.documentDpi).roundToInt()
+    val edges = listOf<PageEdge?>(null) + PageEdge.entries
+
+    PanelCaption(stringResource(R.string.text_margins)) {
+        PanelChip(stringResource(R.string.reset), enabled = tab == 0 || pageMargins != null) { apply(null) }
+    }
+    PanelSegmented(edges.map { e -> e?.let { stringResource(it.labelRes) } ?: stringResource(R.string.edge_all) }, edges.indexOf(edge), { edge = edges[it] })
+    Spacer(Modifier.height(12.dp))
+    PanelCaption(stringResource(edge?.labelRes ?: R.string.edge_all)) {
+        CaptionValue("%.0f mm (%d px)".format(mm, px) + if (tab == 1 && pageMargins == null) stringResource(R.string.default_suffix) else "")
+    }
+    androidx.compose.material3.Slider(
+        value = mm.toFloat().coerceIn(FlowMargins.MIN_MM.toFloat(), maxMm.toFloat()),
+        onValueChange = { apply(margins.withMm(edge, it.roundToInt().toDouble())) }, // whole mm, without steps' tick dots
+        valueRange = FlowMargins.MIN_MM.toFloat()..maxMm.toFloat(),
+        interactionSource = held,
+    )
+    PanelCheck(stringResource(R.string.expand_range), expanded) { expanded = it }
+    PanelCheck(stringResource(R.string.show_margins), editor.showMargins) { editor.setShowMarginsPref(it) }
+}
+
+/** Text margins up to this many mm unless Expand range is on. */
+private const val NARROW_MARGIN_MM = 50.0
 
 private class MarginInk(val paper: Color, val margin: Color, val edge: Color, val rule: Color, val accent: Color)
 
@@ -830,15 +931,26 @@ private class ViewState(editor: Editor) {
         editor.updateViewOverrides(new)
         if (editor.viewSettings != editor.viewDefaults) showDefaultRow = true
     }
+
+    /** [change] on the note's overrides; read-only, on the reader's own settings, never the note's. */
+    fun change(editor: Editor, change: (ViewOverrides) -> ViewOverrides) {
+        if (!editor.readOnly) return apply(editor, change(editor.viewOverrides))
+        val rs = editor.readerSettings
+        editor.updateReaderSettings(rs.copy(view = change(ViewOverrides()).resolve(rs.view)))
+    }
+
+    fun reset(editor: Editor) = if (editor.readOnly) editor.updateReaderSettings(ReaderSettings()) else apply(editor, ViewOverrides())
 }
 
 @Composable
 private fun ViewPage(editor: Editor, s: ViewState, onBack: () -> Unit, onFilters: () -> Unit) {
     val palette = LocalPalette.current
     val vs = editor.viewSettings
-    fun set(f: (ViewOverrides) -> ViewOverrides) = s.apply(editor, f(editor.viewOverrides))
+    fun set(f: (ViewOverrides) -> ViewOverrides) = s.change(editor, f)
+    val reader = editor.readOnly
+    val rs = editor.readerSettings
 
-    PanelHeader(stringResource(R.string.title_view), onBack, onReset = { s.apply(editor, ViewOverrides()) })
+    PanelHeader(stringResource(if (reader) R.string.reader_settings else R.string.title_view), onBack, onReset = { s.reset(editor) })
     PanelCaption(stringResource(R.string.caption_viewing_mode))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (m in ViewingMode.entries) {
@@ -846,15 +958,36 @@ private fun ViewPage(editor: Editor, s: ViewState, onBack: () -> Unit, onFilters
         }
     }
     Spacer(Modifier.height(16.dp))
+    if (reader) {
+        PanelCaption(stringResource(R.string.caption_page_turning))
+        val modes = listOf(ReaderPageMode.VERTICAL, ReaderPageMode.HORIZONTAL, ReaderPageMode.SINGLE)
+        PanelSegmented(
+            listOf(stringResource(R.string.reader_vertical), stringResource(R.string.reader_horizontal), stringResource(R.string.reader_single_page)),
+            modes.indexOf(rs.pageMode),
+            { editor.updateReaderSettings(rs.copy(pageMode = modes[it])) },
+        )
+        Spacer(Modifier.height(16.dp))
+    }
     PanelCard(padding = PaddingValues(vertical = 2.dp)) {
-        PanelSwitch(stringResource(R.string.caption_vertical_scrolling), vs.verticalScroll) { on -> set { it.copy(verticalScroll = on) } }
+        if (reader) {
+            val single = rs.pageMode == ReaderPageMode.SINGLE
+            PanelSwitch(stringResource(R.string.caption_turn_animation), rs.turnAnimation, enabled = single) { editor.updateReaderSettings(rs.copy(turnAnimation = it)) }
+            CardDivider()
+            PanelSwitch(stringResource(R.string.caption_tap_to_turn), rs.tapToTurn, enabled = single) { editor.updateReaderSettings(rs.copy(tapToTurn = it)) }
+        } else {
+            PanelSwitch(stringResource(R.string.caption_vertical_scrolling), vs.verticalScroll) { on -> set { it.copy(verticalScroll = on) } }
+        }
         CardDivider()
         PanelSwitch(stringResource(R.string.caption_free_movement), vs.freeMovement) { on -> set { it.copy(freeMovement = on) } }
         CardDivider()
         PanelSwitch(stringResource(R.string.caption_scrollbar), vs.scrollbar) { on -> set { it.copy(scrollbar = on) } }
         CardDivider()
         // Autoscroll lives outside the View settings, so it never stirs the "Default for all notes" row.
-        PanelSwitch(stringResource(R.string.caption_autoscroll), editor.autoScrollOn, enabled = vs.verticalScroll) { editor.setAutoScroll(it) }
+        PanelSwitch(
+            stringResource(R.string.caption_autoscroll),
+            editor.autoScrollOn,
+            enabled = vs.verticalScroll && !(reader && rs.pageMode == ReaderPageMode.HORIZONTAL),
+        ) { editor.setAutoScroll(it) }
         if (editor.autoScrollOn) {
             Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) {
                 val speed = editor.autoScrollSpeed
@@ -878,7 +1011,7 @@ private fun ViewPage(editor: Editor, s: ViewState, onBack: () -> Unit, onFilters
             Icon(XnotesIcons.contrast, null, tint = palette.accent.toComposeColor(), modifier = Modifier.size(22.dp))
         }
     }
-    if (s.showDefaultRow && editor.viewOverrides != ViewOverrides()) {
+    if (!reader && s.showDefaultRow && editor.viewOverrides != ViewOverrides()) {
         Spacer(Modifier.height(6.dp))
         PanelCheck(stringResource(R.string.default_for_all_notes), vs == editor.viewDefaults) { on ->
             editor.updateViewDefaults(if (on) vs else s.openedDefaults.takeIf { it != vs } ?: editor.factoryViewDefaults)
@@ -949,7 +1082,7 @@ private fun ModeCard(mode: ViewingMode, label: String, selected: Boolean, modifi
 private fun FiltersPage(editor: Editor, s: ViewState, onBack: () -> Unit) {
     val palette = LocalPalette.current
     val vs = editor.viewSettings
-    fun set(f: (ViewOverrides) -> ViewOverrides) = s.apply(editor, f(editor.viewOverrides))
+    fun set(f: (ViewOverrides) -> ViewOverrides) = s.change(editor, f)
 
     PanelHeader(stringResource(R.string.caption_pdf_filters), onBack)
     // The gap between sliders is twice the one under a label, so each reads with its own.
@@ -1064,6 +1197,6 @@ private fun LimitRow(label: String, enabled: Boolean, value: Int, onToggle: (Boo
             }
         }
         Spacer(Modifier.width(12.dp))
-        Switch(checked = enabled, onCheckedChange = onToggle)
+        Checkbox(checked = enabled, onCheckedChange = onToggle)
     }
 }

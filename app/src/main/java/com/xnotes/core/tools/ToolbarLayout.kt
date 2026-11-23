@@ -13,16 +13,16 @@ enum class ToolbarItem(val id: String) {
     HOME("home"),
     TITLE("title"),
     SIDEBAR("sidebar"),
+    /** Every pen kind ([Tool.PENS]) behind one button that shows the one in use. */
     PEN("pen"),
-    DASHED("dashed"),
-    CALLIGRAPHY("calligraphy"),
-    SPEED("speed"),
-    TAPER("taper"),
     HIGHLIGHTER("highlighter"),
     ERASER("eraser"),
     PAN("pan"),
+
+    /** Turns a paged note read-only, as the gear panel's Read-only tile does. */
+    READER("reader"),
+    /** Rectangle select and lasso ([Tool.SELECTIONS]) behind one button. */
     SELECT("select"),
-    LASSO("lasso"),
     SCREENSHOT("screenshot"),
     WAND("wand"),
     TAPE("tape"),
@@ -34,12 +34,20 @@ enum class ToolbarItem(val id: String) {
     /** The text markup tool; only notes with a PDF show it. */
     MARKUP("markup"),
     IMAGE("image"),
+    TABLE("table"),
     UNDO("undo"),
     REDO("redo"),
+    SEARCH("search"),
     COLORS("colors"),
 
-    /** Notes only: opens and closes room on a page. Last, so a stored bar missing older items too still gets it right after the lasso. */
-    INSERT_SPACE("insert_space");
+    /** Shows or hides the floating bar of saved tools. */
+    PENCILCASE("pencilcase"),
+
+    /** Notes only: opens and closes room on a page. Last, so a stored bar missing older items too still gets it right after select. */
+    INSERT_SPACE("insert_space"),
+
+    /** Notes only: adds a blank page below the current one. Off by default. */
+    ADD_PAGE("add_page");
 
     companion object {
         fun fromId(id: String?): ToolbarItem? = entries.firstOrNull { it.id == id }
@@ -126,24 +134,32 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
             sections.forEachIndexed { si, sec ->
                 val i = sec.entries.indexOfFirst { it.item == anchor }
                 if (i >= 0) {
-                    val entries = sec.entries.toMutableList().also { it.add(i + 1, ToolbarEntry(item)) }
+                    val entries = sec.entries.toMutableList().also { it.add(i + 1, ToolbarEntry(item, item !in HIDDEN_BY_DEFAULT)) }
                     return copy(sections = sections.toMutableList().also { it[si] = sec.copy(entries = entries) })
                 }
             }
         }
         val last = sections.last()
-        return copy(sections = sections.dropLast(1) + last.copy(entries = last.entries + ToolbarEntry(item)))
+        return copy(sections = sections.dropLast(1) + last.copy(entries = last.entries + ToolbarEntry(item, item !in HIDDEN_BY_DEFAULT)))
     }
 
     companion object {
         /** Later-added items that belong beside an existing one in stored layouts. */
         private val INSERT_AFTER = mapOf(
             ToolbarItem.TEXT_BOX to ToolbarItem.TEXT,
-            ToolbarItem.WAND to ToolbarItem.LASSO,
+            ToolbarItem.WAND to ToolbarItem.SELECT,
+            ToolbarItem.TABLE to ToolbarItem.IMAGE,
             ToolbarItem.TAPE to ToolbarItem.WAND,
-            ToolbarItem.INSERT_SPACE to ToolbarItem.LASSO,
+            ToolbarItem.INSERT_SPACE to ToolbarItem.SELECT,
             ToolbarItem.MARKUP to ToolbarItem.TEXT_BOX,
+            ToolbarItem.SEARCH to ToolbarItem.REDO,
+            ToolbarItem.ADD_PAGE to ToolbarItem.SEARCH,
+            ToolbarItem.READER to ToolbarItem.ADD_PAGE,
+            ToolbarItem.PENCILCASE to ToolbarItem.PAN,
         )
+
+        /** Items that join the bar hidden, both in [DEFAULT] and when added to a stored layout. */
+        private val HIDDEN_BY_DEFAULT = setOf(ToolbarItem.ADD_PAGE)
 
         /**
          * The two bars hold different things, so each has its own set and neither can be handed the
@@ -152,11 +168,10 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
          */
         val CANVAS_ITEMS: Set<ToolbarItem> = setOf(
             ToolbarItem.HOME, ToolbarItem.TITLE,
-            ToolbarItem.PEN, ToolbarItem.DASHED, ToolbarItem.CALLIGRAPHY, ToolbarItem.SPEED,
-            ToolbarItem.TAPER, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER,
-            ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.LASSO, ToolbarItem.WAND,
+            ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER,
+            ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.WAND,
             ToolbarItem.TAPE, ToolbarItem.SHAPE,
-            ToolbarItem.IMAGE, ToolbarItem.COLORS, ToolbarItem.UNDO, ToolbarItem.REDO,
+            ToolbarItem.IMAGE, ToolbarItem.COLORS, ToolbarItem.PENCILCASE, ToolbarItem.UNDO, ToolbarItem.REDO,
         )
 
         /** Everything the paged bar can hold: the whole enum. Page, zoom and view settings live behind the gear on both bars. */
@@ -166,25 +181,20 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
         val DEFAULT: ToolbarLayout = of(
             listOf(ToolbarItem.HOME, ToolbarItem.TITLE),
             listOf(ToolbarItem.SIDEBAR),
-            listOf(
-                ToolbarItem.PEN, ToolbarItem.DASHED, ToolbarItem.CALLIGRAPHY, ToolbarItem.SPEED,
-                ToolbarItem.TAPER, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER,
-            ),
-            listOf(ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.LASSO, ToolbarItem.INSERT_SPACE, ToolbarItem.SCREENSHOT),
+            listOf(ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER),
+            listOf(ToolbarItem.PAN, ToolbarItem.PENCILCASE, ToolbarItem.SELECT, ToolbarItem.INSERT_SPACE, ToolbarItem.SCREENSHOT),
             listOf(ToolbarItem.WAND, ToolbarItem.TAPE, ToolbarItem.SHAPE, ToolbarItem.RULER, ToolbarItem.TEXT, ToolbarItem.TEXT_BOX, ToolbarItem.MARKUP),
-            listOf(ToolbarItem.IMAGE),
+            listOf(ToolbarItem.IMAGE, ToolbarItem.TABLE),
             listOf(ToolbarItem.COLORS),
             listOf(ToolbarItem.UNDO, ToolbarItem.REDO),
+            listOf(ToolbarItem.SEARCH, ToolbarItem.ADD_PAGE, ToolbarItem.READER),
         )
 
         /** Mirrors the hardcoded canvas bar (see InfiniteToolbar.kt). */
         val CANVAS_DEFAULT: ToolbarLayout = of(
             listOf(ToolbarItem.HOME, ToolbarItem.TITLE),
-            listOf(
-                ToolbarItem.PEN, ToolbarItem.DASHED, ToolbarItem.CALLIGRAPHY, ToolbarItem.SPEED,
-                ToolbarItem.TAPER, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER,
-            ),
-            listOf(ToolbarItem.PAN, ToolbarItem.SELECT, ToolbarItem.LASSO),
+            listOf(ToolbarItem.PEN, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER),
+            listOf(ToolbarItem.PAN, ToolbarItem.PENCILCASE, ToolbarItem.SELECT),
             listOf(ToolbarItem.WAND, ToolbarItem.TAPE, ToolbarItem.SHAPE),
             listOf(ToolbarItem.IMAGE),
             listOf(ToolbarItem.COLORS),
@@ -192,7 +202,7 @@ data class ToolbarLayout(val sections: List<ToolbarSection>) {
         )
 
         private fun of(vararg groups: List<ToolbarItem>): ToolbarLayout =
-            ToolbarLayout(groups.map { g -> ToolbarSection(g.map { ToolbarEntry(it) }) })
+            ToolbarLayout(groups.map { g -> ToolbarSection(g.map { ToolbarEntry(it, it !in HIDDEN_BY_DEFAULT) }) })
 
         /**
          * Build from raw (id, visible) pairs per section as read from storage: ids outside [among]

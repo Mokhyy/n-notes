@@ -222,7 +222,7 @@ fun EmojiMenu(editor: Editor) {
 
 /** The entry's visible name. Keywords are ASCII; these are the translatable part. */
 @Composable
-private fun slashLabel(entry: SlashCommands.Entry): String = when (entry.kind) {
+internal fun slashLabel(entry: SlashCommands.Entry): String = when (entry.kind) {
     SlashCommands.Kind.HEADING -> stringResource(R.string.heading_n, entry.level)
     SlashCommands.Kind.BODY -> stringResource(R.string.body_text)
     SlashCommands.Kind.BULLET -> stringResource(R.string.bullet_list)
@@ -232,6 +232,7 @@ private fun slashLabel(entry: SlashCommands.Entry): String = when (entry.kind) {
     SlashCommands.Kind.CALLOUT -> calloutLabel(CalloutKind.entries[entry.level])
     SlashCommands.Kind.CODE -> stringResource(R.string.code_block)
     SlashCommands.Kind.TABLE -> stringResource(R.string.insert_table)
+    SlashCommands.Kind.RULE -> stringResource(R.string.horizontal_line)
     SlashCommands.Kind.PAGE_BREAK -> stringResource(R.string.page_break)
     SlashCommands.Kind.SIZE -> stringResource(R.string.size_pt)
     SlashCommands.Kind.COLOR -> stringResource(R.string.colour)

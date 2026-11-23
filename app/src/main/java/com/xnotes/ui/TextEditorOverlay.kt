@@ -37,9 +37,9 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import com.xnotes.canvas.EditingField
+import com.xnotes.core.model.Rgba
 import com.xnotes.core.pal.FontFace
 import com.xnotes.platform.FontCatalog
-import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.toComposeColor
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -56,7 +56,9 @@ internal fun FontFace.toComposeFamily(): FontFamily = when (this) {
     FontFace.MONO -> FontFamily.Monospace
     FontFace.HAND -> FontFamily.Cursive
     else -> composeFamilies.getOrPut(id) {
-        FontFamily(FontCatalog.resolve(this, bold = false, italic = false).typeface)
+        // An imported font is one file: as a Font, Compose synthesizes its bold and italic.
+        FontCatalog.customFile(this)?.let { runCatching { FontFamily(androidx.compose.ui.text.font.Font(it)) }.getOrNull() }
+            ?: FontFamily(FontCatalog.resolve(this, bold = false, italic = false).typeface)
     }
 }
 
@@ -83,6 +85,9 @@ private class NoBringIntoViewNode : Modifier.Node(), BringIntoViewModifierNode {
 interface TextEditHost {
     /** Where the style bar sits and what it shows, or null to hide it. */
     val textBar: com.xnotes.canvas.TextBar?
+
+    /** The selection accent for the page under the field, which its border takes. */
+    val editAccent: com.xnotes.core.model.Rgba
 
     /** Mirror the field's text back to the model. */
     fun updateEditingText(text: String)
@@ -115,7 +120,6 @@ interface TextEditHost {
 @Composable
 fun TextEditorOverlay(editor: TextEditHost, field: EditingField) {
     val density = LocalDensity.current
-    val palette = LocalPalette.current
     var value by remember { mutableStateOf(TextFieldValue(field.text, TextRange(field.text.length))) }
     var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     val focusRequester = remember { FocusRequester() }
@@ -162,7 +166,7 @@ fun TextEditorOverlay(editor: TextEditHost, field: EditingField) {
                 // No fill: the edited box is lifted out of the ink cache, so a transparent field lets the
                 // page/PDF underneath show through while typing (true WYSIWYG). The border marks the
                 // bounds; its width is pre-divided so it stays 1dp after the layer scale.
-                .border(Dp(1f / z), palette.accent.toComposeColor())
+                .border(Dp(1f / z), editor.editAccent.toComposeColor())
                 .focusRequester(focusRequester)
                 .onGloballyPositioned { coords = it }
                 .pointerInput(Unit) {
@@ -208,7 +212,7 @@ fun TextEditorOverlay(editor: TextEditHost, field: EditingField) {
                 fontSize = fontSp,
                 textAlign = if (field.centred) TextAlign.Center else TextAlign.Start,
             ),
-            cursorBrush = SolidColor(palette.accent.toComposeColor()),
+            cursorBrush = SolidColor(Rgba.CARET.toComposeColor()),
         )
     }) { measurables, constraints ->
         val placeable = measurables[0].measure(Constraints())

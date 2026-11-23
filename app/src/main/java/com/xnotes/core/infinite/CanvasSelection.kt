@@ -1,5 +1,6 @@
 package com.xnotes.core.infinite
 
+import com.xnotes.canvas.AngleSnap
 import com.xnotes.canvas.HandleId
 import com.xnotes.canvas.ResizeHandle
 import com.xnotes.canvas.ResizeMath
@@ -14,10 +15,12 @@ import com.xnotes.core.history.TransformItems
 import com.xnotes.core.model.AudioItem
 import com.xnotes.core.model.CanvasItem
 import com.xnotes.core.model.ConnectorItem
+import com.xnotes.core.model.FunctionSpec
 import com.xnotes.core.model.GeometrySnapshot
 import com.xnotes.core.model.GlueFollow
 import com.xnotes.core.model.ShapeHandle
 import com.xnotes.core.model.ShapeItem
+import com.xnotes.core.shapes.ShapeKind
 import com.xnotes.core.model.TapeItem
 import com.xnotes.core.model.TapeMode
 import com.xnotes.core.tape.TapeGeometry
@@ -45,6 +48,12 @@ class CanvasSelection(private val doc: InfiniteDocument) {
         private set
 
     val isEmpty: Boolean get() = items.isEmpty()
+
+    /** When set, a rotate drag snaps the box angle to the nearest 90 degrees from further away. */
+    var snapRotation90: Boolean = false
+
+    /** Snapping for the rotate or line-end drag in progress, fresh for each [beginTransform]. */
+    private val angleSnap = AngleSnap()
 
     /** Gesture-start geometry, captured by [beginTransform] and restored every frame of a drag. */
     private var startSnapshots: List<GeometrySnapshot> = emptyList()
@@ -120,11 +129,13 @@ class CanvasSelection(private val doc: InfiniteDocument) {
     /** True when [p] is inside the selection, so a press there grabs it rather than starting a band. */
     fun contains(p: Pt, screenMargin: Double = 0.0): Boolean = chromeBox(screenMargin)?.contains(p) == true
 
-    /** The resize handles, in content space; a shape that keeps its aspect gets corners only, a line, an arrow or a strip of tape its two ends. */
-    fun handles(screenMargin: Double = 0.0): List<ResizeHandle> {
+    /** The resize handles, in content space; a shape that keeps its aspect gets corners only, a line, an arrow or a strip of tape its two ends. A box too small at [zoom] gets none. */
+    fun handles(screenMargin: Double = 0.0, zoom: Double? = null): List<ResizeHandle> {
         loneTapeStrip?.let { t -> return listOf(ResizeHandle(HandleId.START, t.shape.points[0]), ResizeHandle(HandleId.END, t.shape.points[1])) }
         loneEndpointShape?.let { s -> return listOf(ResizeHandle(HandleId.START, s.start), ResizeHandle(HandleId.END, s.end)) }
-        val all = chromeBox(screenMargin)?.let { ResizeMath.obbHandles(it) } ?: return emptyList()
+        val box = chromeBox(screenMargin) ?: return emptyList()
+        if (zoom != null && ResizeMath.obbCrowded(box, zoom)) return emptyList()
+        val all = ResizeMath.obbHandles(box)
         // A pill scales by its corners and lengthens by its sides; nothing stretches it upright.
         if (items.all { it is AudioItem }) return all.filter { it.id != HandleId.T && it.id != HandleId.B }
         val square = (items.singleOrNull() as? ShapeItem)?.shape?.keepsAspect == true
@@ -138,9 +149,26 @@ class CanvasSelection(private val doc: InfiniteDocument) {
     fun rotateGrip(arm: Double, screenMargin: Double = 0.0): Pt? =
         if (!turns) null else chromeBox(screenMargin)?.let { ResizeMath.obbRotateGrip(it, arm) }
 
+    /** The move grip under a selection too small to grab by its body, seen at [zoom], or null. */
+    fun moveGrip(zoom: Double, arm: Double, screenMargin: Double = 0.0): Pt? =
+        chromeBox(screenMargin)?.let { ResizeMath.obbMoveGrip(it, zoom, arm) }
+
+    /** The lone selected function curve, or null. */
+    fun function(): ShapeItem? = (items.singleOrNull() as? ShapeItem)?.takeIf { it.shape == ShapeKind.FUNCTION }
+
+    /** Replot the lone function curve, returning the undo step, or null when [spec] cannot be drawn. */
+    fun editFunction(spec: FunctionSpec): Command? {
+        val fn = function() ?: return null
+        val before = fn.snapshotGeometry()
+        if (!fn.setFunction(spec)) return null
+        doc.itemsChanged(items)
+        refreshBox()
+        return OnCanvas(doc, TransformItems(items, listOf(before), listOf(fn.snapshotGeometry())), items)
+    }
+
     /** Which handle [p] lands on, within [tolerance] content pixels, or null. */
-    fun hitHandle(p: Pt, tolerance: Double, screenMargin: Double = 0.0): HandleId? =
-        ResizeMath.hitHandle(handles(screenMargin), p, tolerance)
+    fun hitHandle(p: Pt, tolerance: Double, screenMargin: Double = 0.0, zoom: Double? = null): HandleId? =
+        ResizeMath.hitHandle(handles(screenMargin, zoom), p, tolerance)
 
     // --- transforms ---
 
@@ -150,6 +178,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
      * there, so a press a few pixels off the grip's centre no longer snaps the selection.
      */
     fun beginTransform(grabAt: Pt? = null, rigid: Boolean = false, pin: Boolean = true) {
+        angleSnap.reset()
         startSnapshots = items.map { it.snapshotGeometry() }
         // A move, turn or resize moves everything by one map; a point edit reshapes what it edits.
         follow = followOf(items, rigid = rigid, pin = pin)
@@ -157,6 +186,13 @@ class CanvasSelection(private val doc: InfiniteDocument) {
         val centre = box?.center
         startGrabAngle = if (grabAt == null || centre == null) null
         else kotlin.math.atan2(grabAt.y - centre.y, grabAt.x - centre.x)
+    }
+
+    /** Put every item back where the drag began, for a press that turned out to be a tap. */
+    fun restoreStart() {
+        for (i in items.indices) items[i].restoreGeometry(startSnapshots[i])
+        doc.itemsChanged(items)
+        refreshBox()
     }
 
     /**
@@ -263,7 +299,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
 
     /**
      * Drag the [handle] end of the lone line, arrow or strip of tape to [pointer], the other end held
-     * still. Tape snaps level or upright against it, as when laid; a line goes wherever it is put.
+     * still. Both snap level or upright against it, tape as when laid.
      */
     private fun dragEnd(handle: HandleId, pointer: Pt) {
         val item = items.singleOrNull() ?: return
@@ -277,7 +313,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
                 tape.shape = tape.shape.copy(points = ends)
             }
             line != null -> {
-                val (s, e) = ResizeMath.resizeOpenShape(line.start, line.end, handle, pointer)
+                val (s, e) = ResizeMath.snapOpenEnd(line.start, line.end, handle, pointer, angleSnap)
                 line.setGeometry(ShapeHandle(s, e))
             }
             else -> return
@@ -295,7 +331,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
      */
     fun rotateLive(pointer: Pt) {
         val from = startBox ?: return
-        val swept = sweptAngle(from, pointer)
+        val swept = snapSwept(from, sweptAngle(from, pointer))
         box = from.copy(angle = from.angle + swept)
         applyLive(Affine.rotateAbout(from.center, swept))
     }
@@ -307,7 +343,7 @@ class CanvasSelection(private val doc: InfiniteDocument) {
      */
     fun previewRotate(pointer: Pt): Double {
         val from = startBox ?: return 0.0
-        val swept = sweptAngle(from, pointer)
+        val swept = snapSwept(from, sweptAngle(from, pointer))
         box = from.copy(angle = from.angle + swept)
         return swept
     }
@@ -317,6 +353,9 @@ class CanvasSelection(private val doc: InfiniteDocument) {
         doc.itemsChanged(listOf(item))
         refreshBox()
     }
+
+    /** The swept turn snapped by [angleSnap], quarter turns catching from further away with [snapRotation90]. */
+    private fun snapSwept(from: Obb, swept: Double): Double = angleSnap.snap(from.angle + swept, snapRotation90) - from.angle
 
     /** Put the box back where the drag started, for a gesture that was cancelled rather than ended. */
     fun previewBack() {
@@ -378,6 +417,15 @@ class CanvasSelection(private val doc: InfiniteDocument) {
         applyLive(if (upsideDown) Affine.scaleAbout(c, 1.0, -1.0) else Affine.scaleAbout(c, -1.0, 1.0))
         val command = buildCommand(movedOnly = false)
         box = if (isFramedShape) boxOf(items) else b.copy(angle = -b.angle)
+        return command
+    }
+
+    /** Apply [t] to everything selected, with the connectors glued to it, and refit the box; the undoable edit. */
+    fun transform(t: Affine): Command? {
+        beginTransform(rigid = true)
+        applyLive(t)
+        val command = buildCommand(movedOnly = false)
+        box = boxOf(items)
         return command
     }
 

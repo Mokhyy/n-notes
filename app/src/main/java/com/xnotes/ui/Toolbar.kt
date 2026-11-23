@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,6 +55,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -94,6 +97,7 @@ fun Toolbar(
     onInsertAudio: () -> Unit = {},
     onRecordAudio: () -> Unit = {},
     onTakePhoto: () -> Unit = {},
+    onImagePage: () -> Unit = {},
 ) {
     // The five stroke tools use the designed vector drawables (res/drawable/ic_stroke_*),
     // tinted at the call site like every other icon; the rest use the built-in line set.
@@ -112,6 +116,7 @@ fun Toolbar(
         Tool.SHAPE to XnotesIcons.shape,
         Tool.TEXT to XnotesIcons.text,
         Tool.TEXT_BOX to XnotesIcons.textBox,
+        Tool.TABLE to XnotesIcons.table,
         Tool.MARKUP to XnotesIcons.markup,
         Tool.TAPE to XnotesIcons.tape,
         Tool.INSERT_SPACE to XnotesIcons.insertSpace,
@@ -119,6 +124,24 @@ fun Toolbar(
     var configForTool by remember { mutableStateOf<Tool?>(null) }
     var switcherIndex by remember { mutableStateOf<Int?>(null) }
     var renaming by remember { mutableStateOf(false) }
+    @Composable
+    fun Item(item: ToolbarItem) = ToolbarItemView(
+        editor = editor,
+        item = item,
+        toolIcons = toolIcons,
+        configForTool = configForTool,
+        setConfigForTool = { configForTool = it },
+        switcherIndex = switcherIndex,
+        setSwitcherIndex = { switcherIndex = it },
+        onRename = { renaming = true },
+        onOpenBackstage = onOpenBackstage,
+        onInsertImage = onInsertImage,
+        onTakePhoto = onTakePhoto,
+        onImagePage = onImagePage,
+        onAddStickers = onAddStickers,
+        onInsertAudio = onInsertAudio,
+        onRecordAudio = onRecordAudio,
+    )
     // Pinned outside the scrolling strip, so closing a split pane is always one tap away.
     ToolbarFrame(
         armed = editor.tool,
@@ -134,22 +157,7 @@ fun Toolbar(
         editor.toolbarLayout.visibleSections.forEachIndexed { si, section ->
             if (si > 0) Separator()
             section.visibleEntries.forEach { entry ->
-                ToolbarItemView(
-                    editor = editor,
-                    item = entry.item,
-                    toolIcons = toolIcons,
-                    configForTool = configForTool,
-                    setConfigForTool = { configForTool = it },
-                    switcherIndex = switcherIndex,
-                    setSwitcherIndex = { switcherIndex = it },
-                    onRename = { renaming = true },
-                    onOpenBackstage = onOpenBackstage,
-                    onInsertImage = onInsertImage,
-                    onAddStickers = onAddStickers,
-                    onInsertAudio = onInsertAudio,
-                    onRecordAudio = onRecordAudio,
-                    onTakePhoto = onTakePhoto,
-                )
+                Item(entry.item)
             }
         }
         if (editor.toolbarLayout.visibleSections.isNotEmpty()) Separator()
@@ -182,10 +190,11 @@ private fun ToolbarItemView(
     onRename: () -> Unit,
     onOpenBackstage: () -> Unit,
     onInsertImage: () -> Unit,
+    onTakePhoto: () -> Unit,
+    onImagePage: () -> Unit,
     onAddStickers: () -> Unit,
     onInsertAudio: () -> Unit,
     onRecordAudio: () -> Unit,
-    onTakePhoto: () -> Unit,
 ) {
     when (item) {
         ToolbarItem.HOME -> ToolbarIcon(XnotesIcons.prev, stringResource(R.string.toolbar_home)) { onOpenBackstage() }
@@ -199,13 +208,15 @@ private fun ToolbarItemView(
                     .clickable { onRename() },
             )
         }
+        ToolbarItem.READER ->
+            ToolbarIcon(XnotesIcons.bookOpen, stringResource(R.string.read_only), enabled = editor.canReadOnly) { editor.toggleReadOnly() }
         ToolbarItem.SIDEBAR ->
             ToolbarIcon(XnotesIcons.sidebar, stringResource(R.string.side_panel), active = editor.sidebarVisible, shortcut = Keys.SIDEBAR) { editor.toggleSidebar() }
 
-        ToolbarItem.PEN, ToolbarItem.DASHED, ToolbarItem.CALLIGRAPHY, ToolbarItem.SPEED,
-        ToolbarItem.TAPER, ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER, ToolbarItem.PAN,
-        ToolbarItem.SELECT, ToolbarItem.LASSO, ToolbarItem.SCREENSHOT, ToolbarItem.SHAPE,
-        ToolbarItem.TEXT, ToolbarItem.TEXT_BOX, ToolbarItem.TAPE, ToolbarItem.INSERT_SPACE -> {
+        ToolbarItem.PEN -> shownOf(Tool.PENS, editor.tool).let { ToolButton(editor, it, toolIcons[it], configForTool, setConfigForTool) }
+        ToolbarItem.SELECT -> shownOf(Tool.SELECTIONS, editor.tool).let { ToolButton(editor, it, toolIcons[it], configForTool, setConfigForTool) }
+        ToolbarItem.HIGHLIGHTER, ToolbarItem.ERASER, ToolbarItem.PAN, ToolbarItem.SCREENSHOT, ToolbarItem.SHAPE,
+        ToolbarItem.TEXT, ToolbarItem.TEXT_BOX, ToolbarItem.TABLE, ToolbarItem.TAPE, ToolbarItem.INSERT_SPACE -> {
             val tool = Tool.fromId(item.id)
             if (tool != null) ToolButton(editor, tool, toolIcons[tool], configForTool, setConfigForTool)
         }
@@ -219,10 +230,21 @@ private fun ToolbarItemView(
         ToolbarItem.RULER ->
             ToolbarIcon(XnotesIcons.ruler, stringResource(R.string.tool_ruler), active = editor.rulerVisible) { editor.toggleRuler() }
 
-        ToolbarItem.IMAGE -> NoteInsertMenu(editor, onInsertImage, onTakePhoto, onAddStickers, onInsertAudio, onRecordAudio)
+        ToolbarItem.IMAGE -> NoteInsertMenu(editor, onInsertImage, onTakePhoto, onImagePage, onAddStickers, onInsertAudio, onRecordAudio)
 
         ToolbarItem.UNDO -> ToolbarIcon(XnotesIcons.undo, stringResource(R.string.undo), enabled = editor.canUndo, shortcut = Keys.UNDO) { editor.undo() }
         ToolbarItem.REDO -> ToolbarIcon(XnotesIcons.redo, stringResource(R.string.redo), enabled = editor.canRedo, shortcut = Keys.REDO) { editor.redo() }
+
+        ToolbarItem.SEARCH -> {
+            val open = editor.sidebarVisible && editor.sidePanelTab == SidePanelTab.SEARCH
+            ToolbarIcon(XnotesIcons.search, stringResource(R.string.search), active = open) {
+                if (open) editor.sidebarVisible = false else editor.openSearch()
+            }
+        }
+        ToolbarItem.ADD_PAGE -> ToolbarIcon(XnotesIcons.addPage, stringResource(R.string.add_page)) { editor.addPage() }
+
+        ToolbarItem.PENCILCASE ->
+            ToolbarIcon(Icons.Outlined.DesignServices, stringResource(R.string.toolbar_pencilcase), active = editor.showPencilcase) { editor.toggleShowPencilcase() }
 
         ToolbarItem.COLORS -> editor.toolbarColors.take(editor.toolbarColorCount).forEachIndexed { i, color ->
             Box {
@@ -250,7 +272,7 @@ private fun ToolButton(
 ) {
     if (icon == null) return
     val armed = editor.tool == tool
-    val configurable = tool.isStroke || tool == Tool.SHAPE || tool == Tool.ERASER || tool == Tool.SELECT || tool == Tool.TEXT || tool == Tool.TEXT_BOX || tool == Tool.MARKUP || tool == Tool.TAPE || tool == Tool.INSERT_SPACE
+    val configurable = tool.isStroke || tool == Tool.SHAPE || tool == Tool.ERASER || tool == Tool.SELECT || tool == Tool.LASSO || tool == Tool.TEXT || tool == Tool.TEXT_BOX || tool == Tool.TABLE || tool == Tool.MARKUP || tool == Tool.TAPE || tool == Tool.INSERT_SPACE || tool == Tool.PAN
     Box {
         ToolbarIcon(
             icon,
@@ -270,17 +292,28 @@ private fun ToolButton(
         if (configForTool == tool) {
             when {
                 tool == Tool.SHAPE -> ShapeConfigPopup(editor) { setConfigForTool(null) }
+                tool == Tool.TABLE -> TableConfigPopup(editor) { setConfigForTool(null) }
                 tool == Tool.ERASER -> EraserConfigPopup(editor) { setConfigForTool(null) }
-                tool == Tool.SELECT -> SelectConfigPopup(editor) { setConfigForTool(null) }
+                tool == Tool.SELECT || tool == Tool.LASSO -> SelectConfigPopup(editor, tool, onPick = { editor.selectTool(it); setConfigForTool(it) }) { setConfigForTool(null) }
                 tool == Tool.TEXT -> TextToolConfigPopup(editor) { setConfigForTool(null) }
                 tool == Tool.TEXT_BOX -> TextBoxConfigPopup(editor) { setConfigForTool(null) }
                 tool == Tool.MARKUP -> MarkupToolPopup(editor) { setConfigForTool(null) }
                 tool == Tool.TAPE -> TapeConfigPopup(editor) { setConfigForTool(null) }
                 tool == Tool.INSERT_SPACE -> InsertSpaceConfigPopup(editor) { setConfigForTool(null) }
-                else -> ToolConfigPopup(editor, tool) { setConfigForTool(null) }
+                tool == Tool.PAN -> PanConfigPopup(editor) { setConfigForTool(null) }
+                else -> ToolConfigPopup(editor, tool, onPick = { editor.selectTool(it); setConfigForTool(it) }) { setConfigForTool(null) }
             }
         }
     }
+}
+
+/** Which of [family] a merged toolbar button shows: the armed one, else the last one armed there. */
+// shortcut: the last kind lives only while the bar is composed, so a restart shows the first; persist it if that bothers.
+@Composable
+internal fun shownOf(family: List<Tool>, armed: Tool): Tool {
+    var last by remember { mutableStateOf(family[0]) }
+    LaunchedEffect(armed) { if (armed in family) last = armed }
+    return if (armed in family) armed else last
 }
 
 /** The single keys that arm a tool in a note (see [Editor.handleKeyDown]). */
@@ -499,14 +532,20 @@ internal fun Swatch(
     onClick: () -> Unit,
 ) {
     val bar = LocalBar.current
+    val palette = LocalPalette.current
+    val panel = palette.panel.toComposeColor().luminance()
+    val lum = color.luminance()
+    // A swatch close to the bar's own colour (black on OLED, white on light) gets a hairline so it still shows.
+    val blends = (maxOf(lum, panel) + 0.05f) / (minOf(lum, panel) + 0.05f) < 1.6f
     Box(
         modifier = Modifier
             .then(if (bar.vertical) Modifier.padding(vertical = 3.dp) else Modifier.padding(horizontal = 3.dp))
             .size(bar.swatch)
             .then(if (drag != null && ink != null) Modifier.colorDragSource(drag, ink, bar.vertical) else Modifier)
-            // The selection ring takes the swatch's own colour, not the theme accent.
-            .then(if (active) Modifier.border(2.dp, color, CircleShape) else Modifier)
+            // The selection ring is white on a dark theme and black on a light one, so it shows whatever the swatch.
+            .then(if (active) Modifier.border(2.dp, if (palette.isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black, CircleShape) else Modifier)
             .padding(4.dp)
+            .then(if (blends) Modifier.border(1.dp, palette.textDim.toComposeColor(), CircleShape) else Modifier)
             .clip(CircleShape)
             .background(color)
             .clickable(onClick = onClick),
@@ -542,20 +581,29 @@ internal fun Rule() {
 }
 
 @Composable
-private fun NoteInsertMenu(editor: Editor, onInsertImage: () -> Unit, onTakePhoto: () -> Unit, onAddStickers: () -> Unit, onInsertAudio: () -> Unit, onRecordAudio: () -> Unit) {
+private fun NoteInsertMenu(editor: Editor, onInsertImage: () -> Unit, onTakePhoto: () -> Unit, onImagePage: () -> Unit, onAddStickers: () -> Unit, onInsertAudio: () -> Unit, onRecordAudio: () -> Unit) {
     var stickersOpen by remember { mutableStateOf(false) }
+    var linkOpen by remember { mutableStateOf(false) }
     InsertButton(
         owner = editor,
         imageRows = listOf(
             InsertRow(XnotesIcons.image, stringResource(R.string.insert_image_ellipsis)) { onInsertImage() },
             InsertRow(XnotesIcons.camera, stringResource(R.string.take_photo)) { onTakePhoto() },
+            InsertRow(XnotesIcons.page, stringResource(R.string.image_as_page)) { onImagePage() },
             InsertRow(XnotesIcons.paste, stringResource(R.string.paste_image)) { editor.pasteImage() },
             InsertRow(XnotesIcons.sticker, stringResource(R.string.stickers), more = true) { stickersOpen = true },
         ),
         onAudioFromFile = onInsertAudio,
         onRecord = onRecordAudio,
+        linkRows = if (editor.browseRoot == null) emptyList() else listOf(
+            InsertRow(XnotesIcons.link, stringResource(R.string.add_link_to_document)) { linkOpen = true },
+        ),
     ) {
         if (stickersOpen) StickersMenu(editor, onAddStickers) { stickersOpen = false }
+        if (linkOpen) DocumentLinkDialog(editor, onDismiss = { linkOpen = false }) { path, label ->
+            linkOpen = false
+            editor.insertDocumentLink(path, label)
+        }
     }
 }
 
@@ -595,7 +643,7 @@ private fun StickersMenu(editor: Editor, onAddStickers: () -> Unit, onDismiss: (
             ) {
                 items(editor.stickers, key = { it.name }) { file ->
                     StickerTile(
-                        file = file,
+                        file = editor.stickerThumb(file),
                         onInsert = { editor.insertSticker(file); onDismiss() },
                         onRemove = { editor.removeSticker(file) },
                     )

@@ -1,13 +1,18 @@
 package com.xnotes.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -22,15 +27,10 @@ import com.xnotes.ui.theme.toComposeColor
 /** Which tool a toolbar item arms, for the items that are simply a tool button. */
 private val CANVAS_TOOL_OF: Map<ToolbarItem, Tool> = mapOf(
     ToolbarItem.PEN to Tool.PEN,
-    ToolbarItem.DASHED to Tool.DASHED,
-    ToolbarItem.CALLIGRAPHY to Tool.CALLIGRAPHY,
-    ToolbarItem.SPEED to Tool.SPEED,
-    ToolbarItem.TAPER to Tool.TAPER,
     ToolbarItem.HIGHLIGHTER to Tool.HIGHLIGHTER,
     ToolbarItem.ERASER to Tool.ERASER,
     ToolbarItem.PAN to Tool.PAN,
     ToolbarItem.SELECT to Tool.SELECT,
-    ToolbarItem.LASSO to Tool.LASSO,
     ToolbarItem.SHAPE to Tool.SHAPE,
     ToolbarItem.TAPE to Tool.TAPE,
 )
@@ -55,6 +55,7 @@ fun InfiniteToolbar(
     onInsertAudio: () -> Unit = {},
     onRecordAudio: () -> Unit = {},
     onTakePhoto: () -> Unit = {},
+    owner: Editor,
 ) {
     // The stroke tools use the same designed drawables the paged toolbar does, so a pen looks like
     // a pen on either canvas rather than like a generic glyph.
@@ -75,8 +76,9 @@ fun InfiniteToolbar(
     var eraserOpen by remember { mutableStateOf(false) }
     var shapeOpen by remember { mutableStateOf(false) }
     var penOpen by remember { mutableStateOf<Tool?>(null) }
-    var selectOpen by remember { mutableStateOf(false) }
+    var selectOpen by remember { mutableStateOf<Tool?>(null) }
     var tapeOpen by remember { mutableStateOf(false) }
+    var panOpen by remember { mutableStateOf(false) }
     // Which swatch has the colour picker open, as on the paged bar: tapping the armed swatch again
     // opens it, so the five colours are both the ink and the way to change it.
     var switcherIndex by remember { mutableStateOf<Int?>(null) }
@@ -101,13 +103,17 @@ fun InfiniteToolbar(
                     ToolbarItem.TITLE -> if (!LocalBar.current.vertical) Label(if (editor.document.displayName == null && editor.document.path == null) stringResource(R.string.untitled) else editor.title, Modifier.padding(end = 4.dp))
 
                     in CANVAS_TOOL_OF -> {
-                        val tool = CANVAS_TOOL_OF.getValue(item)
+                        val tool = when (item) {
+                            ToolbarItem.PEN -> shownOf(Tool.PENS, editor.tool)
+                            ToolbarItem.SELECT -> shownOf(Tool.SELECTIONS, editor.tool)
+                            else -> CANVAS_TOOL_OF.getValue(item)
+                        }
                         val icon = toolIcons[tool]
                         if (icon != null) {
                             Box {
                                 // Tapping the armed tool again opens its settings, as the paged bar does.
                                 val armed = editor.tool == tool
-                                val configurable = tool.isStroke || tool == Tool.ERASER || tool == Tool.SHAPE || tool == Tool.SELECT || tool == Tool.TAPE
+                                val configurable = tool.isStroke || tool == Tool.ERASER || tool == Tool.SHAPE || tool == Tool.SELECT || tool == Tool.LASSO || tool == Tool.TAPE || tool == Tool.PAN
                                 ToolbarIcon(
                                     icon,
                                     stringResource(tool.labelRes),
@@ -118,7 +124,8 @@ fun InfiniteToolbar(
                                     when {
                                         tool == Tool.ERASER && editor.tool == tool -> eraserOpen = true
                                         tool == Tool.SHAPE && editor.tool == tool -> shapeOpen = true
-                                        tool == Tool.SELECT && editor.tool == tool -> selectOpen = true
+                                        (tool == Tool.SELECT || tool == Tool.LASSO) && editor.tool == tool -> selectOpen = tool
+                                        tool == Tool.PAN && editor.tool == tool -> panOpen = true
                                         tool == Tool.TAPE && editor.tool == tool -> tapeOpen = true
                                         tool.isStroke && editor.tool == tool -> penOpen = tool
                                         else -> editor.armTool(tool)
@@ -128,9 +135,10 @@ fun InfiniteToolbar(
                                 // controls, same wording, same ranges, and they cannot drift apart.
                                 if (tool == Tool.ERASER && eraserOpen) EraserConfigPopup(editor) { eraserOpen = false }
                                 if (tool == Tool.SHAPE && shapeOpen) ShapeConfigPopup(editor) { shapeOpen = false }
-                                if (tool == Tool.SELECT && selectOpen) SelectConfigPopup(editor) { selectOpen = false }
+                                if (selectOpen == tool) SelectConfigPopup(editor, tool, onPick = { editor.armTool(it); selectOpen = it }) { selectOpen = null }
+                                if (tool == Tool.PAN && panOpen) PanConfigPopup(editor) { panOpen = false }
                                 if (tool == Tool.TAPE && tapeOpen) TapeConfigPopup(editor) { tapeOpen = false }
-                                if (penOpen == tool) ToolConfigPopup(editor, tool) { penOpen = null }
+                                if (penOpen == tool) ToolConfigPopup(editor, tool, onPick = { editor.armTool(it); penOpen = it }) { penOpen = null }
                             }
                         }
                     }
@@ -161,6 +169,11 @@ fun InfiniteToolbar(
                             }
                         }
 
+                    ToolbarItem.PENCILCASE ->
+                        ToolbarIcon(Icons.Outlined.DesignServices, stringResource(R.string.toolbar_pencilcase), active = owner.showPencilcase) {
+                            owner.toggleShowPencilcase()
+                        }
+
                     ToolbarItem.UNDO ->
                         ToolbarIcon(XnotesIcons.undo, stringResource(R.string.undo), enabled = editor.canUndo, shortcut = Keys.UNDO) { editor.undo() }
                     ToolbarItem.REDO ->
@@ -172,7 +185,7 @@ fun InfiniteToolbar(
             }
         }
         if (sections.isNotEmpty()) Separator()
-        CanvasSettingsButton(editor, fullscreen, onToggleFullscreen)
+        CanvasSettingsButton(editor, owner, fullscreen, onToggleFullscreen)
 
         if (!LocalBar.current.vertical) editor.renderFailure?.let {
             Separator()

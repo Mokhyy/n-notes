@@ -23,7 +23,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -32,6 +32,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.hrm.latex.renderer.Latex
+import com.hrm.latex.renderer.model.LatexConfig
+import com.hrm.latex.renderer.model.LatexTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -127,7 +132,7 @@ internal fun MenuSwitch(label: String, checked: Boolean, enabled: Boolean = true
         Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .clickable(enabled = enabled, role = Role.Switch) { onChange(!checked) }
+            .clickable(enabled = enabled, role = Role.Checkbox) { onChange(!checked) }
             .padding(start = ROW_START, end = ROW_END),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -139,7 +144,7 @@ internal fun MenuSwitch(label: String, checked: Boolean, enabled: Boolean = true
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+        Checkbox(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
 
@@ -349,8 +354,9 @@ private fun StepperEnd(icon: ImageVector, label: String, enabled: Boolean, onCli
 
 /** An icon tile of a single-choice grid, such as the shapes; the chosen one is filled. */
 @Composable
-internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size: Dp, onClick: () -> Unit) {
+internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size: Dp, latex: String? = null, onClick: () -> Unit) {
     val palette = LocalPalette.current
+    val tint = (if (selected) palette.selectionForeground else palette.textDim).toComposeColor()
     Tooltip(label) {
         Box(
             Modifier
@@ -360,12 +366,13 @@ internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size:
                 .clickable(role = Role.RadioButton, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = (if (selected) palette.selectionForeground else palette.textDim).toComposeColor(),
-                modifier = Modifier.size(22.dp),
-            )
+            if (latex == null) {
+                Icon(icon, contentDescription = label, tint = tint, modifier = Modifier.size(22.dp))
+            } else {
+                Box(Modifier.size(size - 4.dp, 22.dp).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
+                    Latex(latex, Modifier.scaleDownToFit(), LatexConfig(fontSize = 13.sp, theme = LatexTheme.light(tint, Color.Transparent)))
+                }
+            }
         }
     }
 }

@@ -1,10 +1,23 @@
 package com.xnotes.ui
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.Settings
+import androidx.core.content.ContextCompat
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.draw.alpha
+import com.xnotes.core.shapes.reorderedKeys
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,13 +26,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -32,19 +45,26 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
@@ -56,9 +76,14 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -68,7 +93,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.xnotes.R
@@ -76,10 +101,16 @@ import com.xnotes.core.model.Orientation
 import com.xnotes.core.model.PageSize
 import com.xnotes.core.model.Rgba
 import com.xnotes.settings.ExplorerLayout
+import com.xnotes.core.shapes.ConnectorPresets
+import com.xnotes.core.shapes.ShapePresets
 import com.xnotes.core.tools.InkPalette
-import com.xnotes.core.tools.ToolbarItem
-import com.xnotes.core.tools.ToolbarLayout
 import com.xnotes.core.util.NameTemplate
+import com.xnotes.platform.HandwritingOcr
+import com.xnotes.platform.MathLlm
+import com.xnotes.platform.MathModel
+import com.xnotes.platform.MathOcr
+import com.xnotes.platform.MathTraining
+import com.xnotes.settings.HOME_SWIPES
 import com.xnotes.settings.Preferences
 import com.xnotes.settings.MaterialStyle
 import com.xnotes.settings.CornerStyle
@@ -88,10 +119,16 @@ import com.xnotes.settings.ToolbarSize
 import com.xnotes.settings.MaterialColourMode
 import com.xnotes.settings.SwatchRole
 import com.xnotes.ui.icons.XnotesIcons
+import com.xnotes.sync.CloudServices
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.nested
+import com.xnotes.ui.theme.WarningColor
 import com.xnotes.ui.theme.toComposeColor
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 /** One-tap filename templates offered beside the free-text field. */
 private val NAME_TEMPLATE_PRESETS = listOf(
@@ -110,6 +147,20 @@ private val tapGestureOptions = listOf(
     "toggle_previous" to R.string.toggle_previous,
 )
 
+/** The Preferences pages, in the order the category list shows them. */
+private enum class PrefCategory(val title: Int, val summary: Int, val icon: ImageVector) {
+    GENERAL(R.string.pref_general, R.string.pref_general_summary, XnotesIcons.settings),
+    APPEARANCE(R.string.pref_appearance, R.string.pref_appearance_summary, XnotesIcons.palette),
+    INPUT(R.string.pref_input, R.string.pref_input_summary, XnotesIcons.edit),
+    OCR(R.string.pref_ocr, R.string.pref_ocr_summary, XnotesIcons.scanText),
+    NEW_NOTES(R.string.pref_new_notes, R.string.pref_new_notes_summary, XnotesIcons.addPage),
+    HOME(R.string.pref_home_explorer, R.string.pref_home_summary, XnotesIcons.home),
+    EXPORT_IMPORT(R.string.pref_export_import, R.string.pref_export_import_summary, XnotesIcons.share),
+    PERFORMANCE(R.string.pref_performance, R.string.pref_performance_summary, XnotesIcons.gauge),
+    TOOLBAR(R.string.pref_toolbar, R.string.pref_toolbar_summary, XnotesIcons.sliders),
+    CLOUD_SYNC(R.string.pref_cloud_sync, R.string.pref_cloud_sync_summary, XnotesIcons.cloud),
+}
+
 /**
  * Preferences as a backstage pane (spec 10 §8). Edits apply live — each change is
  * pushed straight to the [Editor] (and persisted), so theme/page tweaks are seen
@@ -125,7 +176,14 @@ fun PreferencesPane(
     onBackToHome: () -> Unit,
     onImportCodeTheme: () -> Unit = {},
     onImportFont: () -> Unit = {},
-    onBackup: (export: Boolean) -> Unit = {},
+    focusSync: Boolean = false,
+    onSyncFocused: () -> Unit = {},
+    onBackup: (export: Boolean, withNotes: Boolean) -> Unit = { _, _ -> },
+    syncLogOpen: Boolean = false,
+    onSyncLog: (Boolean) -> Unit = {},
+    onOpenAbout: () -> Unit = {},
+    /** Told whether the wide-screen settings sidebar is showing, so Home can fold its own away. */
+    onOwnSidebar: (Boolean) -> Unit = {},
 ) {
     val palette = LocalPalette.current
     val focusManager = LocalFocusManager.current
@@ -139,55 +197,62 @@ fun PreferencesPane(
         prefs = p
         editor.applyHomePreferences(p)
     }
-    var namingColor by remember { mutableStateOf<Rgba?>(null) }
-    namingColor?.let { c -> ColorNameDialog(editor, c) { namingColor = null } }
     // Follow out-of-pane preference changes too (the .scm import round-trips a picker).
     LaunchedEffect(editor.prefsVersion) { prefs = editor.preferences }
 
     val scrollState = rememberScrollState()
-    // Which bar the toolbar section is arranging. The two are separate layouts, so the drag state
-    // below always belongs to whichever is on screen.
-    var canvasTab by remember { mutableStateOf(false) }
-    val layout = if (canvasTab) editor.canvasToolbarLayout else editor.toolbarLayout
-    // Toolbar drag state, hoisted here so the floating "ghost" chip can be drawn at the pane
-    // root (above and outside the scroll, so it is never clipped). Bounds are plain maps read
-    // only at drag time; observable state is just the dragged item, finger, and drop slot.
-    var dragItem by remember { mutableStateOf<ToolbarItem?>(null) }
-    var dragFinger by remember { mutableStateOf(Offset.Zero) }
-    var dragGrab by remember { mutableStateOf(Offset.Zero) }
-    var dropTarget by remember { mutableStateOf<Pair<Int, Int>?>(null) }
-    val chipBounds = remember { mutableMapOf<ToolbarItem, Rect>() }
-    val sectionBounds = remember { mutableMapOf<Int, Rect>() }
-    val sectionGrabBounds = remember { mutableMapOf<Int, Rect>() }
-    // Section-drag state (the whole card, by its grip handle); shares the finger/grab with the
-    // chip drag since only one gesture runs at a time. The drop slot is an insertion index.
-    var dragSection by remember { mutableStateOf<Int?>(null) }
-    var sectionDropTarget by remember { mutableStateOf<Int?>(null) }
+    val search = remember { PrefSearch() }
+    val searchScope = androidx.compose.runtime.rememberCoroutineScope()
+    fun showHit(i: Int) {
+        val hits = search.hits()
+        if (hits.isEmpty()) return
+        search.current = ((i % hits.size) + hits.size) % hits.size
+        val y = hits[search.current].second
+        searchScope.launch { scrollState.animateScrollTo((y - 24f * search.density).roundToInt().coerceAtLeast(0)) }
+    }
+    // Null shows the list of categories; a search shows every category so its matches can be stepped through.
+    // With categories off, every setting sits in one long list as before.
+    val categorized = prefs.prefsCategories
+    var category by rememberSaveable { mutableStateOf<PrefCategory?>(null) }
+    val searching = search.query.isNotBlank()
+    val all = searching || !categorized
+    fun shown(c: PrefCategory) = all || category == c
+    // Categorized, only phones fold the categories away; tablets always show them beside an open category.
+    var sectionsOpen by rememberSaveable { mutableStateOf(!compact && !categorized) }
+    var syncTop by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(focusSync, syncTop) {
+        if (!focusSync) return@LaunchedEffect
+        if (categorized) {
+            category = PrefCategory.CLOUD_SYNC
+            onSyncFocused()
+        } else {
+            val top = syncTop ?: return@LaunchedEffect
+            scrollState.animateScrollTo(top)
+            onSyncFocused()
+        }
+    }
+    LaunchedEffect(category) { scrollState.scrollTo(0) }
+    BackHandler(enabled = categorized && category != null) { category = null }
+    // Wide screens open on the category list beside Home's sidebar; a picked category swaps in the settings sidebar.
+    val ownSidebar = !compact && (!categorized || category != null)
+    var mathPracticeOpen by remember { mutableStateOf(false) }
+    // Full-pane pages draw no settings sidebar, so Home keeps its own while they are up.
+    val showsOwnSidebar = ownSidebar && !syncLogOpen && !mathPracticeOpen
+    LaunchedEffect(showsOwnSidebar) { onOwnSidebar(showsOwnSidebar) }
+    BackHandler(enabled = syncLogOpen) { onSyncLog(false) }
+    if (syncLogOpen) {
+        SyncLogPage(onBack = { onSyncLog(false) })
+        return
+    }
+    var confirmOnboarding by remember { mutableStateOf(false) }
+    if (mathPracticeOpen) {
+        MathPractice(prefs.mathModel, onBack = { mathPracticeOpen = false })
+        return
+    }
+    // Hoisted here so the toolbar drag ghost can be drawn at the pane root, above the scroll.
+    val toolbarDrag = remember { ToolbarDrag(editor) }
     var paneTopLeft by remember { mutableStateOf(Offset.Zero) }
     var viewport by remember { mutableStateOf(Rect.Zero) }
-    fun editedLayout(): ToolbarLayout = if (canvasTab) editor.canvasToolbarLayout else editor.toolbarLayout
-    fun applyEdited(next: ToolbarLayout) {
-        if (canvasTab) editor.applyCanvasToolbarLayout(next) else editor.applyToolbarLayout(next)
-    }
-    fun retarget() {
-        dropTarget = toolbarDropTarget(editedLayout(), dragFinger, chipBounds, sectionBounds)
-    }
-    fun retargetSection() {
-        sectionDropTarget = toolbarSectionDropTarget(editedLayout(), dragFinger, sectionBounds)
-    }
-    fun showTab(canvas: Boolean) {
-        if (canvasTab == canvas) return
-        canvasTab = canvas
-        // The bounds maps are keyed by item and the two bars share most items, so stale entries
-        // from the other tab would aim a drop at a chip that is no longer there.
-        chipBounds.clear()
-        sectionBounds.clear()
-        sectionGrabBounds.clear()
-        dragItem = null
-        dragSection = null
-        dropTarget = null
-        sectionDropTarget = null
-    }
 
     // A tap on empty space dismisses the template field's focus; children consume their own taps.
     Box(
@@ -195,548 +260,1290 @@ fun PreferencesPane(
             .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
             .onGloballyPositioned { paneTopLeft = it.boundsInRoot().topLeft },
     ) {
-    Column(Modifier.fillMaxSize()) {
+    val currentSection by remember {
+        derivedStateOf {
+            val line = sectionLine(scrollState.value, scrollState.maxValue, viewport.height, 24f * search.density)
+            search.sections.entries.filter { it.value <= line }.maxByOrNull { it.value }?.key
+        }
+    }
+    val sectionsPanel = @Composable {
+        if (categorized) {
+            val titles = PrefCategory.entries.map { stringResource(it.title) }
+            PrefSectionsPanel(titles, category?.let { titles[it.ordinal] }, PrefCategory.entries.map { it.icon }) { title ->
+                category = PrefCategory.entries[titles.indexOf(title)]
+                if (compact) sectionsOpen = false
+            }
+        } else {
+            PrefSectionsPanel(search.sections.entries.sortedBy { it.value }.map { it.key }, currentSection) { title ->
+                search.sections[title]?.let { y ->
+                    val to = scrollForSection(y, scrollState.maxValue, viewport.height, 24f * search.density)
+                    searchScope.launch { scrollState.animateScrollTo(to) }
+                }
+                if (compact) sectionsOpen = false
+            }
+        }
+    }
+    val searchBar = @Composable { modifier: Modifier ->
+        val hits = search.hits()
+        FindBar(
+            search.query,
+            { search.query = it; search.current = 0; showHit(0) },
+            if (search.query.isBlank()) "" else if (hits.isEmpty()) "0 / 0" else "${search.current + 1} / ${hits.size}",
+            { showHit(search.current - 1) },
+            { showHit(search.current + 1) },
+            { search.open = false; search.query = "" },
+            modifier,
+            inset = true,
+        )
+    }
+    Row(Modifier.fillMaxSize()) {
+    if (ownSidebar) {
+        Column(Modifier.width(224.dp).fillMaxHeight().background(palette.panel.toComposeColor())) {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { if (categorized) category = null else onBackToHome() }.padding(horizontal = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(XnotesIcons.prev, stringResource(if (categorized) R.string.preferences else R.string.back_to_home), tint = palette.text.toComposeColor(), modifier = Modifier.size(24.dp))
+            }
+            Box(Modifier.weight(1f)) { sectionsPanel() }
+        }
+    }
+    Column(Modifier.weight(1f).fillMaxHeight().then(if (ownSidebar) Modifier.padding(start = 16.dp, top = 4.dp, bottom = 12.dp) else Modifier)) {
         // Leading button inline with the title, at a constant row height so toggling the sidebar never
         // shifts the settings below: a back arrow to Home on compact, else a hamburger when hidden.
         Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (compact) {
+            val open = if (categorized) category else null
+            if (open != null && compact) {
+                IconButton(onClick = { category = null }) {
+                    Icon(XnotesIcons.prev, stringResource(R.string.preferences), tint = palette.text.toComposeColor(), modifier = Modifier.size(24.dp))
+                }
+            } else if (compact) {
                 Tooltip(stringResource(R.string.back_to_home)) {
                     IconButton(onClick = onBackToHome) {
                         Icon(XnotesIcons.prev, stringResource(R.string.back_to_home), tint = palette.text.toComposeColor(), modifier = Modifier.size(24.dp))
                     }
                 }
-                Spacer(Modifier.width(4.dp))
-            } else if (!sidebarOpen) {
+            }
+            if (!compact && !sidebarOpen) {
                 Tooltip(stringResource(R.string.show_sidebar)) {
                     IconButton(onClick = onShowSidebar) {
                         Icon(XnotesIcons.menu, stringResource(R.string.show_sidebar), tint = palette.text.toComposeColor(), modifier = Modifier.size(24.dp))
                     }
                 }
-                Spacer(Modifier.width(4.dp))
             }
-            Text(stringResource(R.string.preferences), color = palette.text.toComposeColor(), fontWeight = FontWeight.Bold, fontSize = 20.sp)
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = { update(Preferences()) }) { Text(stringResource(R.string.reset_to_defaults), fontSize = 13.sp) }
+            if (compact && (!categorized || open != null)) {
+                IconButton(onClick = { sectionsOpen = !sectionsOpen }) {
+                    Icon(XnotesIcons.sidebar, stringResource(R.string.side_panel), tint = (if (sectionsOpen) palette.accent else palette.text).toComposeColor(), modifier = Modifier.size(22.dp))
+                }
+            }
+            Spacer(Modifier.width(4.dp))
+            Text(open?.let { stringResource(it.title) } ?: stringResource(R.string.preferences), color = palette.text.toComposeColor(), fontWeight = FontWeight.Bold, fontSize = 20.sp)
+            // Wide screens fit the search in the title row, beside its icon; phones drop it below.
+            if (search.open && !compact) {
+                Spacer(Modifier.width(16.dp))
+                searchBar(Modifier.weight(1f))
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            IconButton(onClick = { search.open = !search.open; if (!search.open) search.query = "" }) {
+                Icon(XnotesIcons.search, stringResource(R.string.search_settings), tint = palette.text.toComposeColor(), modifier = Modifier.size(22.dp))
+            }
+        }
+        if (search.open && compact) {
+            Spacer(Modifier.height(4.dp))
+            searchBar(Modifier.fillMaxWidth())
         }
         Spacer(Modifier.height(12.dp))
+        search.toContentY = { rootY -> rootY - viewport.top + scrollState.value }
+        search.density = androidx.compose.ui.platform.LocalDensity.current.density
+        val panelOver = sectionsOpen && compact && (!categorized || category != null)
+        Row(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+        CompositionLocalProvider(LocalPrefSearch provides search) {
         Column(
             // Ending at the keyboard's edge scrolls a focused field up out from under it.
             Modifier.fillMaxSize().imePadding().verticalScroll(scrollState)
                 .onGloballyPositioned { viewport = it.boundsInRoot() },
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            SectionTitle(stringResource(R.string.pref_general))
-            FieldLabel(stringResource(R.string.pref_ui_theme))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.theme_system), prefs.uiAppearance == "system") { update(prefs.copy(uiAppearance = "system")) }
-                Chip(stringResource(R.string.theme_dark), prefs.uiAppearance == "dark") { update(prefs.copy(uiAppearance = "dark")) }
-                Chip(stringResource(R.string.theme_light), prefs.uiAppearance == "light") { update(prefs.copy(uiAppearance = "light")) }
-                Chip(stringResource(R.string.theme_oled), prefs.uiAppearance == "oled") { update(prefs.copy(uiAppearance = "oled")) }
-            }
-            val systemColours = prefs.materialMode == MaterialColourMode.SYSTEM
-            FieldLabel(stringResource(R.string.material_tone))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.material_system_colours), systemColours) {
-                    update(prefs.copy(materialMode = MaterialColourMode.SYSTEM))
-                }
-                Chip(stringResource(R.string.material_single_tone), prefs.materialMode == MaterialColourMode.SINGLE) {
-                    update(prefs.copy(materialMode = MaterialColourMode.SINGLE))
-                }
-                Chip(stringResource(R.string.material_dual_tone), prefs.materialMode == MaterialColourMode.DUAL) {
-                    update(prefs.copy(materialMode = MaterialColourMode.DUAL))
-                }
-            }
-            if (!systemColours) {
-                key(prefs.materialMode) { MaterialColourPicker(prefs, ::update) }
-                CustomMaterialControls(prefs, ::update)
-            } else if (Build.VERSION.SDK_INT < 31) {
-                Text(stringResource(R.string.material_system_fallback), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
-            }
-            FieldLabel(stringResource(R.string.pref_corners))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((style, label) in listOf(CornerStyle.SHARP to R.string.corners_sharp, CornerStyle.ROUNDED to R.string.corners_rounded, CornerStyle.SOFT to R.string.corners_soft)) {
-                    Chip(stringResource(label), prefs.cornerStyle == style) { updateHome(prefs.copy(cornerStyle = style)) }
-                }
-            }
-            CheckRow(stringResource(R.string.pref_start_fullscreen), editor.fullscreen) { editor.setFullscreenPref(it) }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_input))
-            CheckRow(stringResource(R.string.pref_finger_draws), prefs.fingerDraws) { update(prefs.copy(fingerDraws = it)) }
-            FieldLabel(stringResource(R.string.pref_zoom_lock_pan))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Chip(stringResource(R.string.pan_single), prefs.zoomLockPan == "single") { update(prefs.copy(zoomLockPan = "single")) }
-                Chip(stringResource(R.string.pan_two), prefs.zoomLockPan == "double") { update(prefs.copy(zoomLockPan = "double")) }
-                Chip(stringResource(R.string.pan_none), prefs.zoomLockPan == "none") { update(prefs.copy(zoomLockPan = "none")) }
-            }
-            CheckRow(stringResource(R.string.pref_detect_shapes), prefs.detectShapes) { update(prefs.copy(detectShapes = it)) }
-            FieldLabel(stringResource(R.string.pref_pen_button_hold))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                penButtonOptions.forEach { (id, label) ->
-                    Chip(stringResource(label), prefs.penButtonTool == id) { update(prefs.copy(penButtonTool = id)) }
-                }
-            }
-            if (prefs.penButtonTool == "eraser" || prefs.penButtonTool == "pan") {
-                CheckRow(stringResource(R.string.pref_pen_button_hover), prefs.penButtonHover) {
-                    update(prefs.copy(penButtonHover = it))
-                }
-            }
-            val tapOptions = tapGestureOptions.map { (id, res) -> id to stringResource(res) }
-            FieldLabel(stringResource(R.string.pref_two_finger_tap))
-            OptionDropdown(tapOptions, prefs.twoFingerTap) { update(prefs.copy(twoFingerTap = it)) }
-            FieldLabel(stringResource(R.string.pref_three_finger_tap))
-            OptionDropdown(tapOptions, prefs.threeFingerTap) { update(prefs.copy(threeFingerTap = it)) }
-            FieldLabel(stringResource(R.string.pref_stylus_double_tap))
-            OptionDropdown(tapOptions, prefs.stylusDoubleTap) { update(prefs.copy(stylusDoubleTap = it)) }
-            FieldLabel(stringResource(R.string.pref_stylus_button_tap))
-            OptionDropdown(tapOptions, prefs.stylusButtonTap) { update(prefs.copy(stylusButtonTap = it)) }
-            FieldLabel(stringResource(R.string.pref_redmi_buttons))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.pen_button_1), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
-                    OptionDropdown(tapOptions, prefs.stylusButton1Tap) { update(prefs.copy(stylusButton1Tap = it)) }
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.pen_button_2), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
-                    OptionDropdown(tapOptions, prefs.stylusButton2Tap) { update(prefs.copy(stylusButton2Tap = it)) }
-                }
-            }
-            CheckRow(stringResource(R.string.pref_volume_keys_turn_pages), prefs.volumeKeysTurnPages) { update(prefs.copy(volumeKeysTurnPages = it)) }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_new_notes))
-            FieldLabel(stringResource(R.string.pref_filename_template))
-            Text(
-                stringResource(R.string.pref_filename_template_help),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-            OutlinedTextField(
-                value = prefs.newNoteNameTemplate,
-                onValueChange = { update(prefs.copy(newNoteNameTemplate = it)) },
-                singleLine = true,
-                placeholder = { Text(NameTemplate.DEFAULT) },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                modifier = Modifier.width(280.dp),
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NAME_TEMPLATE_PRESETS.forEach { t ->
-                    Chip(t, prefs.newNoteNameTemplate == t) { update(prefs.copy(newNoteNameTemplate = t)) }
-                }
-            }
-            Text(
-                stringResource(R.string.pref_next_note_named, "${editor.newNoteStem(emptySet())}.xnote"),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_page))
-            FieldLabel(stringResource(R.string.pref_default_page_size))
-            SizeDropdown(prefs.defaultPageSize) { it?.let { size -> update(prefs.copy(defaultPageSize = size)) } }
-            if (prefs.defaultPageSize == PageSize.CUSTOM) {
-                // A custom page is taken as typed, so the orientation chips have nothing to say
-                // about it and are left out rather than shown doing nothing.
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MillimetreField(stringResource(R.string.width_mm), prefs.customPageWidthMm) {
-                        update(prefs.copy(customPageWidthMm = it))
-                    }
-                    MillimetreField(stringResource(R.string.height_mm), prefs.customPageHeightMm) {
-                        update(prefs.copy(customPageHeightMm = it))
-                    }
-                }
-            } else {
-                FieldLabel(stringResource(R.string.pref_orientation))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(stringResource(R.string.orientation_portrait), prefs.defaultPageOrientation == Orientation.PORTRAIT) {
-                        update(prefs.copy(defaultPageOrientation = Orientation.PORTRAIT))
-                    }
-                    Chip(stringResource(R.string.orientation_landscape), prefs.defaultPageOrientation == Orientation.LANDSCAPE) {
-                        update(prefs.copy(defaultPageOrientation = Orientation.LANDSCAPE))
-                    }
-                }
-            }
-            CheckRow(stringResource(R.string.pref_hide_page_borders), prefs.hidePageBorders) {
-                update(prefs.copy(hidePageBorders = it))
-            }
-            FieldLabel(stringResource(R.string.pref_side_margin_px, prefs.sideMargin.toInt()))
-            Slider(
-                value = prefs.sideMargin.toFloat(),
-                onValueChange = { update(prefs.copy(sideMargin = it.toDouble())) },
-                valueRange = 0f..64f,
-                modifier = Modifier.width(280.dp),
-            )
-            FieldLabel(stringResource(R.string.pref_page_colour))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SwatchCircles(editor, SwatchRole.PAPER, prefs.pageColor) { update(prefs.copy(pageColor = it)) }
-            }
-            CheckRow(stringResource(R.string.pref_page_colour_follows_theme), prefs.pageColor == null) {
-                update(prefs.copy(pageColor = if (it) null else editor.swatches(SwatchRole.PAPER).first()))
-            }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_home_explorer))
-            Text(
-                stringResource(R.string.pref_home_explorer_help),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-            FieldLabel(stringResource(R.string.pref_default_layout))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExplorerLayout.entries.forEach { l -> Chip(stringResource(l.labelRes), editor.explorerView.layout == l) { editor.setDefaultLayout(l) } }
-            }
-            FieldLabel(stringResource(R.string.pref_switcher_layouts))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExplorerLayout.entries.forEach { l ->
-                    val on = l in prefs.switcherLayouts
-                    ExplorerChip(stringResource(l.labelRes), on, icon = if (on) XnotesIcons.check else XnotesIcons.plus) {
-                        val next = if (on) prefs.switcherLayouts - l else prefs.switcherLayouts + l
-                        if (next.isNotEmpty()) updateHome(prefs.copy(switcherLayouts = ExplorerLayout.entries.filter { it in next }))
-                    }
-                }
-            }
-            FieldLabel(stringResource(R.string.pref_sidebar_sections))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                @Composable
-                fun section(label: String, on: Boolean, flip: () -> Preferences) =
-                    ExplorerChip(label, on, icon = if (on) XnotesIcons.check else XnotesIcons.plus) { updateHome(flip()) }
-                section(stringResource(R.string.recent), prefs.sidebarRecent) { prefs.copy(sidebarRecent = !prefs.sidebarRecent) }
-                section(stringResource(R.string.pinned), prefs.sidebarPinned) { prefs.copy(sidebarPinned = !prefs.sidebarPinned) }
-                section(stringResource(R.string.toolbar_colours), prefs.sidebarColours) { prefs.copy(sidebarColours = !prefs.sidebarColours) }
-                if (prefs.trashDays != 0) section(stringResource(R.string.trash), prefs.sidebarTrash) { prefs.copy(sidebarTrash = !prefs.sidebarTrash) }
-            }
-            FieldLabel(stringResource(R.string.pref_home_opens_to))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.top_folder), prefs.homeOpensTo == "top") { updateHome(prefs.copy(homeOpensTo = "top")) }
-                Chip(stringResource(R.string.last_folder), prefs.homeOpensTo == "last") { updateHome(prefs.copy(homeOpensTo = "last")) }
-                Chip(stringResource(R.string.recent_and_pinned), prefs.homeOpensTo == "shelves") { updateHome(prefs.copy(homeOpensTo = "shelves")) }
-            }
-            val words = rememberExplorerWords()
-            FieldLabel(stringResource(R.string.pref_dates))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(words.daysAgo(2), prefs.dateStyle == "relative") { updateHome(prefs.copy(dateStyle = "relative")) }
-                Chip("${words.shortWeekday(java.time.DayOfWeek.WEDNESDAY)} ${clockText(words, java.time.LocalTime.of(17, 30), true)}", prefs.dateStyle == "day") { updateHome(prefs.copy(dateStyle = "day")) }
-                Chip(words.dayMonthYear(16, java.time.Month.SEPTEMBER, 2026), prefs.dateStyle == "date") { updateHome(prefs.copy(dateStyle = "date")) }
-            }
-            FieldLabel(stringResource(R.string.pref_tapping_file))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.tap_opens), !prefs.tapPreviews) { updateHome(prefs.copy(tapPreviews = false)) }
-                Chip(stringResource(R.string.tap_previews), prefs.tapPreviews) { updateHome(prefs.copy(tapPreviews = true)) }
-            }
-            FieldLabel(stringResource(R.string.pref_keep_deleted))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.off), prefs.trashDays == 0) { updateHome(prefs.copy(trashDays = 0)) }
-                Chip(pluralStringResource(R.plurals.days_count, 7, 7), prefs.trashDays == 7) { updateHome(prefs.copy(trashDays = 7)) }
-                Chip(pluralStringResource(R.plurals.days_count, 30, 30), prefs.trashDays == 30) { updateHome(prefs.copy(trashDays = 30)) }
-                Chip(stringResource(R.string.until_emptied), prefs.trashDays == Preferences.TRASH_FOREVER) { updateHome(prefs.copy(trashDays = Preferences.TRASH_FOREVER)) }
-            }
-            if (editor.browseRoot != null) {
-                FieldLabel(stringResource(R.string.pref_colour_names))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    editor.colorNames.entries.sortedBy { it.value.lowercase() }.forEach { (c, name) ->
-                        Row(
-                            Modifier.clip(MaterialTheme.shapes.small).background(palette.surface.toComposeColor())
-                                .border(1.dp, palette.border.toComposeColor(), MaterialTheme.shapes.small)
-                                .clickable { namingColor = c }.padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Box(Modifier.size(10.dp).clip(CircleShape).background(codeTint(c, palette)))
-                            Text(name, color = palette.text.toComposeColor(), fontSize = 14.sp, maxLines = 1)
-                        }
-                    }
-                    var picking by remember { mutableStateOf(false) }
-                    Box {
-                        ExplorerChip(stringResource(R.string.name_a_colour), false, icon = XnotesIcons.plus) { picking = true }
-                        DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
-                            ColorCodeMenuContent { c -> picking = false; if (c != null) namingColor = c }
+            if (categorized && category == null && !searching) {
+                for (c in PrefCategory.entries) {
+                    Row(
+                        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable { category = c }.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Icon(c.icon, null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(22.dp))
+                        Column {
+                            Text(stringResource(c.title), color = palette.text.toComposeColor(), fontSize = 16.sp)
+                            Text(stringResource(c.summary), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
                         }
                     }
                 }
             }
-            CheckRow(stringResource(R.string.pref_per_folder_views), prefs.perFolderViews) { updateHome(prefs.copy(perFolderViews = it)) }
-            CheckRow(stringResource(R.string.pref_show_folder_counts), prefs.showFolderCounts) { updateHome(prefs.copy(showFolderCounts = it)) }
-            CheckRow(stringResource(R.string.pref_show_extensions), prefs.showExtensions) { updateHome(prefs.copy(showExtensions = it)) }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_pdf_export))
-            CheckRow(stringResource(R.string.pref_pdf_heading_bookmarks), prefs.pdfHeadingBookmarks) {
-                updateHome(prefs.copy(pdfHeadingBookmarks = it))
-            }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_performance))
-            // The first stop is Automatic; the rest run from the least a user may set to the most this device allows.
-            val cacheMin = com.xnotes.canvas.CacheBudget.MIN_MB
-            val cacheStep = com.xnotes.canvas.CacheBudget.STEP_MB
-            val cacheStops = (editor.maxCacheMemoryMb() - cacheMin) / cacheStep + 1
-            val cacheStop = if (prefs.cacheMemoryMb <= 0) 0 else ((prefs.cacheMemoryMb - cacheMin) / cacheStep + 1).coerceIn(1, cacheStops)
-            FieldLabel(
-                if (cacheStop == 0) stringResource(R.string.pref_cache_memory_auto, (editor.automaticCacheBudget() shr 20).toInt())
-                else stringResource(R.string.pref_cache_memory_mb, cacheMin + (cacheStop - 1) * cacheStep),
-            )
-            Slider(
-                value = cacheStop.toFloat(),
-                onValueChange = {
-                    val stop = Math.round(it)
-                    update(prefs.copy(cacheMemoryMb = if (stop == 0) 0 else cacheMin + (stop - 1) * cacheStep))
-                },
-                valueRange = 0f..cacheStops.toFloat(),
-                steps = (cacheStops - 1).coerceAtLeast(0),
-                colors = NoTicks,
-                modifier = Modifier.width(280.dp),
-            )
-            Text(
-                stringResource(R.string.pref_cache_help),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-            CheckRow(stringResource(R.string.pref_disable_front_buffering), prefs.disableFrontBuffering) {
-                update(prefs.copy(disableFrontBuffering = it))
-            }
-            Text(
-                stringResource(R.string.pref_front_buffering_help),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-
-            if (editor.treeSitterAvailable) {
-                HorizontalDivider(color = palette.border.toComposeColor())
-                SectionTitle(stringResource(R.string.pref_code_highlighting))
-
-                val langOptions = editor.scmLanguages().map { it to it }
-                FieldLabel(stringResource(R.string.pref_default_code_language))
-                Text(
-                    stringResource(R.string.pref_code_language_help),
-                    color = palette.textDim.toComposeColor(),
-                    fontSize = 12.sp,
-                )
-                OptionDropdown(listOf("plain" to stringResource(R.string.code_plain)) + langOptions, prefs.defaultCodeLanguage) {
-                    update(prefs.copy(defaultCodeLanguage = it))
+            if (shown(PrefCategory.GENERAL)) {
+                SectionTitle(stringResource(R.string.pref_general))
+                CheckRow(stringResource(R.string.pref_start_fullscreen), editor.fullscreen) { editor.setFullscreenPref(it) }
+                CheckRow(stringResource(R.string.pref_keep_screen_on), prefs.keepScreenOn) { updateHome(prefs.copy(keepScreenOn = it)) }
+                CheckRow(stringResource(R.string.pref_disable_back_button), prefs.disableBackButton) { updateHome(prefs.copy(disableBackButton = it)) }
+                TextButton(onClick = { confirmOnboarding = true }) { Text(stringResource(R.string.onboarding_restart), fontSize = 13.sp) }
+                TextButton(onClick = onOpenAbout) { Text(stringResource(R.string.about), fontSize = 13.sp) }
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                LanguageSection()
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                Box(Modifier.searchAnchor(stringResource(R.string.search_keywords_permissions))) { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { PermissionsSection(syncOn = CloudServices.byId(prefs.cloudService) != null) } }
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                Box(Modifier.searchAnchor(stringResource(R.string.search_keywords_port))) { PortSection(editor) }
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                Box(Modifier.searchAnchor(stringResource(R.string.search_keywords_update)).sectionAnchor(stringResource(R.string.pref_updates))) {
+                    UpdateSection(prefs.checkUpdatesOnStartup) { updateHome(prefs.copy(checkUpdatesOnStartup = it)) }
                 }
-
-                FieldLabel(stringResource(R.string.pref_code_theme))
+                if (confirmOnboarding) {
+                    SheetDialog(
+                        title = stringResource(R.string.onboarding_restart),
+                        onDismiss = { confirmOnboarding = false },
+                        text = stringResource(R.string.onboarding_restart_message),
+                        foot = {
+                            ConfirmButtons(stringResource(R.string.onboarding_restart_confirm), { confirmOnboarding = false }) {
+                                confirmOnboarding = false
+                                editor.restartOnboarding()
+                            }
+                        },
+                    )
+                }
+            }
+            if (shown(PrefCategory.APPEARANCE)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                SectionTitle(stringResource(R.string.pref_appearance))
+                ThemeControls(prefs, ::update, ::updateHome)
+                CheckRow(stringResource(R.string.pref_split_categories), prefs.prefsCategories) { updateHome(prefs.copy(prefsCategories = it)) }
+                TextButton(onClick = { update(Preferences()) }) { Text(stringResource(R.string.reset_to_defaults), fontSize = 13.sp) }
+            }
+            if (shown(PrefCategory.INPUT)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_input))
+                InputControls(prefs, ::update)
+            }
+            if (shown(PrefCategory.OCR)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_ocr))
+                FieldLabel(stringResource(R.string.pref_ocr_handwriting_language))
+                HandwritingLanguageControls(prefs.ocrLanguage) { update(prefs.copy(ocrLanguage = it)) }
+                FieldLabel(stringResource(R.string.pref_ocr_math))
+                MathAddonControls(prefs, ::update, onTrain = { mathPracticeOpen = true })
+            }
+            if (shown(PrefCategory.NEW_NOTES)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                SectionTitle(stringResource(R.string.pref_new_notes))
+                FieldLabel(stringResource(R.string.pref_filename_template))
                 Text(
-                    stringResource(R.string.pref_code_theme_help),
+                    stringResource(R.string.pref_filename_template_help),
                     color = palette.textDim.toComposeColor(),
                     fontSize = 12.sp,
                 )
-                if (editor.hasCustomCodeTheme) {
+                OutlinedTextField(
+                    value = prefs.newNoteNameTemplate,
+                    onValueChange = { update(prefs.copy(newNoteNameTemplate = it)) },
+                    singleLine = true,
+                    placeholder = { Text(NameTemplate.DEFAULT) },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    modifier = Modifier.width(280.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NAME_TEMPLATE_PRESETS.forEach { t ->
+                        Chip(t, prefs.newNoteNameTemplate == t) { update(prefs.copy(newNoteNameTemplate = t)) }
+                    }
+                }
+                Text(
+                    stringResource(R.string.pref_next_note_named, "${editor.newNoteStem(emptySet())}.xnote"),
+                    color = palette.textDim.toComposeColor(),
+                    fontSize = 12.sp,
+                )
+            }
+            if (shown(PrefCategory.NEW_NOTES)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                SectionTitle(stringResource(R.string.pref_page))
+                FieldLabel(stringResource(R.string.pref_default_page_size))
+                SizeDropdown(prefs.defaultPageSize) { it?.let { size -> update(prefs.copy(defaultPageSize = size)) } }
+                if (prefs.defaultPageSize == PageSize.CUSTOM) {
+                    // A custom page is taken as typed, so the orientation chips have nothing to say
+                    // about it and are left out rather than shown doing nothing.
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MillimetreField(stringResource(R.string.width_mm), prefs.customPageWidthMm) {
+                            update(prefs.copy(customPageWidthMm = it))
+                        }
+                        MillimetreField(stringResource(R.string.height_mm), prefs.customPageHeightMm) {
+                            update(prefs.copy(customPageHeightMm = it))
+                        }
+                    }
+                } else {
+                    FieldLabel(stringResource(R.string.pref_orientation))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Chip(stringResource(R.string.orientation_portrait), prefs.defaultPageOrientation == Orientation.PORTRAIT) {
+                            update(prefs.copy(defaultPageOrientation = Orientation.PORTRAIT))
+                        }
+                        Chip(stringResource(R.string.orientation_landscape), prefs.defaultPageOrientation == Orientation.LANDSCAPE) {
+                            update(prefs.copy(defaultPageOrientation = Orientation.LANDSCAPE))
+                        }
+                    }
+                }
+                CheckRow(stringResource(R.string.pref_hide_page_borders), prefs.hidePageBorders) {
+                    update(prefs.copy(hidePageBorders = it))
+                }
+                CheckRow(stringResource(R.string.caption_free_movement), editor.viewDefaults.freeMovement) {
+                    editor.updateViewDefaults(editor.viewDefaults.copy(freeMovement = it))
+                }
+                FieldLabel(stringResource(R.string.pref_side_margin_px, prefs.sideMargin.toInt()))
+                Slider(
+                    value = prefs.sideMargin.toFloat(),
+                    onValueChange = { update(prefs.copy(sideMargin = it.toDouble())) },
+                    valueRange = 0f..64f,
+                    modifier = Modifier.width(280.dp),
+                )
+                FieldLabel(stringResource(R.string.pref_page_colour))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SwatchCircles(editor, SwatchRole.PAPER, prefs.pageColor) { update(prefs.copy(pageColor = it)) }
+                }
+                CheckRow(stringResource(R.string.pref_page_colour_follows_theme), prefs.pageColor == null) {
+                    update(prefs.copy(pageColor = if (it) null else editor.swatches(SwatchRole.PAPER).first()))
+                }
+            }
+            if (shown(PrefCategory.HOME)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_home_explorer))
+                HomeExplorerControls(editor, prefs, ::updateHome)
+            }
+            if (shown(PrefCategory.EXPORT_IMPORT)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                SectionTitle(stringResource(R.string.pref_pdf_export))
+                CheckRow(stringResource(R.string.pref_pdf_heading_bookmarks), prefs.pdfHeadingBookmarks) {
+                    updateHome(prefs.copy(pdfHeadingBookmarks = it))
+                }
+            }
+            if (shown(PrefCategory.PERFORMANCE)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_performance))
+                // The first stop is Automatic; the rest run from the least a user may set to the most this device allows.
+                val cacheMin = com.xnotes.canvas.CacheBudget.MIN_MB
+                val cacheStep = com.xnotes.canvas.CacheBudget.STEP_MB
+                val cacheStops = (editor.maxCacheMemoryMb() - cacheMin) / cacheStep + 1
+                val cacheStop = if (prefs.cacheMemoryMb <= 0) 0 else ((prefs.cacheMemoryMb - cacheMin) / cacheStep + 1).coerceIn(1, cacheStops)
+                FieldLabel(
+                    if (cacheStop == 0) stringResource(R.string.pref_cache_memory_auto, (editor.automaticCacheBudget() shr 20).toInt())
+                    else stringResource(R.string.pref_cache_memory_mb, cacheMin + (cacheStop - 1) * cacheStep),
+                )
+                Slider(
+                    value = cacheStop.toFloat(),
+                    onValueChange = {
+                        val stop = Math.round(it)
+                        update(prefs.copy(cacheMemoryMb = if (stop == 0) 0 else cacheMin + (stop - 1) * cacheStep))
+                    },
+                    valueRange = 0f..cacheStops.toFloat(),
+                    steps = (cacheStops - 1).coerceAtLeast(0),
+                    colors = NoTicks,
+                    modifier = Modifier.width(280.dp),
+                )
+                Text(
+                    stringResource(R.string.pref_cache_help),
+                    color = palette.textDim.toComposeColor(),
+                    fontSize = 12.sp,
+                )
+                CheckRow(stringResource(R.string.pref_disable_front_buffering), prefs.disableFrontBuffering) {
+                    update(prefs.copy(disableFrontBuffering = it))
+                }
+                Text(
+                    stringResource(R.string.pref_front_buffering_help),
+                    color = palette.textDim.toComposeColor(),
+                    fontSize = 12.sp,
+                )
+            }
+            if (shown(PrefCategory.APPEARANCE)) {
+                if (editor.treeSitterAvailable) {
+                    if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                    SectionTitle(stringResource(R.string.pref_code_highlighting))
+
+                    val langOptions = editor.scmLanguages().map { it to it }
+                    FieldLabel(stringResource(R.string.pref_default_code_language))
+                    Text(
+                        stringResource(R.string.pref_code_language_help),
+                        color = palette.textDim.toComposeColor(),
+                        fontSize = 12.sp,
+                    )
+                    OptionDropdown(listOf("plain" to stringResource(R.string.code_plain)) + langOptions, prefs.defaultCodeLanguage) {
+                        update(prefs.copy(defaultCodeLanguage = it))
+                    }
+
+                    FieldLabel(stringResource(R.string.pref_code_theme))
+                    Text(
+                        stringResource(R.string.pref_code_theme_help),
+                        color = palette.textDim.toComposeColor(),
+                        fontSize = 12.sp,
+                    )
+                    if (editor.hasCustomCodeTheme) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                prefs.codeThemeName ?: stringResource(R.string.custom_theme),
+                                color = palette.text.toComposeColor(),
+                                fontSize = 13.sp,
+                            )
+                            TextButton(onClick = { editor.resetCodeTheme() }) { Text(stringResource(R.string.reset), fontSize = 13.sp) }
+                        }
+                    }
+                    TextButton(onClick = { onImportCodeTheme() }) { Text(stringResource(R.string.import_theme), fontSize = 13.sp) }
+                }
+            }
+            if (shown(PrefCategory.APPEARANCE)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                SectionTitle(stringResource(R.string.pref_fonts))
+                Text(
+                    stringResource(R.string.pref_fonts_help),
+                    color = palette.textDim.toComposeColor(),
+                    fontSize = 12.sp,
+                )
+                TextButton(onClick = { onImportFont() }) { Text(stringResource(R.string.import_font), fontSize = 13.sp) }
+                for (font in editor.customFonts) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            prefs.codeThemeName ?: stringResource(R.string.custom_theme),
+                            font.label,
                             color = palette.text.toComposeColor(),
                             fontSize = 13.sp,
+                            style = TextStyle(fontFamily = font.face.toComposeFamily()),
                         )
-                        TextButton(onClick = { editor.resetCodeTheme() }) { Text(stringResource(R.string.reset), fontSize = 13.sp) }
-                    }
-                }
-                TextButton(onClick = { onImportCodeTheme() }) { Text(stringResource(R.string.import_theme), fontSize = 13.sp) }
-            }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_fonts))
-            Text(
-                stringResource(R.string.pref_fonts_help),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-            TextButton(onClick = { onImportFont() }) { Text(stringResource(R.string.import_font), fontSize = 13.sp) }
-            for (font in editor.customFonts) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        font.label,
-                        color = palette.text.toComposeColor(),
-                        fontSize = 13.sp,
-                        style = TextStyle(fontFamily = font.face.toComposeFamily()),
-                    )
-                    if (font.mono) {
-                        Text(stringResource(R.string.mono_suffix), color = palette.accent.toComposeColor(), fontSize = 11.sp)
-                    }
-                    TextButton(onClick = { editor.removeCustomFont(font.face) }) { Text(stringResource(R.string.remove), fontSize = 12.sp) }
-                }
-            }
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_toolbar))
-            // The look, like the swatch count below, is one setting for both bars.
-            val look = prefs.toolbarLook
-            FieldLabel(stringResource(R.string.pref_toolbar_style))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.toolbar_docked), !look.floating) { updateHome(prefs.copy(toolbarLook = look.copy(floating = false))) }
-                Chip(stringResource(R.string.toolbar_floating), look.floating) { updateHome(prefs.copy(toolbarLook = look.copy(floating = true))) }
-            }
-            FieldLabel(stringResource(R.string.pref_toolbar_position))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((position, label) in listOf(
-                    ToolbarPosition.TOP to R.string.edge_top,
-                    ToolbarPosition.BOTTOM to R.string.edge_bottom,
-                    ToolbarPosition.LEFT to R.string.edge_left,
-                    ToolbarPosition.RIGHT to R.string.edge_right,
-                )) {
-                    Chip(stringResource(label), look.position == position) { updateHome(prefs.copy(toolbarLook = look.copy(position = position))) }
-                }
-            }
-            FieldLabel(stringResource(R.string.pref_toolbar_size))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                for ((size, label) in listOf(
-                    ToolbarSize.COMPACT to R.string.toolbar_size_compact,
-                    ToolbarSize.REGULAR to R.string.toolbar_size_regular,
-                    ToolbarSize.COMFORTABLE to R.string.toolbar_size_comfortable,
-                )) {
-                    Chip(stringResource(label), look.size == size) { updateHome(prefs.copy(toolbarLook = look.copy(size = size))) }
-                }
-            }
-            FieldLabel(stringResource(R.string.pref_toolbar_colours_n, editor.toolbarColorCount))
-            Slider(
-                value = editor.toolbarColorCount.toFloat(),
-                onValueChange = { editor.applyToolbarColorCount(Math.round(it)) },
-                valueRange = 1f..InkPalette.MAX_SWATCHES.toFloat(),
-                steps = InkPalette.MAX_SWATCHES - 2,
-                modifier = Modifier.width(280.dp),
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Chip("xnote", selected = !canvasTab) { showTab(false) }
-                Chip("xcanvas", selected = canvasTab) { showTab(true) }
-                Spacer(Modifier.weight(1f))
-                TextButton(
-                    onClick = {
-                        applyEdited(if (canvasTab) ToolbarLayout.CANVAS_DEFAULT else ToolbarLayout.DEFAULT)
-                    },
-                ) { Text(stringResource(R.string.reset), fontSize = 13.sp) }
-            }
-            Text(
-                stringResource(R.string.pref_toolbar_help),
-                color = palette.textDim.toComposeColor(),
-                fontSize = 12.sp,
-            )
-            ToolbarCustomizerBody(
-                layout = layout,
-                dragItem = dragItem,
-                dropTarget = dropTarget,
-                dragSection = dragSection,
-                sectionDropTarget = sectionDropTarget,
-                chipBounds = chipBounds,
-                sectionBounds = sectionBounds,
-                sectionGrabBounds = sectionGrabBounds,
-                onToggle = { s, i -> applyEdited(editedLayout().toggleVisible(s, i)) },
-                onDelete = { s -> applyEdited(editedLayout().removeSection(s)) },
-                onAdd = { applyEdited(editedLayout().addSection()) },
-                onDragStart = { item, local ->
-                    dragItem = item
-                    dragGrab = local
-                    dragFinger = (chipBounds[item]?.topLeft ?: Offset.Zero) + local
-                    retarget()
-                },
-                onDrag = { delta -> dragFinger += delta; retarget() },
-                onDrop = {
-                    val target = dropTarget
-                    val moving = dragItem
-                    if (target != null && moving != null) {
-                        val cur = editedLayout()
-                        val fSec = cur.sections.indexOfFirst { s -> s.entries.any { it.item == moving } }
-                        val fIdx = if (fSec >= 0) cur.sections[fSec].entries.indexOfFirst { it.item == moving } else -1
-                        if (fSec >= 0 && fIdx >= 0) {
-                            applyEdited(cur.moveItem(fSec, fIdx, target.first, target.second))
+                        if (font.mono) {
+                            Text(stringResource(R.string.mono_suffix), color = palette.accent.toComposeColor(), fontSize = 11.sp)
                         }
+                        TextButton(onClick = { editor.removeCustomFont(font.face) }) { Text(stringResource(R.string.remove), fontSize = 12.sp) }
                     }
-                    dragItem = null
-                    dropTarget = null
-                },
-                onCancel = {
-                    dragItem = null
-                    dropTarget = null
-                },
-                onSectionDragStart = { sec, local ->
-                    dragSection = sec
-                    val grab = sectionGrabBounds[sec]?.topLeft ?: sectionBounds[sec]?.topLeft ?: Offset.Zero
-                    val card = sectionBounds[sec]?.topLeft ?: Offset.Zero
-                    dragFinger = grab + local
-                    dragGrab = dragFinger - card
-                    retargetSection()
-                },
-                onSectionDrag = { delta -> dragFinger += delta; retargetSection() },
-                onSectionDrop = {
-                    val from = dragSection
-                    val insertAt = sectionDropTarget
-                    if (from != null && insertAt != null) {
-                        val cur = editedLayout()
-                        val to = (if (insertAt > from) insertAt - 1 else insertAt).coerceIn(0, cur.sections.lastIndex)
-                        if (to != from) applyEdited(cur.moveSection(from, to))
-                    }
-                    dragSection = null
-                    sectionDropTarget = null
-                },
-                onSectionCancel = {
-                    dragSection = null
-                    sectionDropTarget = null
-                },
-            )
-
-            HorizontalDivider(color = palette.border.toComposeColor())
-            SectionTitle(stringResource(R.string.pref_backup))
-            Text(stringResource(R.string.pref_backup_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { onBackup(true) }) { Text(stringResource(R.string.export_settings), fontSize = 13.sp) }
-                TextButton(onClick = { onBackup(false) }) { Text(stringResource(R.string.import_settings), fontSize = 13.sp) }
+                }
+            }
+            if (shown(PrefCategory.TOOLBAR)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                if (all) SectionTitle(stringResource(R.string.pref_toolbar))
+                ToolbarSettings(editor, prefs, ::updateHome, toolbarDrag)
+            }
+            if (shown(PrefCategory.EXPORT_IMPORT)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                SectionTitle(stringResource(R.string.pref_backup))
+                Text(stringResource(R.string.pref_backup_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { onBackup(true, false) }) { Text(stringResource(R.string.export_settings), fontSize = 13.sp) }
+                    TextButton(onClick = { onBackup(true, true) }) { Text(stringResource(R.string.export_settings_with_notes), fontSize = 13.sp) }
+                    TextButton(onClick = { onBackup(false, false) }) { Text(stringResource(R.string.import_settings), fontSize = 13.sp) }
+                }
+            }
+            if (shown(PrefCategory.CLOUD_SYNC)) {
+                if (all) HorizontalDivider(color = palette.border.toComposeColor())
+                Box(Modifier.onPlaced { syncTop = it.positionInParent().y.roundToInt() }.searchAnchor(stringResource(R.string.search_keywords_sync)).sectionAnchor(stringResource(R.string.pref_cloud_sync))) { CloudSyncSection(editor, onOpenLog = { onSyncLog(true) }) }
             }
             Spacer(Modifier.size(8.dp))
         }
+        }
+        // Phones lay the panel over the settings, so opening it never squeezes the column.
+        if (panelOver) {
+            Box(Modifier.fillMaxSize().background(palette.materialColors.scrim.withAlpha(82).toComposeColor()).clickable { sectionsOpen = false })
+            sectionsPanel()
+        }
+        }
+        }
+    }
     }
         // The dragged chip/section's floating copy: a pane-root sibling so the scroll never clips it.
-        val gx = (dragFinger.x - dragGrab.x - paneTopLeft.x).toInt()
-        val gy = (dragFinger.y - dragGrab.y - paneTopLeft.y).toInt()
-        val ghostChip = dragItem
-        val ghostSecIdx = dragSection
-        if (ghostChip != null) {
-            Box(Modifier.offset { IntOffset(gx, gy) }) { ToolbarDragGhost(ghostChip) }
-        } else if (ghostSecIdx != null) {
-            val sectionG = (if (canvasTab) editor.canvasToolbarLayout else editor.toolbarLayout)
-                .sections.getOrNull(ghostSecIdx)
-            val widthG = sectionBounds[ghostSecIdx]?.width
-            if (sectionG != null && widthG != null) {
-                Box(Modifier.offset { IntOffset(gx, gy) }) { SectionCardGhost(sectionG, widthG) }
-            }
-        }
+        toolbarDrag.Ghost(paneTopLeft)
     }
 
     // While dragging near a vertical edge of the scroll viewport, ease the list along so items
     // off-screen can be reached without lifting the finger.
-    LaunchedEffect(dragItem != null || dragSection != null) {
-        while (dragItem != null || dragSection != null) {
-            val band = 90f
-            val y = dragFinger.y
-            val delta = when {
-                y < viewport.top + band -> -((viewport.top + band - y) / band) * 14f
-                y > viewport.bottom - band -> ((y - (viewport.bottom - band)) / band) * 14f
-                else -> 0f
-            }
+    LaunchedEffect(toolbarDrag.active) {
+        while (toolbarDrag.active) {
+            val delta = edgeScrollDelta(toolbarDrag.pointer.y, viewport)
             if (delta != 0f) {
                 scrollState.scrollBy(delta)
-                if (dragItem != null) retarget() else retargetSection()
+                toolbarDrag.retarget()
             }
             delay(16L)
         }
     }
 }
 
+/** Pick the handwritten-maths model and download, update or delete it; [onTrain] opens training. */
 @Composable
-private fun SectionTitle(text: String) {
-    Text(text, color = LocalPalette.current.text.toComposeColor(), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+internal fun MathAddonControls(prefs: Preferences, update: (Preferences) -> Unit, onTrain: (() -> Unit)? = null) {
+    val selected = prefs.mathModel
+    val onSelect: (String) -> Unit = { update(prefs.copy(mathModel = it)) }
+    val custom = selected == MathOcr.CUSTOM_LLM
+    val context = LocalContext.current
+    val palette = LocalPalette.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(Unit) {
+        MathOcr.refresh(context)
+        MathOcr.refreshCatalog(context)
+    }
+    val catalog by MathOcr.catalog.collectAsState()
+    val states by MathOcr.states.collectAsState()
+    var confirmDelete by remember { mutableStateOf(false) }
+    var learning by remember { mutableStateOf<String?>(null) }
+    var offerFor by remember { mutableStateOf<MathModel?>(null) }
+    // Bumped after training so the counts below are read again.
+    var trainedVersion by remember { mutableStateOf(0) }
+    Text(stringResource(R.string.math_model_description), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+    if (!MathOcr.supported) {
+        Text(stringResource(R.string.math_model_unsupported), color = palette.text.toComposeColor(), fontSize = 12.sp)
+        return
+    }
+    val model = catalog.firstOrNull { it.id == selected } ?: catalog.firstOrNull() ?: return
+    val state = if (custom) MathOcr.State.Missing else states[model.id] ?: MathOcr.State.Missing
+    // What training and corrections are kept under, and whether the pick can convert yet.
+    val usedId = if (custom) MathOcr.CUSTOM_LLM else model.id
+    val usable = if (custom) prefs.mathLlmUrl.isNotBlank() && prefs.mathLlmModel.isNotBlank() else state == MathOcr.State.Installed
+    val installedIds = catalog.filter { states[it.id] == MathOcr.State.Installed }.map { it.id }.toSet()
+    val sizeMb = model.downloadBytes / 1_000_000
+    // One download at a time: the others' buttons wait for it.
+    val busy = states.any { (id, st) -> st is MathOcr.State.Downloading && id != model.id }
+
+    // A download that just finished (seen going from Downloading to Installed) offers training.
+    var wasDownloading by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(model.id, state) {
+        if (state is MathOcr.State.Downloading) wasDownloading = model.id
+        else if (state == MathOcr.State.Installed && wasDownloading == model.id) {
+            wasDownloading = null
+            offerFor = model
+        }
+    }
+
+    fun learnFromSaved(id: String) {
+        learning = ""
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    MathTraining.trainFromSamples(context, id) { done, total ->
+                        scope.launch { learning = context.getString(R.string.math_model_learning, done, total) }
+                    }
+                }
+            }
+            learning = null
+            trainedVersion++
+        }
+    }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val recommended = stringResource(R.string.math_model_recommended)
+        OptionDropdown(
+            catalog.map { it.id to "${it.name} ${it.version}" + if (it.id == MathOcr.RECOMMENDED_MODEL) " ($recommended)" else "" } +
+                (MathOcr.CUSTOM_LLM to stringResource(R.string.math_llm_option)),
+            usedId, installedIds, MathOcr.CUSTOM_LLM, onSelect,
+        )
+        when (state) {
+            MathOcr.State.Installed -> {
+                Text(stringResource(R.string.math_model_downloaded), color = palette.textDim.toComposeColor(), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp))
+                TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.delete), fontSize = 13.sp) }
+            }
+            MathOcr.State.Missing -> if (!custom)
+                TextButton(onClick = { MathOcr.startDownload(context, model) }, enabled = !busy) { Text(stringResource(R.string.math_model_download, sizeMb), fontSize = 13.sp) }
+            else -> Unit
+        }
+    }
+    when (state) {
+        is MathOcr.State.Downloading -> Row(verticalAlignment = Alignment.CenterVertically) {
+            LinearProgressIndicator(progress = { state.done.toFloat() / state.total }, modifier = Modifier.width(200.dp))
+            Text(
+                stringResource(R.string.math_model_progress, state.done / 1_000_000, state.total / 1_000_000),
+                color = palette.text.toComposeColor(), fontSize = 12.sp, modifier = Modifier.padding(start = 8.dp),
+            )
+            TextButton(onClick = { MathOcr.cancelDownload(context) }) { Text(stringResource(R.string.cancel), fontSize = 13.sp) }
+        }
+        is MathOcr.State.Failed -> Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.math_model_download_failed, state.message), color = palette.danger.toComposeColor(), fontSize = 12.sp, modifier = Modifier.weight(1f, fill = false))
+            TextButton(onClick = { MathOcr.startDownload(context, model) }, enabled = !busy) { Text(stringResource(R.string.retry), fontSize = 13.sp) }
+        }
+        else -> Unit
+    }
+    if (custom) MathLlmControls(prefs, update, catalog.filter { it.id in installedIds }) else MathModelInfo(model)
+    if (usable) {
+        val here = if (custom) null else remember(model.id, states) { MathOcr.installed(context, model.id) }
+        if (here != null && MathModel.newer(model.version, here.version)) {
+            TextButton(onClick = { MathOcr.startDownload(context, model) }, enabled = !busy) { Text(stringResource(R.string.math_model_update, model.version, sizeMb), fontSize = 13.sp) }
+        }
+        val trained = remember(usedId, trainedVersion, learning) { MathTraining.trainedCount(context, usedId) }
+        val unlearned = remember(usedId, trainedVersion, learning) { MathTraining.unlearnedCount(context, usedId) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (trained > 0) pluralStringResource(R.plurals.math_model_trained, trained, trained) else stringResource(R.string.math_model_untrained),
+                color = palette.textDim.toComposeColor(), fontSize = 12.sp,
+            )
+            onTrain?.let { TextButton(onClick = it) { Text(stringResource(R.string.math_practice_open), fontSize = 13.sp) } }
+        }
+        val progress = learning
+        if (progress != null) {
+            Text(progress, color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+        } else if (unlearned > 0) {
+            TextButton(onClick = { learnFromSaved(usedId) }) { Text(stringResource(R.string.math_model_learn_saved, unlearned), fontSize = 13.sp) }
+        }
+    }
+    if (confirmDelete) {
+        SheetDialog(
+            title = stringResource(R.string.math_model_delete_title),
+            onDismiss = { confirmDelete = false },
+            text = stringResource(R.string.math_model_delete_message, sizeMb),
+            foot = {
+                ConfirmButtons(stringResource(R.string.delete), { confirmDelete = false }, ButtonKind.DISCARD) {
+                    MathOcr.delete(context, model.id)
+                    confirmDelete = false
+                }
+            },
+        )
+    }
+    offerFor?.let { m ->
+        val saved = remember(m.id) { MathTraining.unlearnedCount(context, m.id) }
+        SheetDialog(
+            title = stringResource(R.string.math_training_offer_title, m.name),
+            onDismiss = { offerFor = null },
+            text = if (saved > 0) stringResource(R.string.math_training_offer_text_saved, saved) else stringResource(R.string.math_training_offer_text),
+            foot = {
+                DialogButtons {
+                    if (saved > 0) DialogButton(stringResource(R.string.math_training_offer_saved), ButtonKind.CHOICE) { offerFor = null; learnFromSaved(m.id) }
+                    onTrain?.let { train -> DialogButton(stringResource(R.string.math_training_offer_write), ButtonKind.CHOICE) { offerFor = null; train() } }
+                }
+                SheetButton(stringResource(R.string.math_training_later), Modifier.fillMaxWidth()) { offerFor = null }
+            },
+        )
+    }
+}
+
+/**
+ * The custom LLM option: where the API is, the key (kept on this device), the model and the prompt,
+ * plus a test that sends a sample formula and shows what came back.
+ */
+@Composable
+private fun MathLlmControls(prefs: Preferences, update: (Preferences) -> Unit, installed: List<MathModel>) {
+    val context = LocalContext.current
+    val palette = LocalPalette.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val dim = palette.textDim.toComposeColor()
+    var key by remember { mutableStateOf(MathLlm.key(context)) }
+    var testing by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
+    @Composable
+    fun field(label: String, value: String, placeholder: String, keyboard: KeyboardType = KeyboardType.Uri, mask: Boolean = false, lines: Int = 1, onChange: (String) -> Unit) {
+        OutlinedTextField(
+            value = value, onValueChange = onChange, singleLine = lines == 1, minLines = lines,
+            label = { Text(label) },
+            placeholder = { Text(placeholder, color = dim) },
+            keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+            visualTransformation = if (mask) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.math_wip), color = palette.danger.toComposeColor(), fontSize = 12.sp)
+        Text(stringResource(R.string.math_llm_description), color = palette.text.toComposeColor(), fontSize = 12.sp)
+        field(stringResource(R.string.math_llm_url), prefs.mathLlmUrl, "https://api.openai.com/v1") { update(prefs.copy(mathLlmUrl = it.trim())) }
+        Text(stringResource(R.string.math_llm_url_hint), color = dim, fontSize = 12.sp)
+        if (MathLlm.insecure(prefs.mathLlmUrl)) Text(stringResource(R.string.math_llm_insecure), color = palette.danger.toComposeColor(), fontSize = 12.sp)
+        field(stringResource(R.string.math_llm_key), key, stringResource(R.string.math_llm_key_hint), KeyboardType.Password, mask = true) {
+            key = it.trim()
+            MathLlm.setKey(context, key)
+        }
+        field(stringResource(R.string.math_llm_model), prefs.mathLlmModel, "gpt-4o-mini") { update(prefs.copy(mathLlmModel = it.trim())) }
+        field(stringResource(R.string.math_llm_prompt), prefs.mathLlmPrompt, MathLlm.DEFAULT_PROMPT, KeyboardType.Text, lines = 3) { update(prefs.copy(mathLlmPrompt = it)) }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                enabled = !testing && prefs.mathLlmUrl.isNotBlank() && prefs.mathLlmModel.isNotBlank(),
+                onClick = {
+                    testing = true
+                    result = null
+                    scope.launch {
+                        result = withContext(Dispatchers.IO) {
+                            runCatching { MathLlm.recognizePng(context, context.assets.open("math/llm-test.png").use { it.readBytes() }) }
+                                .fold({ true to it }, { false to (it.message ?: it.javaClass.simpleName) })
+                        }
+                        testing = false
+                    }
+                },
+            ) { Text(stringResource(R.string.math_llm_test), fontSize = 13.sp) }
+            if (prefs.mathLlmPrompt.isNotEmpty()) TextButton(onClick = { update(prefs.copy(mathLlmPrompt = "")) }) { Text(stringResource(R.string.math_llm_prompt_reset), fontSize = 13.sp) }
+        }
+        if (testing) Text(stringResource(R.string.math_llm_testing), color = dim, fontSize = 12.sp)
+        result?.let { (ok, text) ->
+            Text(
+                if (ok) stringResource(R.string.math_llm_test_ok, text) else stringResource(R.string.math_llm_test_failed, text),
+                color = if (ok) palette.text.toComposeColor() else palette.danger.toComposeColor(), fontSize = 12.sp,
+            )
+        }
+        Text(stringResource(R.string.math_llm_privacy), color = dim, fontSize = 12.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.math_llm_offline), color = palette.text.toComposeColor(), fontSize = 14.sp, modifier = Modifier.padding(end = 8.dp))
+            OptionDropdown(
+                listOf("" to stringResource(R.string.math_llm_offline_none)) + installed.map { it.id to it.name },
+                prefs.mathLlmOffline,
+            ) { update(prefs.copy(mathLlmOffline = it)) }
+        }
+        Text(stringResource(R.string.math_llm_offline_hint), color = dim, fontSize = 12.sp)
+    }
+}
+
+/** What a math model is and needs, as bullet points: description, training data, license, size, website, RAM and speed. */
+@Composable
+private fun MathModelInfo(model: MathModel) {
+    val context = LocalContext.current
+    val palette = LocalPalette.current
+    val dim = palette.textDim.toComposeColor()
+    fun gb(mb: Int) = String.format(java.util.Locale.US, "%.1f", mb / 1024.0)
+    fun secs(s: Double) = String.format(java.util.Locale.US, "%.1f", s)
+    val deviceMb = remember {
+        val info = android.app.ActivityManager.MemoryInfo()
+        context.getSystemService(android.app.ActivityManager::class.java)?.getMemoryInfo(info)
+        (info.totalMem / (1024 * 1024)).toInt()
+    }
+    val measured = remember(model.id) { MathOcr.measuredSeconds(context, model.id) }
+    @Composable
+    fun bullet(text: androidx.compose.ui.text.AnnotatedString, color: androidx.compose.ui.graphics.Color = dim) = Row {
+        Text("-", color = dim, fontSize = 12.sp, modifier = Modifier.padding(end = 6.dp))
+        Text(text, color = color, fontSize = 12.sp)
+    }
+    @Composable
+    fun bullet(text: String, color: androidx.compose.ui.graphics.Color = dim) = bullet(androidx.compose.ui.text.AnnotatedString(text), color)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (model.description.isNotEmpty()) Text(model.description, color = palette.text.toComposeColor(), fontSize = 12.sp, modifier = Modifier.padding(bottom = 2.dp))
+        if (model.trainedOn.isNotEmpty()) bullet(stringResource(R.string.math_model_trained_on, model.trainedOn))
+        if (model.license.isNotEmpty()) bullet(stringResource(R.string.math_model_license, model.license))
+        bullet(stringResource(R.string.math_model_size, model.downloadBytes / 1_000_000, model.installedBytes / 1_000_000))
+        model.website?.let { site ->
+            val label = stringResource(R.string.math_model_website)
+            bullet(
+                androidx.compose.ui.text.buildAnnotatedString {
+                    append("$label: ")
+                    withLink(
+                        androidx.compose.ui.text.LinkAnnotation.Url(
+                            site,
+                            androidx.compose.ui.text.TextLinkStyles(androidx.compose.ui.text.SpanStyle(color = palette.accent.toComposeColor())),
+                        ),
+                    ) { append(site.removePrefix("https://")) }
+                },
+            )
+        }
+        if (model.recommendedRamMb > 0) bullet(stringResource(R.string.math_model_specs, gb(model.recommendedRamMb), gb(model.minRamMb), secs(model.avgSeconds)))
+        measured?.let { bullet(stringResource(R.string.math_model_speed_here, secs(it))) }
+        if (deviceMb in 1 until model.recommendedRamMb) bullet(stringResource(R.string.math_model_low_ram, gb(deviceMb)), palette.danger.toComposeColor())
+    }
+}
+
+/** Pick the handwriting language and download or delete its model; downloaded ones get a check. */
+@Composable
+internal fun HandwritingLanguageControls(selected: String, onSelect: (String) -> Unit) {
+    val palette = LocalPalette.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var downloaded by remember { mutableStateOf(emptySet<String>()) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    fun act(action: () -> Unit) {
+        busy = true
+        error = null
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                runCatching(action).onFailure { error = it.message ?: it.toString() }
+                runCatching { HandwritingOcr.downloadedLanguages() }.onSuccess { downloaded = it }
+            }
+            busy = false
+        }
+    }
+    LaunchedEffect(Unit) { act {} }
+    val options = HandwritingOcr.LANGUAGES.map {
+        it to java.util.Locale.forLanguageTag(it).getDisplayLanguage(java.util.Locale.ENGLISH).replaceFirstChar(Char::titlecase)
+    }
+    val isDownloaded = selected in downloaded
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        OptionDropdown(options, selected, downloaded, onSelect = onSelect)
+        TextButton(enabled = !busy && !isDownloaded, onClick = { act { HandwritingOcr.ensureModelDownloaded(selected) } }) {
+            Text(stringResource(if (busy) R.string.working else R.string.download), fontSize = 13.sp)
+        }
+        TextButton(enabled = !busy && isDownloaded, onClick = { act { HandwritingOcr.deleteModel(selected) } }) {
+            Text(stringResource(R.string.delete), fontSize = 13.sp)
+        }
+    }
+    error?.let { Text(stringResource(R.string.failed_reason, it), color = palette.danger.toComposeColor(), fontSize = 12.sp) }
+}
+
+/** Find and rewrite the notes that still hold shapes from earlier n-notes versions. */
+@Composable
+private fun PortSection(editor: Editor) {
+    val palette = LocalPalette.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    var found by remember { mutableStateOf<List<com.xnotes.platform.NotePorter.Found>?>(null) }
+    var status by remember { mutableStateOf<String?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionTitle(stringResource(R.string.pref_port))
+        Text(stringResource(R.string.pref_port_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+        Row {
+            TextButton(enabled = !busy, onClick = {
+                busy = true
+                status = context.getString(R.string.port_scanning)
+                scope.launch {
+                    val scanned = runCatching { editor.scanForkShapes() }.getOrNull()
+                    found = scanned
+                    status = when {
+                        scanned == null -> context.getString(R.string.port_no_root)
+                        scanned.isEmpty() -> context.getString(R.string.port_none)
+                        else -> context.getString(R.string.port_found, scanned.size, scanned.sumOf { it.shapes })
+                    }
+                    busy = false
+                }
+            }) { Text(stringResource(R.string.port_scan), fontSize = 13.sp) }
+            val todo = found
+            if (!todo.isNullOrEmpty()) {
+                TextButton(enabled = !busy, onClick = {
+                    busy = true
+                    scope.launch {
+                        val result = editor.portForkShapes(
+                            todo,
+                            isOpen = { uri -> editor.hasOpen(uri) || editor.secondary?.hasOpen(uri) == true },
+                            onProgress = { done, total -> scope.launch { status = context.getString(R.string.port_progress, done, total) } },
+                        )
+                        status = listOfNotNull(
+                            context.getString(R.string.port_done, result.ported.size, result.failed.size, result.skipped.size),
+                            result.failed.takeIf { it.isNotEmpty() }?.let { context.getString(R.string.port_failed_list, it.joinToString(", ")) },
+                            result.skipped.takeIf { it.isNotEmpty() }?.let { context.getString(R.string.port_skipped_list, it.joinToString(", ")) },
+                            result.backupDir?.let { context.getString(R.string.port_backups, it.path) },
+                        ).joinToString("\n")
+                        found = null
+                        busy = false
+                        editor.relistTree()
+                    }
+                }) { Text(stringResource(R.string.port_run), fontSize = 13.sp) }
+            }
+        }
+        status?.let { Text(it, color = palette.textDim.toComposeColor(), fontSize = 12.sp) }
+    }
+}
+
+/**
+ * The content y the sections panel marks the section above: [top] below the top of the view, until
+ * the last screenful, where it slides down to the bottom as fast as the page scrolls, so the short
+ * sections at the end, which can never reach the top, still each get marked, the last at the very end.
+ */
+internal fun sectionLine(scroll: Int, maxScroll: Int, height: Float, top: Float): Float =
+    scroll + top + (height - top - (maxScroll - scroll)).coerceAtLeast(0f)
+
+/** The scroll at which [sectionLine] reaches a section starting at [y]: [y] itself, or less near the end. */
+internal fun scrollForSection(y: Int, maxScroll: Int, height: Float, top: Float): Int =
+    if (maxScroll - y >= height - top) y
+    else ((y + maxScroll - height + top) / 2f).roundToInt().coerceIn(0, maxScroll)
+
+/** Locales the app ships strings for; keep in sync with the res/values-* folders. */
+private val APP_LANGUAGES = listOf("en", "cs", "es", "fr", "zh-Hans")
+private const val LANGUAGE_REQUEST_URL = "https://github.com/NeDDy3z/Sponka/issues/new?title=Language+request%3A+"
+
+private fun nativeName(tag: String): String {
+    val locale = java.util.Locale.forLanguageTag(tag)
+    return locale.getDisplayName(locale).replaceFirstChar { it.titlecase(locale) }
+}
+
+/**
+ * The supported languages. Android 13+ sets the per-app language directly (the activity is rebuilt in it);
+ * older versions only follow the system language, so the list is shown for reference.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun LanguageSection() {
+    val palette = LocalPalette.current
+    val context = LocalContext.current
+    SectionTitle(stringResource(R.string.pref_language))
+    Text(stringResource(R.string.pref_language_disclaimer), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+    if (Build.VERSION.SDK_INT >= 33) {
+        val manager = context.getSystemService(android.app.LocaleManager::class.java)
+        val current = remember { manager.applicationLocales.get(0)?.language }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip(stringResource(R.string.pref_language_system_default), current == null) {
+                manager.applicationLocales = android.os.LocaleList.getEmptyLocaleList()
+            }
+            for (tag in APP_LANGUAGES) {
+                Chip(nativeName(tag), current == java.util.Locale.forLanguageTag(tag).language) {
+                    manager.applicationLocales = android.os.LocaleList.forLanguageTags(tag)
+                }
+            }
+        }
+    } else {
+        Text(stringResource(R.string.pref_language_system), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+        Text(
+            stringResource(R.string.pref_language_supported, APP_LANGUAGES.joinToString(", ") { nativeName(it) }),
+            color = palette.text.toComposeColor(), fontSize = 12.sp,
+        )
+    }
+    TextButton(onClick = {
+        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(LANGUAGE_REQUEST_URL))) }
+    }) { Text(stringResource(R.string.pref_language_request), fontSize = 13.sp) }
 }
 
 @Composable
-private fun FieldLabel(text: String) {
-    Text(text, color = LocalPalette.current.accent.toComposeColor(), fontSize = 13.sp)
+internal fun PermissionsSection(syncOn: Boolean) {
+    val palette = LocalPalette.current
+    val context = LocalContext.current
+    fun granted(permission: String) = ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    val microphone = rememberOnResume { granted(Manifest.permission.RECORD_AUDIO) }
+    // Before Android 13 notifications need no permission, so there is nothing to show.
+    val notifications = rememberOnResume { if (Build.VERSION.SDK_INT >= 33) granted(Manifest.permission.POST_NOTIFICATIONS) else null }
+    val battery = rememberBatteryUnrestricted()
+    val request = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    @Composable
+    fun PermissionRow(label: String, ok: Boolean, status: String, action: (@Composable () -> Unit)? = null) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(label, color = palette.text.toComposeColor(), fontSize = 14.sp, modifier = Modifier.searchAnchor(label))
+                Text(status, color = if (ok) palette.textDim.toComposeColor() else WarningColor, fontSize = 12.sp)
+            }
+            action?.invoke()
+        }
+    }
+
+    SectionTitle(stringResource(R.string.pref_permissions))
+    // Battery limits only matter to background sync, so the row waits until a cloud service is picked.
+    if (syncOn) {
+        PermissionRow(
+            stringResource(R.string.permission_battery), battery,
+            stringResource(if (battery) R.string.permission_battery_unrestricted else R.string.permission_battery_restricted),
+        ) {
+            if (!battery) TextButton(onClick = { BatteryRestriction.requestLift(context) }) { Text(stringResource(R.string.battery_allow), fontSize = 13.sp) }
+        }
+    }
+    PermissionRow(stringResource(R.string.permission_microphone), microphone, stringResource(if (microphone) R.string.permission_granted else R.string.permission_not_granted)) {
+        if (!microphone) TextButton(onClick = { request.launch(Manifest.permission.RECORD_AUDIO) }) { Text(stringResource(R.string.battery_allow), fontSize = 13.sp) }
+    }
+    notifications?.let {
+        PermissionRow(stringResource(R.string.permission_notifications), it, stringResource(if (it) R.string.permission_granted else R.string.permission_not_granted)) {
+            if (!it) TextButton(onClick = { request.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text(stringResource(R.string.battery_allow), fontSize = 13.sp) }
+        }
+    }
+    TextButton(onClick = {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+        runCatching { context.startActivity(intent) }
+    }) { Text(stringResource(R.string.permission_open_app_settings), fontSize = 13.sp) }
+}
+
+/** Home screen and file explorer settings; shared by Preferences and onboarding. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome: (Preferences) -> Unit) {
+    val palette = LocalPalette.current
+    var namingColor by remember { mutableStateOf<Rgba?>(null) }
+    namingColor?.let { c -> ColorNameDialog(editor, c) { namingColor = null } }
+    Text(
+        stringResource(R.string.pref_home_explorer_help),
+        color = palette.textDim.toComposeColor(),
+        fontSize = 12.sp,
+    )
+    FieldLabel(stringResource(R.string.pref_default_layout))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExplorerLayout.entries.forEach { l -> Chip(stringResource(l.labelRes), editor.explorerView.layout == l) { editor.setDefaultLayout(l) } }
+    }
+    FieldLabel(stringResource(R.string.pref_switcher_layouts))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExplorerLayout.entries.forEach { l ->
+            val on = l in prefs.switcherLayouts
+            CheckChip(stringResource(l.labelRes), on) {
+                val next = if (on) prefs.switcherLayouts - l else prefs.switcherLayouts + l
+                if (next.isNotEmpty()) updateHome(prefs.copy(switcherLayouts = ExplorerLayout.entries.filter { it in next }))
+            }
+        }
+    }
+    FieldLabel(stringResource(R.string.pref_sidebar_sections))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        @Composable
+        fun section(label: String, on: Boolean, flip: () -> Preferences) =
+            CheckChip(label, on) { updateHome(flip()) }
+        section(stringResource(R.string.recent), prefs.sidebarRecent) { prefs.copy(sidebarRecent = !prefs.sidebarRecent) }
+        section(stringResource(R.string.hidden), prefs.sidebarHidden) { prefs.copy(sidebarHidden = !prefs.sidebarHidden) }
+        section(stringResource(R.string.note_templates), prefs.sidebarTemplates) { prefs.copy(sidebarTemplates = !prefs.sidebarTemplates) }
+        section(stringResource(R.string.pinned), prefs.sidebarPinned) { prefs.copy(sidebarPinned = !prefs.sidebarPinned) }
+        section(stringResource(R.string.toolbar_colours), prefs.sidebarColours) { prefs.copy(sidebarColours = !prefs.sidebarColours) }
+        if (prefs.trashDays != 0) section(stringResource(R.string.trash), prefs.sidebarTrash) { prefs.copy(sidebarTrash = !prefs.sidebarTrash) }
+        section(stringResource(R.string.sidebar_files), prefs.sidebarFiles) { prefs.copy(sidebarFiles = !prefs.sidebarFiles) }
+        section(stringResource(R.string.sync_now), prefs.sidebarSync) { prefs.copy(sidebarSync = !prefs.sidebarSync) }
+    }
+    FieldLabel(stringResource(R.string.pref_home_opens_to))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.top_folder), prefs.homeOpensTo == "top") { updateHome(prefs.copy(homeOpensTo = "top")) }
+        Chip(stringResource(R.string.last_folder), prefs.homeOpensTo == "last") { updateHome(prefs.copy(homeOpensTo = "last")) }
+        Chip(stringResource(R.string.recent_and_pinned), prefs.homeOpensTo == "shelves") { updateHome(prefs.copy(homeOpensTo = "shelves")) }
+    }
+    val swipeLabels = mapOf(
+        "sidebar_open" to stringResource(R.string.swipe_sidebar_open),
+        "sidebar_close" to stringResource(R.string.swipe_sidebar_close),
+        "folder_up" to stringResource(R.string.swipe_folder_up),
+        "folder_deeper" to stringResource(R.string.swipe_folder_deeper),
+        "none" to stringResource(R.string.none),
+    )
+    val swipeOptions = HOME_SWIPES.map { it to swipeLabels.getValue(it) }
+    FieldLabel(stringResource(R.string.pref_home_swipe_right))
+    OptionDropdown(swipeOptions, prefs.homeSwipeRight) { updateHome(prefs.copy(homeSwipeRight = it)) }
+    FieldLabel(stringResource(R.string.pref_home_swipe_left))
+    OptionDropdown(swipeOptions, prefs.homeSwipeLeft) { updateHome(prefs.copy(homeSwipeLeft = it)) }
+    val words = rememberExplorerWords()
+    FieldLabel(stringResource(R.string.pref_dates))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(words.daysAgo(2), prefs.dateStyle == "relative") { updateHome(prefs.copy(dateStyle = "relative")) }
+        Chip("${words.shortWeekday(java.time.DayOfWeek.WEDNESDAY)} ${clockText(words, java.time.LocalTime.of(17, 30), true)}", prefs.dateStyle == "day") { updateHome(prefs.copy(dateStyle = "day")) }
+        Chip(words.dayMonthYear(16, java.time.Month.SEPTEMBER, 2026), prefs.dateStyle == "date") { updateHome(prefs.copy(dateStyle = "date")) }
+    }
+    FieldLabel(stringResource(R.string.pref_tapping_file))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.tap_opens), !prefs.tapPreviews) { updateHome(prefs.copy(tapPreviews = false)) }
+        Chip(stringResource(R.string.tap_previews), prefs.tapPreviews) { updateHome(prefs.copy(tapPreviews = true)) }
+    }
+    FieldLabel(stringResource(R.string.pref_keep_deleted))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.off), prefs.trashDays == 0) { updateHome(prefs.copy(trashDays = 0)) }
+        Chip(pluralStringResource(R.plurals.days_count, 7, 7), prefs.trashDays == 7) { updateHome(prefs.copy(trashDays = 7)) }
+        Chip(pluralStringResource(R.plurals.days_count, 30, 30), prefs.trashDays == 30) { updateHome(prefs.copy(trashDays = 30)) }
+        Chip(stringResource(R.string.until_emptied), prefs.trashDays == Preferences.TRASH_FOREVER) { updateHome(prefs.copy(trashDays = Preferences.TRASH_FOREVER)) }
+    }
+    if (editor.browseRoot != null) {
+        FieldLabel(stringResource(R.string.pref_colour_names))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            editor.colorNames.entries.sortedBy { it.value.lowercase() }.forEach { (c, name) ->
+                Row(
+                    Modifier.clip(MaterialTheme.shapes.small).background(palette.surface.toComposeColor())
+                        .border(1.dp, palette.border.toComposeColor(), MaterialTheme.shapes.small)
+                        .clickable { namingColor = c }.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(codeTint(c, palette)))
+                    Text(name, color = palette.text.toComposeColor(), fontSize = 14.sp, maxLines = 1)
+                }
+            }
+            var picking by remember { mutableStateOf(false) }
+            Box {
+                CheckChip(stringResource(R.string.name_a_colour), false) { picking = true }
+                DropdownMenu(expanded = picking, onDismissRequest = { picking = false }) {
+                    ColorCodeMenuContent { c -> picking = false; if (c != null) namingColor = c }
+                }
+            }
+        }
+    }
+    CheckRow(stringResource(R.string.pref_per_folder_views), prefs.perFolderViews) { updateHome(prefs.copy(perFolderViews = it)) }
+    CheckRow(stringResource(R.string.pref_show_folder_counts), prefs.showFolderCounts) { updateHome(prefs.copy(showFolderCounts = it)) }
+    CheckRow(stringResource(R.string.pref_show_extensions), prefs.showExtensions) { updateHome(prefs.copy(showExtensions = it)) }
+    CheckRow(stringResource(R.string.pref_hide_dot_items), prefs.hideDotItems) { editor.setHideDotItems(it) }
+    CheckRow(stringResource(R.string.pref_show_hidden), prefs.showHidden) { editor.setShowHidden(it) }
+}
+
+/** Pen, finger and gesture settings; shared by Preferences and onboarding. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun InputControls(prefs: Preferences, update: (Preferences) -> Unit) {
+    CheckRow(stringResource(R.string.pref_finger_draws), prefs.fingerDraws) { update(prefs.copy(fingerDraws = it)) }
+    FieldLabel(stringResource(R.string.pref_zoom_lock_pan))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Chip(stringResource(R.string.pan_single), prefs.zoomLockPan == "single") { update(prefs.copy(zoomLockPan = "single")) }
+        Chip(stringResource(R.string.pan_two), prefs.zoomLockPan == "double") { update(prefs.copy(zoomLockPan = "double")) }
+        Chip(stringResource(R.string.pan_none), prefs.zoomLockPan == "none") { update(prefs.copy(zoomLockPan = "none")) }
+    }
+    CheckRow(stringResource(R.string.pref_detect_shapes), prefs.detectShapes) { update(prefs.copy(detectShapes = it)) }
+    FieldLabel(stringResource(R.string.pref_snap_rotation_90))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Chip(stringResource(R.string.on), prefs.snapRotation90) { update(prefs.copy(snapRotation90 = true)) }
+        Chip(stringResource(R.string.off), !prefs.snapRotation90) { update(prefs.copy(snapRotation90 = false)) }
+    }
+    FieldLabel(stringResource(R.string.pref_pen_button_hold))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        penButtonOptions.forEach { (id, label) ->
+            Chip(stringResource(label), prefs.penButtonTool == id) { update(prefs.copy(penButtonTool = id)) }
+        }
+    }
+    if (prefs.penButtonTool == "eraser" || prefs.penButtonTool == "pan") {
+        CheckRow(stringResource(R.string.pref_pen_button_hover), prefs.penButtonHover) {
+            update(prefs.copy(penButtonHover = it))
+        }
+    }
+    val tapOptions = tapGestureOptions.map { (id, res) -> id to stringResource(res) }
+    FieldLabel(stringResource(R.string.pref_two_finger_tap))
+    OptionDropdown(tapOptions, prefs.twoFingerTap) { update(prefs.copy(twoFingerTap = it)) }
+    FieldLabel(stringResource(R.string.pref_three_finger_tap))
+    OptionDropdown(tapOptions, prefs.threeFingerTap) { update(prefs.copy(threeFingerTap = it)) }
+    FieldLabel(stringResource(R.string.pref_stylus_double_tap))
+    OptionDropdown(tapOptions, prefs.stylusDoubleTap) { update(prefs.copy(stylusDoubleTap = it)) }
+    FieldLabel(stringResource(R.string.pref_stylus_button_tap))
+    OptionDropdown(tapOptions, prefs.stylusButtonTap) { update(prefs.copy(stylusButtonTap = it)) }
+    CheckRow(stringResource(R.string.pref_volume_keys_turn_pages), prefs.volumeKeysTurnPages) { update(prefs.copy(volumeKeysTurnPages = it)) }
+}
+
+/** UI theme, Material colours and corners; shared by Preferences and onboarding. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ThemeControls(prefs: Preferences, update: (Preferences) -> Unit, updateHome: (Preferences) -> Unit) {
+    val palette = LocalPalette.current
+    FieldLabel(stringResource(R.string.pref_ui_theme))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.theme_system), prefs.uiAppearance == "system") { update(prefs.copy(uiAppearance = "system")) }
+        Chip(stringResource(R.string.theme_dark), prefs.uiAppearance == "dark") { update(prefs.copy(uiAppearance = "dark")) }
+        Chip(stringResource(R.string.theme_light), prefs.uiAppearance == "light") { update(prefs.copy(uiAppearance = "light")) }
+        Chip(stringResource(R.string.theme_oled), prefs.uiAppearance == "oled") { update(prefs.copy(uiAppearance = "oled")) }
+    }
+    // OLED is always pure black, so it has no background presets.
+    if (prefs.uiAppearance != "oled") {
+        FieldLabel(stringResource(R.string.pref_background_brightness))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((level, label) in listOf(-0.6 to R.string.background_darker, 0.0 to R.string.background_default, 0.4 to R.string.background_dim, 0.8 to R.string.background_soft)) {
+                Chip(stringResource(label), prefs.backgroundBrightness == level) { update(prefs.copy(backgroundBrightness = level)) }
+            }
+        }
+    }
+    val systemColours = prefs.materialMode == MaterialColourMode.SYSTEM
+    FieldLabel(stringResource(R.string.material_tone))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.material_system_colours), systemColours) {
+            update(prefs.copy(materialMode = MaterialColourMode.SYSTEM))
+        }
+        Chip(stringResource(R.string.material_single_tone), prefs.materialMode == MaterialColourMode.SINGLE) {
+            update(prefs.copy(materialMode = MaterialColourMode.SINGLE))
+        }
+        Chip(stringResource(R.string.material_dual_tone), prefs.materialMode == MaterialColourMode.DUAL) {
+            update(prefs.copy(materialMode = MaterialColourMode.DUAL))
+        }
+    }
+    if (!systemColours) {
+        key(prefs.materialMode) { MaterialColourPicker(prefs, update) }
+        CustomMaterialControls(prefs, update)
+    } else if (Build.VERSION.SDK_INT < 31) {
+        Text(stringResource(R.string.material_system_fallback), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+    }
+    FieldLabel(stringResource(R.string.pref_corners))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for ((style, label) in listOf(CornerStyle.SHARP to R.string.corners_sharp, CornerStyle.ROUNDED to R.string.corners_rounded, CornerStyle.SOFT to R.string.corners_soft)) {
+            Chip(stringResource(label), prefs.cornerStyle == style) { updateHome(prefs.copy(cornerStyle = style)) }
+        }
+    }
+}
+
+/** Toolbar look, colour count and the drag-and-drop customizer; shared by Preferences and onboarding. */
+@Composable
+internal fun ToolbarSettings(editor: Editor, prefs: Preferences, updateHome: (Preferences) -> Unit, drag: ToolbarDrag) {
+    val palette = LocalPalette.current
+    // The look, like the swatch count below, is one setting for both bars.
+    val look = prefs.toolbarLook
+    FieldLabel(stringResource(R.string.pref_toolbar_style))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.toolbar_docked), !look.floating) { updateHome(prefs.copy(toolbarLook = look.copy(floating = false))) }
+        Chip(stringResource(R.string.toolbar_floating), look.floating) { updateHome(prefs.copy(toolbarLook = look.copy(floating = true))) }
+    }
+    FieldLabel(stringResource(R.string.pref_toolbar_position))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for ((position, label) in listOf(
+            ToolbarPosition.TOP to R.string.edge_top,
+            ToolbarPosition.BOTTOM to R.string.edge_bottom,
+            ToolbarPosition.LEFT to R.string.edge_left,
+            ToolbarPosition.RIGHT to R.string.edge_right,
+        )) {
+            Chip(stringResource(label), look.position == position) { updateHome(prefs.copy(toolbarLook = look.copy(position = position))) }
+        }
+    }
+    FieldLabel(stringResource(R.string.pref_toolbar_size))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        for ((size, label) in listOf(
+            ToolbarSize.COMPACT to R.string.toolbar_size_compact,
+            ToolbarSize.REGULAR to R.string.toolbar_size_regular,
+            ToolbarSize.COMFORTABLE to R.string.toolbar_size_comfortable,
+        )) {
+            Chip(stringResource(label), look.size == size) { updateHome(prefs.copy(toolbarLook = look.copy(size = size))) }
+        }
+    }
+    FieldLabel(stringResource(R.string.pref_toolbar_colours_n, editor.toolbarColorCount))
+    Slider(
+        value = editor.toolbarColorCount.toFloat(),
+        onValueChange = { editor.applyToolbarColorCount(Math.round(it)) },
+        valueRange = 1f..InkPalette.MAX_SWATCHES.toFloat(),
+        steps = InkPalette.MAX_SWATCHES - 2,
+        modifier = Modifier.width(280.dp),
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Chip("xnote", selected = !drag.canvasTab) { drag.showTab(false) }
+        Chip("xcanvas", selected = drag.canvasTab) { drag.showTab(true) }
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = drag::reset) { Text(stringResource(R.string.reset), fontSize = 13.sp) }
+    }
+    Text(
+        stringResource(R.string.pref_toolbar_help),
+        color = palette.textDim.toComposeColor(),
+        fontSize = 12.sp,
+    )
+    drag.Body()
+    val reorder = drag.shapes
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FieldLabel(stringResource(R.string.pref_hidden_shapes))
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { updateHome(prefs.copy(shapeOrder = emptyList())) }, enabled = prefs.shapeOrder.isNotEmpty()) {
+            Text(stringResource(R.string.reset_order), fontSize = 13.sp)
+        }
+    }
+    Text(stringResource(R.string.pref_hidden_shapes_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+    fun toggleHidden(key: String) {
+        val hidden = prefs.hiddenShapes
+        updateHome(prefs.copy(hiddenShapes = if (key in hidden) hidden - key else hidden + key))
+    }
+    reorder.onMove = { keys, from, slot -> updateHome(prefs.copy(shapeOrder = reorderedKeys(prefs.shapeOrder, keys, from, slot))) }
+    @Composable
+    fun ShapePageRows(pageKeys: List<String>, label: @Composable (Int) -> String, chips: (Int) -> List<Pair<String, @Composable () -> Unit>>) {
+        Column {
+            pageKeys.forEachIndexed { i, pageKey -> key(pageKey) {
+                if (reorder.slotIn(pageKeys) == i) PageDropLine()
+                val pageShown = pageKey !in prefs.hiddenShapes
+                val title = label(i)
+                Column(Modifier.reorderItem(reorder, pageKey)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            XnotesIcons.grip, stringResource(R.string.drag_to_reorder), tint = palette.textDim.toComposeColor(),
+                            modifier = Modifier.size(18.dp).reorderDrag(reorder, pageKey, pageKeys, stacked = true, longPress = false) { PageDragGhost(title) },
+                        )
+                        CheckRow(title, pageShown) { toggleHidden(pageKey) }
+                    }
+                    if (pageShown) {
+                        val row = chips(i)
+                        val chipKeys = row.map { it.first }
+                        FlowRow(Modifier.padding(start = 18.dp), horizontalArrangement = Arrangement.spacedBy(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            row.forEachIndexed { j, (chipKey, chip) -> key(chipKey) {
+                                if (reorder.slotIn(chipKeys) == j) ChipDropCaret()
+                                Box(Modifier.reorderItem(reorder, chipKey).reorderDrag(reorder, chipKey, chipKeys, stacked = false, longPress = true) { ChipDragGhost(chip) }) { chip() }
+                            } }
+                            if (reorder.slotIn(chipKeys) == row.size) ChipDropCaret()
+                        }
+                    }
+                }
+            } }
+            if (reorder.slotIn(pageKeys) == pageKeys.size) PageDropLine()
+        }
+    }
+    FieldLabel(stringResource(R.string.pref_shapes_heading))
+    val shapePages = ShapePresets.ordered(prefs.shapeOrder)
+    ShapePageRows(shapePages.map { it.key }, { stringResource(pageLabel(shapePages[it])) }) { i ->
+        shapePages[i].presets.map { p ->
+            p.key to @Composable { KindChip(ShapeIcons.of(p), chipLabel(p), selected = p.key !in prefs.hiddenShapes, latex = chipLatex(p)) { toggleHidden(p.key) } }
+        }
+    }
+    HorizontalDivider(color = palette.border.toComposeColor())
+    FieldLabel(stringResource(R.string.pref_connectors_heading))
+    val connectorPages = ConnectorPresets.ordered(prefs.shapeOrder)
+    ShapePageRows(connectorPages.map { it.key }, { stringResource(connectorPageLabel(connectorPages[it])) }) { i ->
+        connectorPages[i].presets.map { p ->
+            p.key to @Composable { KindChip(ShapeIcons.connector(p), stringResource(connectorLabel(p.key)), selected = p.key !in prefs.hiddenShapes) { toggleHidden(p.key) } }
+        }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        FieldLabel(stringResource(R.string.pref_selection_bar))
+        Spacer(Modifier.weight(1f))
+        TextButton(onClick = { editor.applySelectionBarLayout(com.xnotes.core.tools.SelectionBarLayout.DEFAULT) }) { Text(stringResource(R.string.reset), fontSize = 13.sp) }
+    }
+    Text(stringResource(R.string.pref_selection_bar_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
+    drag.SelectionBody()
+}
+
+@Composable
+internal fun SectionTitle(text: String) {
+    Text(text, color = LocalPalette.current.text.toComposeColor(), fontWeight = FontWeight.Bold, fontSize = 15.sp, modifier = Modifier.searchAnchor(text).sectionAnchor(text))
+}
+
+@Composable
+internal fun FieldLabel(text: String) {
+    Text(text, color = LocalPalette.current.accent.toComposeColor(), fontSize = 13.sp, modifier = Modifier.searchAnchor(text))
+}
+
+/**
+ * The Preferences search: every section title and setting label registers where it sits in the
+ * scrolled column, so a query can light up the matches and step the scroll from one to the next.
+ */
+private class PrefSearch {
+    var open by mutableStateOf(false)
+    var query by mutableStateOf("")
+    var current by mutableStateOf(0)
+    var toContentY: (Float) -> Float = { it }
+    var density = 1f
+    /** Label text and its top in the column's content, by the label that registered it. Read only
+     *  when searching, so it is a plain map: a scroll repositions labels without recomposing. */
+    val anchors = HashMap<Any, Pair<String, Float>>()
+    /** Section titles and their tops in the column's content, for the sections panel. */
+    val sections = mutableStateMapOf<String, Int>()
+
+    fun matches(text: String): Boolean = query.isNotBlank() && text.contains(query.trim(), ignoreCase = true)
+
+    /** The matching labels, top to bottom. */
+    fun hits(): List<Pair<String, Float>> = anchors.values.filter { matches(it.first) }.sortedBy { it.second }
+}
+
+private val LocalPrefSearch = androidx.compose.runtime.staticCompositionLocalOf<PrefSearch?> { null }
+
+/** Register this label with the Preferences search under [text], and tint it while it matches. */
+@Composable
+private fun Modifier.searchAnchor(text: String): Modifier {
+    val search = LocalPrefSearch.current ?: return this
+    val key = remember { Any() }
+    androidx.compose.runtime.DisposableEffect(key) { onDispose { search.anchors.remove(key) } }
+    val hit = search.matches(text)
+    val tint = LocalPalette.current.accent.withAlpha(if (hit && search.hits().getOrNull(search.current)?.first == text) 90 else 40).toComposeColor()
+    return this
+        .onGloballyPositioned { search.anchors[key] = text to search.toContentY(it.positionInRoot().y) }
+        .then(if (hit) Modifier.background(tint, MaterialTheme.shapes.extraSmall) else Modifier)
+}
+
+/** List this section under [title] in the sections panel, at where it sits in the column. */
+@Composable
+private fun Modifier.sectionAnchor(title: String): Modifier {
+    val search = LocalPrefSearch.current ?: return this
+    androidx.compose.runtime.DisposableEffect(title) { onDispose { search.sections.remove(title) } }
+    return onGloballyPositioned {
+        val y = search.toContentY(it.positionInRoot().y).roundToInt()
+        if (search.sections[title] != y) search.sections[title] = y
+    }
+}
+
+/** The settings' sections or categories, styled like the note's side panel; a tap goes to it. */
+@Composable
+private fun PrefSectionsPanel(titles: List<String>, current: String?, icons: List<ImageVector> = emptyList(), onPick: (String) -> Unit) {
+    val palette = LocalPalette.current
+    Column(
+        Modifier
+            .width(224.dp)
+            .fillMaxHeight()
+            .background(palette.panel.toComposeColor())
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 4.dp),
+    ) {
+        for ((i, title) in titles.withIndex()) {
+            val selected = title == current
+            val color = (if (selected) palette.selectionForeground else palette.text).toComposeColor()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .then(if (selected) Modifier.background(palette.selectionBackground.toComposeColor()) else Modifier)
+                    .clickable { onPick(title) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                icons.getOrNull(i)?.let { Icon(it, null, tint = color, modifier = Modifier.size(18.dp)) }
+                Text(
+                    title,
+                    color = color,
+                    fontSize = 15.sp,
+                    fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -781,6 +1588,31 @@ private fun CustomMaterialControls(prefs: Preferences, update: (Preferences) -> 
         steps = 19,
         modifier = Modifier.width(280.dp),
     )
+}
+
+/** A chip that toggles membership, marked with a check when on; padded like [Chip] so both are one height. */
+@Composable
+internal fun CheckChip(label: String, on: Boolean, onClick: () -> Unit) {
+    val palette = LocalPalette.current
+    val fg = (if (on) palette.selectionForeground else palette.text).toComposeColor()
+    Row(
+        Modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(if (on) palette.selectionBackground.toComposeColor() else palette.surface.toComposeColor())
+            .border(1.dp, if (on) palette.accent.toComposeColor() else palette.border.toComposeColor(), MaterialTheme.shapes.small)
+            .semantics { this.selected = on }
+            .clickable(onClick = onClick)
+            .padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(
+            if (on) XnotesIcons.check else XnotesIcons.plus, null,
+            tint = (if (on) palette.selectionForeground else palette.textDim).toComposeColor(),
+            modifier = Modifier.size(16.dp),
+        )
+        Text(label, color = fg, fontSize = 14.sp, maxLines = 1, softWrap = false)
+    }
 }
 
 @Composable
@@ -1003,12 +1835,87 @@ internal fun PageColorGridPopup(initial: Rgba?, onDismiss: () -> Unit, onPick: (
     ColorPickerPopup(initial = initial, recents = emptyList(), onDismiss = onDismiss, onPick = onPick)
 }
 
+/** Drag to reorder by key within one list at a time: a ghost follows the finger and a caret marks the landing slot. */
+internal class KeyReorder {
+    var onMove: (keys: List<String>, from: String, slot: Int) -> Unit = { _, _, _ -> }
+    val bounds = HashMap<String, Rect>()
+    val origins = HashMap<String, Offset>()
+    var keys = emptyList<String>()
+    var stacked = false
+    var grab = Offset.Zero
+    var ghost: @Composable () -> Unit = {}
+    var dragging by mutableStateOf<String?>(null)
+    var finger by mutableStateOf(Offset.Zero)
+    var slot by mutableStateOf<Int?>(null)
+
+    /** Stacked rows split at their middle; chips flowing in rows go before the first one the finger is left of or above. */
+    fun retarget() {
+        fun before(r: Rect) = if (stacked) finger.y < r.center.y else finger.y < r.top || (finger.y <= r.bottom && finger.x < r.center.x)
+        slot = keys.indexOfFirst { k -> bounds[k]?.let(::before) == true }.let { if (it < 0) keys.size else it }
+    }
+
+    fun slotIn(list: List<String>): Int? = if (dragging != null && keys == list) slot else null
+
+    fun stop() { dragging = null; slot = null }
+}
+
+/** Reports where [key] sits and dims it while it is the one lifted. */
+private fun Modifier.reorderItem(r: KeyReorder, key: String) = this
+    .onGloballyPositioned { r.bounds[key] = it.boundsInRoot() }
+    .alpha(if (r.dragging == key) 0.35f else 1f)
+
+/** Drag here (at once, or after a long press) to move [key] among [keys], with [ghost] under the finger. */
+private fun Modifier.reorderDrag(r: KeyReorder, key: String, keys: List<String>, stacked: Boolean, longPress: Boolean, ghost: @Composable () -> Unit) = this
+    .onGloballyPositioned { r.origins[key] = it.boundsInRoot().topLeft }
+    .pointerInput(key, keys) {
+        val start = { at: Offset ->
+            r.keys = keys; r.stacked = stacked; r.ghost = ghost
+            r.finger = (r.origins[key] ?: Offset.Zero) + at
+            r.grab = r.finger - (r.bounds[key]?.topLeft ?: r.finger)
+            r.dragging = key
+            r.retarget()
+        }
+        val end = { r.slot?.let { r.onMove(r.keys, key, it) }; r.stop() }
+        val move = { change: androidx.compose.ui.input.pointer.PointerInputChange, delta: Offset -> change.consume(); r.finger += delta; r.retarget() }
+        if (longPress) detectDragGesturesAfterLongPress(onDragStart = start, onDragEnd = end, onDragCancel = r::stop, onDrag = move)
+        else detectDragGestures(onDragStart = start, onDragEnd = end, onDragCancel = r::stop, onDrag = move)
+    }
+
 @Composable
-private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun PageDropLine() {
+    Box(Modifier.padding(vertical = 2.dp).width(120.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(LocalPalette.current.accent.toComposeColor()))
+}
+
+@Composable
+private fun ChipDropCaret() {
+    Box(Modifier.width(2.dp).height(36.dp).background(LocalPalette.current.accent.toComposeColor()))
+}
+
+@Composable
+private fun PageDragGhost(label: String) {
+    val palette = LocalPalette.current
+    Row(
+        Modifier.alpha(0.9f).clip(MaterialTheme.shapes.small).background(palette.surface.toComposeColor())
+            .border(1.dp, palette.accent.toComposeColor(), MaterialTheme.shapes.small).padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(XnotesIcons.grip, null, tint = palette.accent.toComposeColor(), modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = palette.accent.toComposeColor(), fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun ChipDragGhost(chip: @Composable () -> Unit) {
+    Box(Modifier.alpha(0.9f)) { chip() }
+}
+
+@Composable
+internal fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { onChange(!checked) }) {
         Checkbox(checked = checked, onCheckedChange = onChange)
         Spacer(Modifier.width(2.dp))
-        Text(label, color = LocalPalette.current.text.toComposeColor(), fontSize = 14.sp)
+        Text(label, color = LocalPalette.current.text.toComposeColor(), fontSize = 14.sp, modifier = Modifier.searchAnchor(label))
     }
 }
 
@@ -1034,24 +1941,35 @@ private fun MillimetreField(label: String, value: Double, onChange: (Double) -> 
     )
 }
 
+/** The shared preferences dropdown: a bordered field showing the current choice and a down chevron. */
 @Composable
-private fun OptionDropdown(options: List<Pair<String, String>>, selectedId: String, onSelect: (String) -> Unit) {
+internal fun OptionDropdown(options: List<Pair<String, String>>, selectedId: String, checked: Set<String> = emptySet(), dividerBefore: String? = null, onSelect: (String) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     val palette = LocalPalette.current
     val label = options.firstOrNull { it.first == selectedId }?.second ?: options.first().second
     Box {
-        Box(
+        Row(
             Modifier
                 .clip(MaterialTheme.shapes.small)
                 .border(1.dp, palette.border.toComposeColor(), MaterialTheme.shapes.small)
                 .clickable { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(label, color = palette.text.toComposeColor(), fontSize = 14.sp)
+            Spacer(Modifier.width(6.dp))
+            Icon(XnotesIcons.chevronDown, null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(16.dp))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (id, lbl) ->
-                ChoiceMenuItem(id == selectedId, onClick = { onSelect(id); expanded = false }) { fg -> Text(lbl, color = fg) }
+                if (id == dividerBefore) HorizontalDivider(color = palette.border.toComposeColor())
+                DropdownMenuItem(
+                    text = { Text(lbl) },
+                    trailingIcon = if (id in checked) {
+                        { Icon(XnotesIcons.check, null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(14.dp)) }
+                    } else null,
+                    onClick = { onSelect(id); expanded = false },
+                )
             }
         }
     }

@@ -41,6 +41,7 @@ class FlowTextController(
     private val flow: () -> TextFlow,
     private val frame: () -> FlowFrame?,
     private val slotHeight: () -> Double,
+    private val blankPageSize: () -> Pair<Double, Double>,
     /** A mutation landed; republish the layout ([live] = a caret session is open). */
     private val onChanged: (live: Boolean) -> Unit,
     /** A coalesced burst (one undo step) was pushed: refresh chrome/autosave/stream. */
@@ -66,7 +67,7 @@ class FlowTextController(
 
         override fun changed(live: Boolean) = onChanged(live)
 
-        override fun grow(): List<Command> = autoAppendPages()
+        override fun grow(caretPara: Int): List<Command> = autoAppendPages(caretPara)
 
         override fun fillHeight(): Double = slotHeight()
     }
@@ -439,7 +440,7 @@ class FlowTextController(
             return
         }
         flushBurst()
-        val (cmd, caret) = FlowEditor(flow).appendEmptyLines(count)
+        val (cmd, caret) = FlowEditor(flow).appendEmptyLines(count, (surface.frame?.hiddenTailStart ?: flow.paragraphs.size).coerceAtMost(flow.paragraphs.size))
         commitEdit(cmd, caret)
     }
 
@@ -503,7 +504,7 @@ class FlowTextController(
             }
             val (_, caret) = FlowEditor(flow).replaceRange(r, text, effStyle)
             surface.changed(active)
-            burstExtras += surface.grow()
+            burstExtras += surface.grow(caret.para)
             selection = FlowRange.caret(caret)
             onTyped()
             if (markdownInput) InputRules.forTyped(flow, caret, text)?.takeIf { fits(it) }?.let { return applyRule(it, caret) }
@@ -584,7 +585,7 @@ class FlowTextController(
             return
         }
         surface.changed(active)
-        val extras = surface.grow()
+        val extras = surface.grow(caretTo?.para ?: selection.end.para)
         history.push(surface.record(if (extras.isEmpty()) head else CompositeCommand(listOf(head) + extras)))
         caretTo?.let { selection = FlowRange.caret(it) }
         onEdited()
@@ -616,14 +617,15 @@ class FlowTextController(
         onFlushed()
     }
 
-    /** Append pages, each the size the note gives an added page, until the published layout stops overflowing. */
-    private fun autoAppendPages(): List<Command> {
-        val need = frame()?.extraPagesNeeded ?: 0
+    /** Append pages, each the size the note gives an added page, until the content and the caret at [caretPara] fit. */
+    private fun autoAppendPages(caretPara: Int): List<Command> {
+        val need = frame()?.extraPagesFor(caretPara) ?: 0
         if (need <= 0) return emptyList()
         val doc = state.document
         val out = mutableListOf<Command>()
         repeat(need) {
-            val (w, h) = doc.blankPageSize(doc.pages.lastOrNull() ?: return out)
+            if (doc.pages.isEmpty()) return out
+            val (w, h) = blankPageSize()
             out += AddPageAuto(doc, Page(w, h), doc.pages.size).also { it.redo() }
         }
         state.relayout()
@@ -665,17 +667,20 @@ class FlowTextController(
     }
 
     /** Selection highlight + caret + drag handles, drawn in the interaction overlay (content space). */
+    /** The selection colour on the page frame page [framePage] lies on: a box's own page, else that page. */
+    private fun accentOf(framePage: Int): Rgba = state.selectionAccent(box?.pageIndex ?: framePage)
+
     fun drawOverlay(r: com.xnotes.core.pal.Renderer) {
         if (!active) return
         val f = surface.frame ?: return
-        val accent = state.palette.accent
         if (!selection.collapsed) {
-            for ((pi, rect) in f.selectionRects(selection)) {
-                r.fillRect(surface.toContent(pi, rect) ?: continue, accent.withAlpha(70))
+            val rects = f.selectionRects(selection)
+            for ((pi, rect) in rects) {
+                r.fillRect(surface.toContent(pi, rect) ?: continue, accentOf(pi).withAlpha(70))
             }
             val norm = selection.normalized()
-            handleCenter(norm.start, isStart = true)?.let { handles.draw(r, it, isStart = true, accent) }
-            handleCenter(norm.end, isStart = false)?.let { handles.draw(r, it, isStart = false, accent) }
+            handleCenter(norm.start, isStart = true)?.let { handles.draw(r, it, isStart = true, accentOf(rects.firstOrNull()?.first ?: 0)) }
+            handleCenter(norm.end, isStart = false)?.let { handles.draw(r, it, isStart = false, accentOf(rects.lastOrNull()?.first ?: 0)) }
         } else {
             val (pi, cr) = f.caretRect(selection.end) ?: return
             var top = cr.top
@@ -692,7 +697,7 @@ class FlowTextController(
                 }
             }
             val w = (FlowFrame.CARET_WIDTH / state.zoom).coerceAtLeast(0.75)
-            surface.toContent(pi, Rect(cr.left - w / 2.0, top, w, height))?.let { r.fillRect(it, accent) }
+            surface.toContent(pi, Rect(cr.left - w / 2.0, top, w, height))?.let { r.fillRect(it, Rgba.CARET) }
         }
     }
 

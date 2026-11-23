@@ -12,6 +12,7 @@ import com.xnotes.canvas.ItemClipboard
 import com.xnotes.core.fill.ColorDrop
 import com.xnotes.core.fill.DropAction
 import com.xnotes.core.fill.FillGrid
+import com.xnotes.core.geometry.Affine
 import com.xnotes.core.geometry.Pt
 import com.xnotes.core.geometry.Rect
 import com.xnotes.core.history.Command
@@ -43,6 +44,7 @@ import com.xnotes.core.infinite.ItemMesher
 import com.xnotes.core.infinite.Waypoint
 import com.xnotes.core.model.CanvasItem
 import com.xnotes.core.model.DrawStyle
+import com.xnotes.core.model.FunctionSpec
 import com.xnotes.core.model.ImageData
 import com.xnotes.core.model.ImageItem
 import com.xnotes.core.model.PageLayers
@@ -83,7 +85,7 @@ import com.xnotes.ui.theme.Palette
 /** How near ink a finger tap during playback may land to play from it, in dp. */
 private const val INK_TAP_DP = 8.0
 
-class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongPressMenuHost, TextEditHost, ColorDropHost, AudioHost, CropHost {
+class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongPressMenuHost, TextEditHost, ToastHost, ColorDropHost, AudioHost, CropHost {
 
     private val appContext = context.applicationContext
 
@@ -142,6 +144,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         onAudioTap = { tapAudio(it) },
         onPeelTape = { peelTape(it) },
         onUserMovedView = { AudioPlayback.userMoved(this) },
+        onAngleReadout = { angleReadout = it },
     )
 
     private val devicePxPerDp = appContext.resources.displayMetrics.density.toDouble()
@@ -164,6 +167,10 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
 
     /** Whether a held freehand stroke may snap to the shape it looks like. */
     private var detectShapes = false
+
+    /** The angle of a line end or rotation being dragged, or null when none is. */
+    var angleReadout by mutableStateOf<AngleReadout?>(null)
+        private set
 
     /** Live zoom, mirrored into Compose so a readout can follow a pinch frame by frame. */
     var zoomPercent by mutableStateOf(100)
@@ -235,6 +242,20 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     /** True while anything is selected, so the chrome can offer the actions that need one. */
     var hasSelection by mutableStateOf(false)
         private set
+
+    override var toastText by mutableStateOf<String?>(null)
+        private set
+    override var toastToken by mutableStateOf(0)
+        private set
+
+    /** Flash a brief themed pill at the bottom of the canvas (delete/copy/cut/paste feedback). */
+    fun showToast(text: String) {
+        toastText = text
+        toastToken++
+    }
+
+    /** Set while cut composes copy+delete internally, so only the "Cut" pill shows. */
+    private var suppressToast = false
 
     /** The GL-side mirror of the document. Fed by [modelListener]; never reads the model itself. */
     private val scene = CanvasScene()
@@ -497,7 +518,9 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         // radius above the box. Without this the bar lands on the grip and buries it. The bottom
         // stays put, so the fallback placement below the selection is unchanged.
         val clearance = OverlayTessellator.GRIP_ARM_PX + OverlayTessellator.GRIP_PX / 2.0
-        selectionMenuRect = Rect(bounds.x, bounds.y - clearance, bounds.w, bounds.h + clearance)
+        // The move grip under a small selection sits the same distance below, so the fallback clears it too.
+        val below = if (selection.moveGrip(viewport.zoom, OverlayTessellator.GRIP_ARM_PX / viewport.zoom) != null) clearance else 0.0
+        selectionMenuRect = Rect(bounds.x, bounds.y - clearance, bounds.w, bounds.h + clearance + below)
     }
 
     override fun dismissSelectionMenu() {
@@ -508,6 +531,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     override fun deleteSelection() {
         val items = selection.items
         if (items.isEmpty()) return
+        if (!suppressToast) showToast(appContext.getString(R.string.toast_deleted))
         val command = EraseCanvasItems.capture(document, items)
         document.removeAll(items)
         history.push(command)
@@ -520,6 +544,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     override fun copySelection() {
         if (selection.isEmpty) return
         copyToClipboard(cut = false)
+        showToast(appContext.getString(R.string.copied))
         maybeSwitchBackAfterSelect()
     }
 
@@ -531,7 +556,10 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     override fun cutSelection() {
         if (selection.isEmpty) return
         copyToClipboard(cut = true)
+        suppressToast = true
         deleteSelection() // also runs the select tool's switch-back, once
+        suppressToast = false
+        showToast(appContext.getString(R.string.toast_cut))
     }
 
     /** Clone the selection a nudge down and right, and leave the copies selected. */
@@ -566,6 +594,42 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         maybeSwitchBackAfterSelect()
     }
 
+    // Tables are a paged-note feature; the infinite canvas has none.
+
+    override val selectionFunction: FunctionSpec? get() = selection.function()?.function
+
+    override fun setSelectionFunction(spec: FunctionSpec): Boolean {
+        val command = selection.editFunction(spec) ?: return false
+        history.push(command)
+        markDirty()
+        refresh()
+        publishOverlay()
+        return true
+    }
+
+    // Crop is a paged-note image action; not offered on the infinite canvas.
+
+    // Text boxes and convert-to-text are paged-note actions for now; not offered on the infinite canvas.
+    override val selectionIsText: Boolean get() = false
+    override fun editSelectionText() {}
+
+    // Hyperlinks on items are a paged-note action for now; not offered on the infinite canvas.
+    override val selectionCanLink: Boolean get() = false
+    override val selectionLink: String? get() = null
+    override fun setSelectionLink(url: String?) {}
+
+    override val selectionCanCaption: Boolean get() = false
+    override val selectionHasCaption: Boolean get() = false
+
+    override fun captionSelection() {}
+
+    override val selectionHasInk: Boolean get() = false
+    override fun convertSelectionToText() {}
+    override val canConvertToMath: Boolean get() = false
+    override val selectionMath: String? get() = null
+    override fun setSelectionMath(latex: String): Boolean = false
+    override fun convertSelectionToMath() {}
+
     override fun unlockItem(item: CanvasItem) {
         if (!item.locked) return
         item.locked = false
@@ -595,6 +659,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         com.xnotes.core.audio.RecordingIds.adopt(clones, document.items, moves = clip.cut)
         document.addAll(clones)
         history.push(AddCanvasItems(document, clones))
+        showToast(appContext.getString(R.string.toast_inserted))
         if (clip.cut && ItemClipboard.clip === clip) ItemClipboard.clip = null
         selection.select(clones)
         armTool(Tool.SELECT)
@@ -624,7 +689,10 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     override fun pasteClipboardImageAt(content: Pt) {
         kotlin.concurrent.thread(name = "xnotes-clip-read", isDaemon = true) {
             val bytes = com.xnotes.platform.SystemClipboard.imageBytes(appContext) ?: return@thread
-            mainHandler.post { insertImage(bytes, content) }
+            mainHandler.post {
+                insertImage(bytes, content)
+                showToast(appContext.getString(R.string.toast_inserted))
+            }
         }
     }
 
@@ -683,6 +751,14 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         val bmp = renderSelectionBitmap()
         val ok = bmp != null && com.xnotes.platform.SystemClipboard.putImage(appContext, bmp, "xnotes selection")
         onMessage?.invoke(appContext.getString(if (ok) R.string.image_copied else R.string.err_copy_image), null)
+    }
+
+    /** Hands a saved selection to the sticker library the paged editor owns. */
+    var onSaveSticker: ((List<CanvasItem>, Int, android.graphics.Bitmap?) -> Unit)? = null
+
+    override fun saveSelectionAsSticker() {
+        if (selection.isEmpty) return
+        onSaveSticker?.invoke(selection.items.deepCopyAll(textMeasurer), document.dpi, renderSelectionBitmap())
     }
 
     override fun selectionImageForShare(): java.io.File? {
@@ -786,6 +862,20 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     /** The fills as a refill preview found them, so its settling call records them as one step. */
     private var refillBaseline: Map<ShapeItem, Rgba?>? = null
 
+    override fun selectionEffects() = com.xnotes.core.history.RestyleEffects.effects(selection.items)
+
+    override fun setSelectionEffects(dashed: Boolean?, neon: Boolean?, filled: Boolean?) {
+        val entries = com.xnotes.core.history.RestyleEffects.of(selection.items, dashed, neon, filled)
+        if (entries.isEmpty()) return
+        val command = com.xnotes.core.history.RestyleEffects(entries)
+        command.redo()
+        document.itemsChanged(entries.map { it.item })
+        history.push(OnCanvas(document, command, entries.map { it.item }))
+        markDirty()
+        refresh()
+        publishOverlay()
+    }
+
     override fun selectionTapePattern(): com.xnotes.core.model.TapePattern? =
         selection.items.firstNotNullOfOrNull { (it as? TapeItem)?.pattern }
 
@@ -805,6 +895,8 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     override fun selectionCount(): ShapeCount? = ShapeCount.of(selection.items.singleOrNull() as? ShapeItem)
 
     override fun canLabelSelection(): Boolean = (selection.items.singleOrNull() as? Labelled)?.let { it.takesLabel && !it.locked } == true
+
+    override fun selectionHasLabel(): Boolean = (selection.items.singleOrNull() as? Labelled)?.label?.text?.isNotBlank() == true
 
     override fun canRerouteSelection(): Boolean =
         selection.loneConnector?.let { !it.locked && (it.routing.orthogonal || it.waypoints.isNotEmpty()) } == true
@@ -835,6 +927,24 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         publishOverlay()
     }
 
+    override fun documentDpi(): Int = document.dpi
+
+    override fun selectionSize(): Pair<Double, Double>? {
+        if (selection.loneConnector != null || selection.items.singleOrNull() is com.xnotes.core.model.TableItem) return null
+        val box = selection.box ?: return null
+        return box.halfW * 2.0 to box.halfH * 2.0
+    }
+
+    override fun resizeSelection(width: Double, height: Double) {
+        val (bw, bh) = selectionSize() ?: return
+        val box = selection.box ?: return
+        if (width <= 0.0 || height <= 0.0) return
+        selection.transform(Affine.scaleAlongAxes(box.center, box.angle, if (bw > 0.0) width / bw else 1.0, if (bh > 0.0) height / bh else 1.0))?.let { history.push(it) }
+        markDirty()
+        refresh()
+        publishOverlay()
+    }
+
     override fun labelSelection() {
         val shape = selection.items.singleOrNull() as? Labelled ?: return
         if (shape.takesLabel && !shape.locked) startLabelEdit(shape)
@@ -852,6 +962,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
 
     override var textBar by mutableStateOf<com.xnotes.canvas.TextBar?>(null)
         private set
+    override val editAccent: com.xnotes.core.model.Rgba get() = palette?.selectionAccent(view.paperColor) ?: InkPalette.DEFAULT
 
     /** The type a new label starts in, following the last one styled. */
     private var textFace: FontFace = TextItem.DEFAULT_FACE
@@ -1043,6 +1154,20 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         toolConfigs[forTool] = config
     }
 
+    /** The armed tool as a pencilcase item, or null when it is not one the pencilcase holds. */
+    fun pencilcaseSnapshot(): com.xnotes.core.tools.PencilcaseItem? = tool.takeIf { it in com.xnotes.core.tools.PencilcaseItem.TOOLS }
+        ?.let { com.xnotes.core.tools.PencilcaseItem.of(it, toolConfig(it), shapeConfig, inkColor) }
+
+    /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
+    fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
+        if (item.tool == Tool.TABLE) return // a canvas has no tables
+        armTool(item.tool)
+        if (item.tool == Tool.SHAPE) updateShapeConfig(item.shape) else updateToolConfig(item.tool, item.config)
+        if (item.tool == Tool.ERASER) return
+        val swatch = toolbarColors.take(toolbarColorCount).indexOf(item.color)
+        if (swatch >= 0) pickColor(swatch) else armInkColor(item.color)
+    }
+
     fun armShapeConfig(config: ShapeConfig) {
         shapeConfig = config
     }
@@ -1066,8 +1191,24 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         onToolStyleChanged?.invoke()
     }
 
+    override val hostZoomLocked: Boolean get() = zoomLocked
+    override fun toggleHostZoomLock() = toggleZoomLock()
+
+    override var snapHeldToShapes: Boolean
+        get() = detectShapes
+        set(v) { detectShapes = v; onDetectShapesChanged?.invoke(v) }
+
+    /** Fired when the snap-to-shapes toggle changed here, so the host can persist it. */
+    var onDetectShapesChanged: ((Boolean) -> Unit)? = null
+
     override val hostShapeConfig: ShapeConfig get() = shapeConfig
 
+    /** The app's hidden shape chips and pages, read live from the preferences the paged editor holds. */
+    var hiddenShapes: () -> Set<String> = { emptySet() }
+
+    override val hostHiddenShapes: Set<String> get() = hiddenShapes()
+    var shapeOrder: () -> List<String> = { emptyList() }
+    override val hostShapeOrder: List<String> get() = shapeOrder()
     /** Peel [tape] back, or cover it again: the mesh changes, the history and the file do not. */
     private fun peelTape(tape: TapeItem) {
         tape.peeled = !tape.peeled
@@ -1119,10 +1260,16 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     private var dropWindow: Rect? = null
     private var dropItems: List<CanvasItem> = emptyList()
 
+    /** The selection as the drag began: a drop on it recolours the selection whole. */
+    private var dropSelection: List<CanvasItem> = emptyList()
+
     private val colorDropper = ColorDropper(object : DropSurface {
         override fun beginDrop() {
             if (editingLabel != null) commitText()
-            interaction.clearSelection()
+            // A selection stays out through the drag (the canvas is never touched), so dropping the
+            // colour back on it recolours all of it. Only a drag without one clears what was there.
+            if (selection.isEmpty) interaction.clearSelection()
+            dropSelection = selection.items.toList()
             val seen = viewport.visibleContentRect()
             val window = seen.outset(maxOf(seen.w, seen.h) * DROP_MARGIN)
             dropWindow = window
@@ -1142,10 +1289,11 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
                 grid = grid,
                 reach = DROP_REACH_DP * devicePxPerDp / zoom,
                 smallHole = (DROP_SMALL_HOLE_MM / 25.4 * appContext.resources.displayMetrics.xdpi / zoom * grid.scale).toInt(),
+                selection = boundsOf(dropSelection),
             )
         }
 
-        override fun applyDrop(spot: DropSpot, action: DropAction, color: Rgba) = applyColorDrop(action, color)
+        override fun applyDrop(spot: DropSpot, action: DropAction, color: Rgba) = applyColorDrop(spot, action, color)
 
         override fun viewInWindow(): Offset {
             val at = IntArray(2).also { view.getLocationInWindow(it) }
@@ -1179,7 +1327,14 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     var onSay: ((String) -> Unit)? = null
 
     /** Carry out a colour drop as one undo step, or say why nothing happened. */
-    private fun applyColorDrop(action: DropAction, color: Rgba) {
+    private fun applyColorDrop(spot: DropSpot, action: DropAction, color: Rgba) {
+        // A drop inside the selection's bounds recolours all of it as one undo step, but only while
+        // the selection is still the one the drag began with: undo or a sync may have changed it.
+        val unchanged = selection.items.size == dropSelection.size && dropSelection.all { d -> selection.items.any { it === d } }
+        if (unchanged && spot.selection?.outset(spot.reach)?.contains(spot.at) == true) {
+            restyleSelection(color, null)
+            return
+        }
         val command: Command = when (action) {
             is DropAction.Recolour -> {
                 val item = action.item.takeIf { document.containsRef(it) } ?: return
@@ -1201,6 +1356,8 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
                 onSay?.invoke(appContext.getString(R.string.colour_drop_not_closed))
                 return
             }
+            // The canvas has no markups; the surface never hands this in, but the when is exhaustive.
+            DropAction.RecolourMarkup -> return
             DropAction.None -> return
         }
         command.redo()
@@ -1534,7 +1691,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     private fun publishOverlay() {
         hasSelection = !selection.isEmpty
         refreshSelectionMenu()
-        val accent = palette?.accent ?: InkPalette.DEFAULT
+        val accent = palette?.selectionAccent(view.paperColor) ?: InkPalette.DEFAULT
         val zoom = viewport.zoom
         // A lasso drag owns the buffer on its own: it clears the selection when it starts and no
         // marquee can be out at the same time, so nothing else needs a place in the same publish.
@@ -1573,10 +1730,12 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
             val shape = (selection.items.singleOrNull() as? ShapeItem)?.takeIf { interaction.showsEditDots }
             parts += OverlayTessellator.selection(
                 box, zoom, accent, StrokeTessellator.DEFAULT_TOLERANCE, devicePxPerDp,
-                handles = selection.handles(margin).map { it.content },
+                handles = selection.handles(margin, zoom).map { it.content },
                 vertexDots = shape?.vertexDots()?.map { it.at }.orEmpty(),
                 edgeDots = shape?.edgeDots(OverlayTessellator.EDGE_DOT_MIN_PX / zoom)?.map { it.at }.orEmpty(),
                 knobs = shape?.knobDots().orEmpty(),
+                moveGrip = selection.moveGrip(zoom, OverlayTessellator.GRIP_ARM_PX / zoom, margin),
+                onAccent = palette?.onSelectionAccent(view.paperColor) ?: com.xnotes.core.model.Rgba(255, 255, 255, 255),
                 grip = selection.turns,
             )
             val b = OverlayTessellator.selectionBounds(box, zoom)
@@ -2120,12 +2279,23 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     }
 
     /** Adopt the app's pen preferences, so the canvas and the paged note behave the same. */
-    fun applyInputPrefs(fingerDraws: Boolean, penButtonTool: Tool?, zoomLockPan: String, detectShapes: Boolean) {
+    fun applyInputPrefs(
+        fingerDraws: Boolean,
+        penButtonTool: Tool?,
+        zoomLockPan: String,
+        detectShapes: Boolean,
+        snapRotation90: Boolean = false,
+    ) {
         interaction.fingerDraws = fingerDraws
         interaction.penButtonTool = penButtonTool
         interaction.zoomLockPan = zoomLockPan
         this.detectShapes = detectShapes
+        selection.snapRotation90 = snapRotation90
+        this.snapRotation90 = snapRotation90
     }
+
+    /** Mirrors prefs.snapRotation90; re-applied to each freshly built selection. */
+    private var snapRotation90 = false
 
     fun toggleZoomLock() {
         zoomLocked = !zoomLocked
@@ -2201,6 +2371,13 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         view.publish()
     }
 
+    fun setZoom(scale: Float) {
+        if (zoomLocked) return
+        viewport.zoomAroundCenter(scale.toDouble())
+        onViewChanged()
+        view.publish()
+    }
+
     private var palette: Palette? = null
 
     /** Adopt the chrome's palette, so the paper and the selection accent match the rest of the app. */
@@ -2235,7 +2412,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         document.listener = null
         document = next
         next.listener = modelListener
-        selection = CanvasSelection(next)
+        selection = CanvasSelection(next).also { it.snapRotation90 = snapRotation90 }
         hasSelection = false
         history.clear()
         interaction.resetGestureState()

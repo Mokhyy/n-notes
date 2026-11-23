@@ -61,13 +61,13 @@ import kotlin.math.roundToInt
 private enum class CanvasPage(val depth: Int) { HOME(0), STYLES(1), WAYPOINTS(1) }
 
 @Composable
-internal fun CanvasSettingsButton(editor: InfiniteEditor, fullscreen: Boolean, onToggleFullscreen: () -> Unit) {
+internal fun CanvasSettingsButton(editor: InfiniteEditor, owner: Editor, fullscreen: Boolean, onToggleFullscreen: () -> Unit) {
     var open by remember { mutableStateOf(false) }
     SettingsButton(open, { open = it }) {
         var page by remember { mutableStateOf(CanvasPage.HOME) }
         PanelPages(page, { it.depth }) { p ->
             when (p) {
-                CanvasPage.HOME -> CanvasHome(editor, fullscreen, onToggleFullscreen) { page = it }
+                CanvasPage.HOME -> CanvasHome(editor, owner, fullscreen, onToggleFullscreen) { page = it }
                 CanvasPage.STYLES -> CanvasStylesPage(editor) { page = CanvasPage.HOME }
                 CanvasPage.WAYPOINTS -> WaypointsPage(editor, onJumped = { open = false }) { page = CanvasPage.HOME }
             }
@@ -76,7 +76,7 @@ internal fun CanvasSettingsButton(editor: InfiniteEditor, fullscreen: Boolean, o
 }
 
 @Composable
-private fun CanvasHome(editor: InfiniteEditor, fullscreen: Boolean, onToggleFullscreen: () -> Unit, go: (CanvasPage) -> Unit) {
+private fun CanvasHome(editor: InfiniteEditor, owner: Editor, fullscreen: Boolean, onToggleFullscreen: () -> Unit, go: (CanvasPage) -> Unit) {
     PanelCard {
         PanelCaption(stringResource(R.string.title_zoom))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -91,6 +91,7 @@ private fun CanvasHome(editor: InfiniteEditor, fullscreen: Boolean, onToggleFull
         }
         Spacer(Modifier.height(8.dp))
         FitTile(stringResource(R.string.fit_all), XnotesIcons.fitAll, Modifier.fillMaxWidth(), enabled = !editor.zoomLocked, shortcut = Keys.FIT_ALL) { editor.zoomToFit() }
+        SavedZooms(owner, editor.zoomPercent, editor.zoomLocked, editor::setZoom)
     }
     Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -25,8 +25,8 @@ interface FlowSurface {
     /** An edit landed and the text is to be set afresh; [live] while a session is open. */
     fun changed(live: Boolean)
 
-    /** Whatever the edit just made needed to hold it, already applied, as undo steps. */
-    fun grow(): List<Command> = emptyList()
+    /** Whatever the edit just made needed to hold it and the caret in paragraph [caretPara], already applied, as undo steps. */
+    fun grow(caretPara: Int): List<Command> = emptyList()
 
     /** [cmd] as an edit of this surface is recorded. */
     fun record(cmd: Command): Command = cmd

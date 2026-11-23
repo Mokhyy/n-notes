@@ -34,6 +34,7 @@ import com.xnotes.core.model.TapeItem
 import com.xnotes.core.model.TapeMode
 import com.xnotes.core.model.TapePattern
 import com.xnotes.core.model.TapeShape
+import com.xnotes.core.model.MathOrigin
 import com.xnotes.core.model.TextItem
 import com.xnotes.core.stroke.Sample
 import com.xnotes.core.stroke.StrokeSimplify
@@ -978,6 +979,16 @@ class DocumentCodecTest {
         assertEquals(PageMargins(top = 0.1), read.pages[1].margins)
     }
 
+    @Test fun aPagesOwnTextMarginsRoundTripAndOthersFollowTheNote() {
+        val doc = Document(pages = mutableListOf(Page(400.0, 800.0), Page(400.0, 800.0)))
+        doc.pages[1].textMargins = com.xnotes.core.text.FlowMargins(5.0, 10.0, 15.0, 120.0)
+
+        val read = roundTrip(doc)
+
+        assertNull(read.pages[0].textMargins)
+        assertEquals(com.xnotes.core.text.FlowMargins(5.0, 10.0, 15.0, 100.0), read.pages[1].textMargins)
+    }
+
     @Test fun noMarginsWritesNoMarginsObject() {
         val out = ByteArrayOutputStream()
         codec.write(Document(pages = mutableListOf(Page(400.0, 800.0))), out)
@@ -1393,5 +1404,35 @@ class DocumentCodecTest {
         val back = codec.read(ByteArrayInputStream(out.toByteArray())).pages[0].items[0] as TextItem
         assertEquals("kept", back.text)
         assertEquals(80.0, back.width, 1e-9)
+    }
+
+    @Test fun anOldForkBoxKeepsItsBoldAndAlignment() {
+        val json = "{\"format\":\"xnote\",\"version\":1,\"dpi\":150,\"has_pdf\":false,\"bookmarks\":[]," +
+            "\"pages\":[{\"width\":100,\"height\":100,\"pdf_page\":null,\"items\":[" +
+            "{\"kind\":\"text\",\"pos\":[1,2],\"width\":80,\"text\":\"hi\",\"rgba\":[0,0,0,255],\"point_size\":13," +
+            "\"bold\":true,\"underline\":true,\"align\":\"center\"}]}]}"
+        val out = ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(out).use {
+            it.putNextEntry(java.util.zip.ZipEntry("manifest.json"))
+            it.write(json.toByteArray())
+            it.closeEntry()
+        }
+        val back = codec.read(ByteArrayInputStream(out.toByteArray())).pages[0].items[0] as TextItem
+        val para = back.flow.paragraphs[0]
+        assertTrue(para.runs[0].style.bold)
+        assertTrue(para.runs[0].style.underline)
+        assertFalse(para.runs[0].style.italic)
+        assertEquals(com.xnotes.core.text.ParaAlign.CENTER, para.align)
+    }
+
+    @Test fun recognizedFormulaKeepsItsOrigin() {
+        val doc = Document(mutableListOf())
+        val page = Page(200.0, 200.0, mutableListOf())
+        page.items.add(TextItem(Pt(1.0, 1.0), text = "\\alpha", measurer = FakeTextMeasurer(), math = true).apply { ocr = MathOrigin("pix2text-mfr", "a") })
+        page.items.add(TextItem(Pt(1.0, 50.0), text = "x", measurer = FakeTextMeasurer(), math = true))
+        doc.pages.add(page)
+        val back = roundTrip(doc).pages[0].items
+        assertEquals(MathOrigin("pix2text-mfr", "a"), (back[0] as TextItem).ocr)
+        assertEquals(null, (back[1] as TextItem).ocr)
     }
 }

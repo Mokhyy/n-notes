@@ -115,11 +115,14 @@ class RoomView(
     /** The colour room opening here takes, or null for the page's own. */
     val color: Rgba? = null,
 ) {
-    /** Anchored items drawn under the ink: dropped colour, which lies under the lines it fills. */
-    val fills: List<CanvasItem> get() = anchored.filter { it is com.xnotes.core.model.ShapeItem && it.isFill }
+    /** Anchored items drawn under the ink: dropped colour, which lies under the lines it fills, and the page's own image. */
+    val fills: List<CanvasItem> get() = anchored.filter { underInk(it) }
 
     /** Anchored items drawn over the ink. */
-    val over: List<CanvasItem> get() = anchored.filter { !(it is com.xnotes.core.model.ShapeItem && it.isFill) }
+    val over: List<CanvasItem> get() = anchored.filterNot { underInk(it) }
+
+    private fun underInk(it: CanvasItem) =
+        (it is com.xnotes.core.model.ShapeItem && it.isFill) || (it as? com.xnotes.core.model.ImageItem)?.paper == true
 }
 
 /** How a freshly opened document's initial view is chosen (see [CanvasState.establishInitialView]). */
@@ -213,6 +216,9 @@ class CanvasState(
     /** Device pixels per dp (display density), set by the view. Lets the speed pen
      *  measure gesture speed in zoom- and device-independent dp (see [InteractionController]). */
     var devicePxPerDp: Double = 1.0
+
+    /** [com.xnotes.settings.CornerStyle.scale] of the corner style preference, for chrome drawn on the canvas. */
+    var cornerScale: Double = 1.0
     var pageColorOverride: Rgba? = null
     var didInitialFit: Boolean = false
 
@@ -242,6 +248,9 @@ class CanvasState(
      * and the interaction layer flips between rows after a deliberate edge swipe.
      */
     var verticalScroll: Boolean = true
+
+    /** With [verticalScroll], rows run left to right in one strip that scrolls freely: reader mode's horizontal scrolling. */
+    var horizontalStrip: Boolean = false
 
     /** The row the paginated view is on (its scroll window); moved by flips and [goToPage]. */
     var currentRow: Int = 0
@@ -814,7 +823,7 @@ class CanvasState(
         val rowWidths = rows.map { r -> r.sumOf { displayW(pages[it]) } + (r.last - r.first) * pageGap }
         val rowHeights = rows.map { r -> r.maxOf { displayH(pages[it]) } }
         val rects = arrayOfNulls<Rect>(pages.size)
-        if (verticalScroll) {
+        if (verticalScroll && !horizontalStrip) {
             // Rows stack top-down, centred against the widest row.
             val maxW = rowWidths.max()
             var y = vertMargin
@@ -1019,6 +1028,15 @@ class CanvasState(
 
     fun paperColor(page: Page): Rgba = effectivePageColor(page) ?: palette.paper
 
+    private fun paperAt(pageIndex: Int?): Rgba =
+        document.pages.getOrNull(pageIndex ?: currentPageIndex())?.let(::paperColor) ?: palette.paper
+
+    /** The selection chrome's colour on page [pageIndex] (the current page when null), set off from its paper. */
+    fun selectionAccent(pageIndex: Int? = null): Rgba = palette.selectionAccent(paperAt(pageIndex))
+
+    /** The glyphs drawn on [selectionAccent] for page [pageIndex]. */
+    fun onSelectionAccent(pageIndex: Int? = null): Rgba = palette.onSelectionAccent(paperAt(pageIndex))
+
     /**
      * The pages the view may draw (and touch). Vertical mode shows everything the viewport
      * reaches. The paginated view shows exactly one row at any moment: [currentRow]
@@ -1076,6 +1094,11 @@ class CanvasState(
             val cx = viewportToContent(Pt(viewportW / 2.0, viewportH / 2.0)).x
             for (i in row) if (pageRects[i].right + pageGap / 2.0 > cx) return i
             return row.last
+        }
+        if (horizontalStrip) {
+            val centerX = viewportToContent(Pt(viewportW / 2.0, viewportH / 2.0)).x
+            for (i in pageRects.indices) if (pageRects[i].right + pageGap / 2.0 > centerX) return i
+            return pageRects.size - 1
         }
         val centerY = viewportToContent(Pt(viewportW / 2.0, viewportH / 2.0)).y
         for (i in pageRects.indices) {
@@ -1255,10 +1278,11 @@ class CanvasState(
      *  Paginated mode fits the current row (the strip as a whole is never the fit target). */
     fun fitWidthZoom(): Double {
         if (viewportW == 0) return 0.0
-        if (!verticalScroll) {
+        if (!verticalScroll || horizontalStrip) {
             val rows = rowRanges()
             if (rows.isEmpty()) return 0.0
-            val w = rowBounds(rows[currentRow.coerceIn(0, rows.lastIndex)]).w + 2 * sideMargin
+            val row = if (horizontalStrip) rowIndexOf(currentPageIndex()) else currentRow
+            val w = rowBounds(rows[row.coerceIn(0, rows.lastIndex)]).w + 2 * sideMargin
             return if (w <= 0.0) 0.0 else (clearW / w).coerceIn(minZoom, maxZoom)
         }
         if (contentW <= 0.0) return 0.0
@@ -2119,19 +2143,23 @@ class CanvasState(
         val fill = (cacheBudget() * FILL_SHARE).toLong()
         val wants = ArrayList<Want>()
         if (verticalScroll) {
-            fun top(r: Int) = rows[r].minOf { pageRects[it].top }
-            fun bottom(r: Int) = rows[r].maxOf { pageRects[it].bottom }
+            // Along the scrolling axis: down the column, or across the horizontal strip.
+            val across = horizontalStrip
+            fun top(r: Int) = rows[r].minOf { if (across) pageRects[it].left else pageRects[it].top }
+            fun bottom(r: Int) = rows[r].maxOf { if (across) pageRects[it].right else pageRects[it].bottom }
+            val vTop = if (across) view.left else view.top
+            val vBottom = if (across) view.right else view.bottom
             // Rows on screen are first..last (last = first - 1 when the view sits in a gap).
             var first = 0
-            while (first < rows.size && bottom(first) < view.top) first++
+            while (first < rows.size && bottom(first) < vTop) first++
             var last = rows.lastIndex
-            while (last >= 0 && top(last) > view.bottom) last--
+            while (last >= 0 && top(last) > vBottom) last--
             for (r in first..last) wantRow(rows[r], view, 0.0, wants)
             var lo = first - 1
             var hi = last + 1
             while (lo >= 0 || hi <= rows.lastIndex) {
-                val below = if (hi <= rows.lastIndex) (top(hi) - view.bottom) * zoom else Double.MAX_VALUE
-                val above = if (lo >= 0) (view.top - bottom(lo)) * zoom else Double.MAX_VALUE
+                val below = if (hi <= rows.lastIndex) (top(hi) - vBottom) * zoom else Double.MAX_VALUE
+                val above = if (lo >= 0) (vTop - bottom(lo)) * zoom else Double.MAX_VALUE
                 // A row further out holds only bands further out: stop once the nearer ones take the share.
                 val reach = min(below, above)
                 if (wants.sumOf { if (it.distance <= reach) it.bytes else 0L } >= fill) break

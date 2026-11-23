@@ -383,9 +383,13 @@ internal fun ViewOptionsMenu(
     view: ExplorerView,
     layouts: List<ExplorerLayout>,
     everyFolder: Boolean,
+    hideDotItems: Boolean,
+    showHidden: Boolean,
     onChange: (ExplorerView) -> Unit,
     onReset: () -> Unit,
     onEveryFolder: (Boolean) -> Unit,
+    onHideDotItems: (Boolean) -> Unit,
+    onShowHidden: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val layout = view.layout
@@ -520,7 +524,11 @@ internal fun ViewOptionsMenu(
                 }
             }
         })
-        MenuCard(listOf<MenuGroup> { MenuSwitch(stringResource(R.string.view_every_folder), everyFolder, onChange = onEveryFolder) })
+        MenuCard(listOf<MenuGroup>(
+            { MenuSwitch(stringResource(R.string.view_every_folder), everyFolder, onChange = onEveryFolder) },
+            { MenuSwitch(stringResource(R.string.view_hide_dot_items), hideDotItems, onChange = onHideDotItems) },
+            { MenuSwitch(stringResource(R.string.view_show_hidden), showHidden, onChange = onShowHidden) },
+        ))
     }
 }
 

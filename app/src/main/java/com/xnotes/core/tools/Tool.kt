@@ -16,6 +16,7 @@ enum class Tool(val id: String) {
     SHAPE("shape"),
     TEXT("text"),
     TEXT_BOX("text_box"),
+    TABLE("table"),
     IMAGE("image"),
 
     /** Marks a PDF's text: highlights and lines along it, or selects it ([MarkupMode]). */
@@ -39,13 +40,19 @@ enum class Tool(val id: String) {
      */
     val fingerPansWhenOff: Boolean get() = isStroke ||
         this == SELECT || this == LASSO || this == SCREENSHOT || this == SHAPE || this == ERASER || this == MARKUP || this == TAPE ||
-        this == INSERT_SPACE
+        this == TABLE || this == INSERT_SPACE
 
     companion object {
         fun fromId(id: String?): Tool? = entries.firstOrNull { it.id == id }
 
         /** Armed at startup. */
         val DEFAULT = PAN
+
+        /** The pen kinds the one toolbar pen switches between. */
+        val PENS = listOf(PEN, DASHED, CALLIGRAPHY, SPEED, TAPER)
+
+        /** The selection shapes the one toolbar select switches between. */
+        val SELECTIONS = listOf(SELECT, LASSO)
 
         /** Quick-tool-wheel order (spec 06 §11 / 10 §7). */
         val wheelOrder = listOf(PEN, DASHED, CALLIGRAPHY, SPEED, TAPER, HIGHLIGHTER, ERASER, SELECT, LASSO, INSERT_SPACE, SCREENSHOT, TAPE, SHAPE, TEXT, MARKUP, PAN)

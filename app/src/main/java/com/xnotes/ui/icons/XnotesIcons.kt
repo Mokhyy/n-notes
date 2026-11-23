@@ -75,7 +75,11 @@ object XnotesIcons {
         "M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z",
     )
     val pan = icon("M5 9 2 12l3 3", "M9 5l3-3 3 3", "M15 19l-3 3-3-3", "M19 9l3 3-3 3", "M2 12h20", "M12 2v20")
-    val select = icon("M3 3l7.07 16.97 2.51-7.39 7.39-2.51Z", "M13 13l6 6")
+    // Rectangle selection, drawn like the lasso: a box in marching ants.
+    val select = icon(
+        "M3 8V5h3", "M9.5 5h5", "M18 5h3v3", "M21 11v2",
+        "M21 16v3h-3", "M14.5 19h-5", "M6 19H3v-3", "M3 13v-2",
+    )
     // Free selection, drawn as the marquee it leaves behind: a freehand loop in marching ants.
     val lasso = icon(
         "M21.4 8.3Q22.9 10.4 21.7 12.8", "M19.7 14.9Q17.6 16.1 15.5 17.3",
@@ -160,6 +164,8 @@ object XnotesIcons {
     val insertSpace = icon("M4 12h16", "M12 9V3", "M8.5 6.5 12 3l3.5 3.5", "M12 15v6", "M8.5 17.5 12 21l3.5-3.5")
     val scissors = icon(circle(6.0, 6.0, 3.0), circle(6.0, 18.0, 3.0), "M20 4 8.12 15.88", "M14.47 14.48 20 20", "M8.12 8.12 12 12")
 
+    val table = icon(rect(3.0, 4.0, 18.0, 16.0), "M3 12 H21", "M9 4 V20", "M15 4 V20")
+
     // Shape-kind glyphs for the shape tool's kind picker (line / arrow / rect / ellipse / circle / triangle).
     val undo = icon("M9 14 4 9l5-5", "M20 20v-7a4 4 0 0 0-4-4H4")
     val redo = icon("M15 14l5-5-5-5", "M4 20v-7a4 4 0 0 1 4-4h12")
@@ -167,6 +173,7 @@ object XnotesIcons {
     val zoomOut = icon(circle(11.0, 11.0, 8.0), "M21 21l-4.35-4.35", "M8 11h6")
     val fit = icon("M8 3H5a2 2 0 0 0-2 2v3", "M21 8V5a2 2 0 0 0-2-2h-3", "M3 16v3a2 2 0 0 0 2 2h3", "M16 21h3a2 2 0 0 0 2-2v-3")
     val page = icon(rect(3.0, 3.0, 18.0, 18.0), "M12 8v8", "M8 12h8")
+    val addPage = icon("M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z", "M14 2v6h6", "M12 12v6", "M9 15h6")
     // The infinite canvas: a ruled field running past its own edges.
     val canvas = icon(rect(3.0, 3.0, 18.0, 18.0), "M3 9h18", "M3 15h18", "M9 3v18", "M15 3v18")
     // The overview map: the canvas frame opening at its corner for the panel that rests there,
@@ -296,6 +303,10 @@ object XnotesIcons {
     )
     /** Two corner brackets crossing: cutting a picture down. */
     val crop = icon("M6 2v14a2 2 0 0 0 2 2h14", "M18 22V8a2 2 0 0 0-2-2H2")
+    /** A box with an arrow pulling its corner out: setting a selection's exact size. */
+    val resize = icon("M21 3L9 15", "M12 3H3v18h18v-9", "M16 3h5v5", "M14 15H9v-5")
+    /** Two triangles facing a line: flipping a selection over. */
+    val mirror = icon("M12 3v18", "M3 7v10l6-5z", "M21 7v10l-6-5z")
     /** A sheet standing and the same sheet lying down: a page's size and which way round it is. */
     val pageSize = icon(roundRect(6.0, 2.0, 12.0, 20.0, 2.0), roundRect(2.0, 6.0, 20.0, 12.0, 2.0))
     /** A quarter turn clockwise. */
@@ -314,6 +325,8 @@ object XnotesIcons {
     )
     /** Two ticks: select every one. */
     val selectAll = icon("M18 6 7 17l-5-5", "M22 10l-7.5 7.5L13 16")
+    /** A box with a dash: let go of every one. */
+    val deselectAll = icon(rect(3.0, 3.0, 18.0, 18.0), "M8 12h8")
     val arrowUp = icon("M12 19V5", "M5 12l7-7 7 7")
     val arrowDown = icon("M12 5v14", "M19 12l-7 7-7-7")
     val newFolder = icon("M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2Z", "M12 11v6", "M9 14h6")
@@ -384,6 +397,7 @@ object XnotesIcons {
 
     // About / feedback links.
     val info = icon(circle(12.0, 12.0, 10.0), "M12 16v-4", "M12 8h.01")
+    val warning = icon("M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z", "M12 9v4", "M12 17h.01")
     val bug = icon(
         "M8 2l1.88 1.88", "M14.12 3.88 16 2",
         "M9 7.13v-1a3.003 3.003 0 1 1 6 0v1",
@@ -398,4 +412,25 @@ object XnotesIcons {
     )
     val github = icon("M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22")
     val heart = icon("M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z")
+    // Selection menu actions that can be moved from the overflow menu onto the bar.
+    val rename = icon(
+        "M5 4h1a3 3 0 0 1 3 3 3 3 0 0 1 3-3h1", "M13 20h-1a3 3 0 0 1-3-3 3 3 0 0 1-3 3H5",
+        "M5 16H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h1", "M13 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-7", "M9 7v10",
+    )
+    val function = icon(roundRect(3.0, 3.0, 18.0, 18.0, 2.0), "M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3", "M9 11.2h5.7")
+    val convertText = icon("M2 15c1.5-3 2.5-3 3.5 0s2 3 3.5 0", "M11 12h3", "m12.5 10 2 2-2 2", "M16 7h6", "M19 7v10")
+    val sigma = icon("M18 7V4H6l6 8-6 8h12v-3")
+    val caption = icon(roundRect(3.0, 3.0, 18.0, 12.0, 2.0), "M7 20h10")
+    val tag = icon(
+        "M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4Z",
+        "M7.5 7.5h.01",
+    )
+    val reroute = icon(circle(6.0, 19.0, 3.0), "M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15", circle(18.0, 5.0, 3.0))
+    val copyImage = icon(
+        roundRect(8.0, 8.0, 14.0, 14.0, 2.0), "M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2",
+        "m22 18-3-3-6 6", circle(12.5, 12.5, 1.0),
+    )
+    val scanText = icon("M3 7V5a2 2 0 0 1 2-2h2", "M17 3h2a2 2 0 0 1 2 2v2", "M21 17v2a2 2 0 0 1-2 2h-2", "M7 21H5a2 2 0 0 1-2-2v-2", "M7 8h8", "M7 12h10", "M7 16h6")
+    val gauge = icon("m12 14 4-4", "M3.34 19a10 10 0 1 1 17.32 0")
+    val cloud = icon("M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z")
 }

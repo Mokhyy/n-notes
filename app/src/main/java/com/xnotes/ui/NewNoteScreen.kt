@@ -621,7 +621,6 @@ internal fun NewNoteScreen(
                             open = false
                             onTemplateFromImage(kind)
                         }
-                        MenuItem(stringResource(R.string.tab_generate_ai), XnotesIcons.magicWand) { open = false; aiOpen = true }
                     }
                 }
             }

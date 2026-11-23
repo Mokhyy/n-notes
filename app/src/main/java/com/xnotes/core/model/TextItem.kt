@@ -6,6 +6,8 @@ import com.xnotes.core.geometry.Rect
 import com.xnotes.core.pal.BoxTextHost
 import com.xnotes.core.pal.FontFace
 import com.xnotes.core.pal.FontSpec
+import com.xnotes.core.pal.MathBox
+import com.xnotes.core.pal.MathTypesetter
 import com.xnotes.core.pal.Pen
 import com.xnotes.core.pal.Renderer
 import com.xnotes.core.pal.TextMeasurer
@@ -76,6 +78,8 @@ class TextItem(
     autoWidth: Boolean,
     val flow: TextFlow,
     private val measurer: TextMeasurer,
+    /** [text] is LaTeX, drawn as a formula (the handwritten-maths add-on makes these). */
+    var math: Boolean = false,
 ) : CanvasItem, Resizable {
 
     /** A box of plain [text] in one style, as files before rich text held and tests build. */
@@ -88,12 +92,14 @@ class TextItem(
         face: FontFace = DEFAULT_FACE,
         measurer: TextMeasurer,
         autoWidth: Boolean = false,
-    ) : this(pos, width, autoWidth, plainFlow(text, rgba, pointSize, face), measurer)
+        math: Boolean = false,
+    ) : this(pos, width, autoWidth, plainFlow(text, rgba, pointSize, face), measurer, math)
 
     override val kind = KIND
     override val mirrorable = false
     override val resizable = true
     override var locked = false
+    override var link: String? = null
     override var group: Int? = null
     override var sync: SyncMark? = null
 
@@ -166,6 +172,15 @@ class TextItem(
 
     val font get() = FontSpec(pointSize, face)
 
+    /** Set when the handwritten-maths add-on made this formula, so edits to it can teach the model's corrections. */
+    var ocr: MathOrigin? = null
+
+    /** A link to a stored document draws a paperclip before its text, this wide. */
+    private val inset: Double get() = if (link?.startsWith(DOCUMENT_LINK) == true) docLinkInset(pointSize) else 0.0
+
+    /** The formula's size, or null when this is not maths or the LaTeX cannot be set (then it shows as text). */
+    fun mathBox(): MathBox? = if (math && text.isNotEmpty()) mathTypesetter?.measure(text, pointSize, display = true) else null
+
     /** Lay the flow out afresh and publish it. Call after anything that changes the text or its styles. */
     fun reflow() {
         content = typeset()
@@ -208,17 +223,26 @@ class TextItem(
     }
 
     /** Where the text itself sits, inside the inset. */
-    fun textRect(): Rect = content.let { Rect(pos.x, pos.y, it.w, it.h) }
+    fun textRect(): Rect = content.let { Rect(pos.x + inset, pos.y, it.w, it.h) }
 
-    override fun bounds(): Rect = content.let { Rect(pos.x - PAD_X, pos.y - PAD_Y, it.w + 2 * PAD_X, it.h + 2 * PAD_Y) }
+    override fun bounds(): Rect {
+        mathBox()?.let { return Rect(pos.x, pos.y, it.width, it.height) }
+        return content.let { Rect(pos.x - PAD_X, pos.y - PAD_Y, it.w + inset + 2 * PAD_X, it.h + 2 * PAD_Y) }
+    }
 
     override fun paintBounds(): Rect = if (box.outlined) bounds().outset(box.borderWidth / 2.0) else bounds()
 
     override fun paint(r: Renderer) {
+        mathBox()?.let {
+            r.drawMath(text, pos.x, pos.y + it.ascent, pointSize, rgba, display = true)
+            return
+        }
         val c = content
         paintFrame(r)
+        val inset = inset
+        if (inset > 0.0) paintPaperclip(r)
         r.save()
-        r.translate(pos.x, pos.y)
+        r.translate(pos.x + inset, pos.y)
         FlowPainter.paintPage(r, c.frame, 0, Rect(0.0, 0.0, c.w, c.h), marks = false)
         r.restore()
         // A backend writing real text also gets the box's links, each a piece per line it runs over.
@@ -227,8 +251,14 @@ class TextItem(
         if (links.isEmpty()) return
         val order = links.values.flatten()
         for (placed in FlowLinks.place(c.frozen, c.frame, links)) {
-            r.linkArea(order.indexOfFirst { it === placed.link }, placed.rect.translate(pos.x, pos.y), placed.uri)
+            r.linkArea(order.indexOfFirst { it === placed.link }, placed.rect.translate(pos.x + inset, pos.y), placed.uri)
         }
+    }
+
+    private fun paintPaperclip(r: Renderer) {
+        val k = pointSize / 24.0
+        val top = pos.y + pointSize * 0.15
+        r.strokePolyline(List(PAPERCLIP.size / 2) { Pt(pos.x + PAPERCLIP[2 * it] * k, top + PAPERCLIP[2 * it + 1] * k) }, Pen(rgba, 2.0 * k, cosmetic = false))
     }
 
     private fun paintFrame(r: Renderer) {
@@ -333,10 +363,16 @@ class TextItem(
     }
 
     /** An independent copy: its own flow, the same place, look and frame. */
-    fun copy(): TextItem = TextItem(pos, width, autoWidth, flow.deepCopy(), measurer).also { it.box = box }
+    fun copy(): TextItem = TextItem(pos, width, autoWidth, flow.deepCopy(), measurer, math).also {
+        it.box = box
+        it.ocr = ocr
+    }
 
     companion object {
         const val KIND = "text"
+
+        /** Sets formula boxes; installed by the app once the LaTeX renderer exists. */
+        var mathTypesetter: MathTypesetter? = null
         const val DEFAULT_WIDTH = 300.0
         const val DEFAULT_POINT_SIZE = 13.0
         val DEFAULT_FACE = FontFace.MONO
@@ -390,6 +426,23 @@ class TextItem(
             arc(b.left + radius, b.top + radius, PI)
             return out
         }
+
+        /** The [link] prefix of a link to a stored document. */
+        const val DOCUMENT_LINK = "xnotes-doc:"
+
+        fun docLinkInset(pointSize: Double) = pointSize * 1.3
+
+        /** The toolbar's Insert paperclip (Feather), flattened on its 24-unit grid. */
+        private val PAPERCLIP = doubleArrayOf(
+            21.44, 11.05, 12.25, 20.24, 11.79, 20.65, 11.31, 21.01, 10.26, 21.56, 9.15, 21.89, 8.01, 22.00, 6.86, 21.89,
+            5.75, 21.56, 4.70, 21.01, 4.22, 20.65, 3.76, 20.24, 3.35, 19.78, 2.99, 19.30, 2.44, 18.25, 2.11, 17.14,
+            2.00, 16.00, 2.11, 14.85, 2.44, 13.74, 2.99, 12.69, 3.35, 12.21, 3.76, 11.75, 12.95, 2.56, 13.58, 2.05,
+            14.27, 1.68, 15.02, 1.46, 15.78, 1.39, 16.54, 1.46, 17.29, 1.68, 17.98, 2.05, 18.61, 2.56, 19.12, 3.19,
+            19.49, 3.88, 19.71, 4.63, 19.78, 5.39, 19.71, 6.15, 19.49, 6.90, 19.12, 7.59, 18.61, 8.22, 9.41, 17.41,
+            9.10, 17.67, 8.75, 17.85, 8.38, 17.96, 7.99, 18.00, 7.61, 17.96, 7.24, 17.85, 6.89, 17.67, 6.58, 17.41,
+            6.32, 17.10, 6.14, 16.75, 6.03, 16.38, 5.99, 16.00, 6.03, 15.61, 6.14, 15.24, 6.32, 14.89, 6.58, 14.58,
+            15.07, 6.10,
+        )
     }
 }
 
@@ -415,3 +468,6 @@ private data class TextSnapshot(
     val baseSize: Double,
     val runSizes: List<Double?>,
 ) : GeometrySnapshot
+
+/** The math [model] that recognized a formula and what it [raw]ly put out, before corrections. */
+data class MathOrigin(val model: String, val raw: String)

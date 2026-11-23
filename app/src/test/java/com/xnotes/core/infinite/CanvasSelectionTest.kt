@@ -65,6 +65,18 @@ class CanvasSelectionTest {
         assertEquals(listOf<CanvasItem>(inside), hits)
     }
 
+    @Test fun aWholeItemsBandSkipsAnItemItOnlyClips() {
+        val straddling = box(90.0, 10.0)
+        assertTrue(SelectionMath.bandMembers(listOf(straddling), Rect(0.0, 0.0, 100.0, 100.0), whole = true).isEmpty())
+    }
+
+    @Test fun aLassoCrossingAStrokeTakesItOnlyWhenPartialIsEnough() {
+        val stroke = line(80.0, 50.0) // runs from x=80 to x=120, the loop ends at x=100
+        val loop = listOf(Pt(0.0, 0.0), Pt(100.0, 0.0), Pt(100.0, 100.0), Pt(0.0, 100.0))
+        assertEquals(listOf<CanvasItem>(stroke), SelectionMath.lassoMembers(listOf(stroke), loop, whole = false))
+        assertTrue(SelectionMath.lassoMembers(listOf(stroke), loop, whole = true).isEmpty())
+    }
+
     @Test fun aDegenerateLassoSelectsNothing() {
         assertTrue(SelectionMath.lassoMembers(listOf(box(0.0, 0.0)), listOf(Pt(0.0, 0.0), Pt(1.0, 1.0))).isEmpty())
     }
@@ -105,6 +117,23 @@ class CanvasSelectionTest {
         assertEquals(HandleId.TL, sel.hitHandle(Pt(0.0, 0.0), 5.0))
         assertEquals(HandleId.BR, sel.hitHandle(Pt(100.0, 60.0), 5.0))
         assertNull(sel.hitHandle(Pt(50.0, 30.0), 5.0))
+    }
+
+    @Test fun aBoxTooSmallOnScreenHidesItsHandlesButKeepsTheMoveGrip() {
+        val sel = CanvasSelection(docOf())
+        sel.select(listOf(box(0.0, 0.0, 100.0, 60.0)))
+        assertTrue(sel.handles(zoom = 1.0).isEmpty())
+        assertNull(sel.hitHandle(Pt(0.0, 0.0), 5.0, zoom = 1.0))
+        assertNotNull(sel.moveGrip(1.0, 30.0))
+        assertEquals(8, sel.handles(zoom = 2.0).size)
+        assertNull(sel.moveGrip(2.0, 30.0))
+    }
+
+    @Test fun aLineTooSmallOnScreenKeepsItsEnds() {
+        val l = straight()
+        val sel = CanvasSelection(docOf(l))
+        sel.select(listOf(l))
+        assertEquals(listOf(HandleId.START, HandleId.END), sel.handles(zoom = 0.5).map { it.id })
     }
 
     @Test fun theRotateGripSitsAboveTheBox() {

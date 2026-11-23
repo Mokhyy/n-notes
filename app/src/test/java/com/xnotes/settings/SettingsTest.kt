@@ -4,11 +4,13 @@ import com.xnotes.core.model.Orientation
 import com.xnotes.core.model.PageSize
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.tools.InkPalette
+import com.xnotes.core.tools.SelectKind as K
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolbarLayout
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +29,13 @@ class SettingsTest {
         assertEquals("system", s.prefs.uiAppearance)
         assertEquals(com.xnotes.canvas.ViewSettings(keepImages = true), s.viewDefaultsLight)
         assertEquals(com.xnotes.canvas.ViewSettings(invert = 95, keepImages = true), s.viewDefaultsDark)
+    }
+
+    @Test fun onboardingDoneDefaultsFromExistingRoot() {
+        assertFalse(Settings.fromJson(JSONObject()).onboardingDone)
+        assertTrue(Settings.fromJson(JSONObject().put("browse_root", "content://x")).onboardingDone)
+        assertFalse(Settings.fromJson(JSONObject().put("browse_root", "content://x").put("onboarding_done", false)).onboardingDone)
+        assertTrue(Settings.fromJson(Settings(onboardingDone = true).toJson()).onboardingDone)
     }
 
     @Test fun viewDefaultsRoundTrip() {
@@ -72,6 +81,19 @@ class SettingsTest {
         val back = Settings.fromJson(s.toJson())
         assertEquals(s.viewDefaultsLight, back.viewDefaultsLight)
         assertEquals(s.viewDefaultsDark, back.viewDefaultsDark)
+    }
+
+    @Test fun readerSettingsRoundTripApartFromViewDefaults() {
+        val reader = com.xnotes.canvas.ReaderSettings(
+            view = com.xnotes.canvas.ViewSettings(sepia = 60, mode = com.xnotes.canvas.ViewingMode.DOUBLE),
+            pageMode = com.xnotes.canvas.ReaderPageMode.HORIZONTAL,
+            turnAnimation = false,
+            tapToTurn = false,
+        )
+        val back = Settings.fromJson(Settings(readerSettings = reader).toJson())
+        assertEquals(reader, back.readerSettings)
+        assertEquals(Settings().viewDefaults(dark = false), back.viewDefaults(dark = false))
+        assertEquals(com.xnotes.canvas.ReaderSettings(), Settings.fromJson(JSONObject()).readerSettings)
     }
 
     @Test fun legacyPdfDarkModeSeedsTheViewDefaults() {
@@ -124,6 +146,11 @@ class SettingsTest {
         assertTrue(back.prefs.hidePageBorders)
     }
 
+    @Test fun lastCanvasToolRoundTripsAndDropsToolsTheCanvasCannotArm() {
+        assertEquals(Tool.TAPE, Settings.fromJson(Settings(lastCanvasTool = Tool.TAPE).toJson()).lastCanvasTool)
+        assertEquals(Tool.PEN, Settings.fromJson(Settings(lastCanvasTool = Tool.MARKUP).toJson()).lastCanvasTool)
+    }
+
     @Test fun theSpeedPensSmoothingAndTopSpeedRoundTrip() {
         val speed = com.xnotes.core.tools.ToolDefaults.configFor(Tool.SPEED).copy(speedSmoothing = 0.6, speedTop = 0.9)
         val back = Settings.fromJson(Settings(tools = mapOf(Tool.SPEED to speed)).toJson()).configFor(Tool.SPEED)
@@ -160,6 +187,25 @@ class SettingsTest {
         assertTrue(Settings.fromJson(json).configFor(Tool.ERASER).eraseMarkups)
     }
 
+    @Test fun kindFiltersSaveWhatIsOffAndMigrateTheOldLists() {
+        val cfg = Settings().configFor(Tool.LASSO).copy(selectKinds = K.ALL - K.TEXT, erasableKinds = setOf(K.INK))
+        val json = Settings(tools = mapOf(Tool.LASSO to cfg)).toJson()
+        val saved = json.getJSONObject("tools").getJSONObject("lasso")
+        assertEquals("[\"text\"]", saved.getJSONArray("select_kinds_off").toString())
+        assertFalse(saved.has("select_kinds") || saved.has("select_kinds_v2"))
+        val back = Settings.fromJson(json).configFor(Tool.LASSO)
+        assertEquals(K.ALL - K.TEXT, back.selectKinds)
+        assertEquals(setOf(K.INK), back.erasableKinds)
+        // Old full lists: highlighter joins ink when saved before it had a kind, unknown kinds stay off.
+        saved.remove("select_kinds_off"); saved.remove("erasable_kinds_off")
+        saved.put("select_kinds", org.json.JSONArray(listOf("ink", "text"))).put("erasable_kinds", org.json.JSONArray(listOf("shapes")))
+        val old = Settings.fromJson(json).configFor(Tool.LASSO)
+        assertEquals(setOf(K.INK, K.HIGHLIGHTER, K.TEXT), old.selectKinds)
+        assertEquals(setOf(K.SHAPES), old.erasableKinds)
+        saved.put("select_kinds_v2", true)
+        assertEquals(setOf(K.INK, K.TEXT), Settings.fromJson(json).configFor(Tool.LASSO).selectKinds)
+    }
+
     @Test fun theTapeToolsModeAndPatternRoundTrip() {
         val d = Settings().configFor(Tool.TAPE)
         assertEquals(com.xnotes.core.model.TapeItem.DEFAULT_WIDTH, d.baseWidth, 0.0)
@@ -188,16 +234,27 @@ class SettingsTest {
             threeFingerTap = "redo",
             stylusDoubleTap = "toggle_eraser",
             stylusButtonTap = "toggle_pan",
-            stylusButton1Tap = "toggle_previous",
-            stylusButton2Tap = "undo",
         )
         val back = Settings.fromJson(Settings(prefs = prefs).toJson()).prefs
         assertEquals("undo", back.twoFingerTap)
         assertEquals("redo", back.threeFingerTap)
         assertEquals("toggle_eraser", back.stylusDoubleTap)
         assertEquals("toggle_pan", back.stylusButtonTap)
-        assertEquals("toggle_previous", back.stylusButton1Tap)
-        assertEquals("undo", back.stylusButton2Tap)
+    }
+
+    @Test fun theOldAutomaticallySwitchOffBecomesNever() {
+        assertEquals(0, Preferences.fromJson(JSONObject().put("sync_auto", false).put("sync_interval_minutes", 30)).syncIntervalMinutes)
+        assertEquals(0, Preferences.fromJson(JSONObject().put("filen_auto_sync", false)).syncIntervalMinutes)
+        assertEquals(0, Preferences.fromJson(JSONObject().put("sync_auto", true).put("sync_interval_minutes", 0)).syncIntervalMinutes)
+        assertEquals(30, Preferences.fromJson(JSONObject().put("sync_interval_minutes", 30)).syncIntervalMinutes)
+        assertEquals(60, Preferences.fromJson(JSONObject()).syncIntervalMinutes)
+    }
+
+    @Test fun neverRoundTripsAndKeepsOlderVersionsOff() {
+        val json = Settings(prefs = Preferences(syncIntervalMinutes = 0)).toJson()
+        assertFalse(json.getJSONObject("prefs").getBoolean("sync_auto"))
+        assertEquals(0, Settings.fromJson(json).prefs.syncIntervalMinutes)
+        assertEquals(120, Settings.fromJson(Settings(prefs = Preferences(syncIntervalMinutes = 120)).toJson()).prefs.syncIntervalMinutes)
     }
 
     @Test fun frontBufferingIsOnUntilItIsTurnedOff() {
@@ -602,6 +659,14 @@ class SettingsTest {
         assertEquals(0.0, Preferences.fromJson(JSONObject().put("material_contrast", 1.5)).materialContrast, 0.0)
     }
 
+    @Test fun backgroundBrightnessRoundTripsAndRejectsOutOfRange() {
+        for (level in listOf(-1.0, -0.3, 0.5, 1.0)) {
+            val p = Preferences(backgroundBrightness = level)
+            assertEquals(p, Preferences.fromJson(p.toJson()))
+        }
+        assertEquals(0.0, Preferences.fromJson(JSONObject().put("background_brightness", 1.5)).backgroundBrightness, 0.0)
+    }
+
     @Test fun cornerStyleRoundTripsAndDefaultsToRounded() {
         for (style in CornerStyle.entries) {
             val p = Preferences(cornerStyle = style)
@@ -686,6 +751,88 @@ class SettingsTest {
         val back = Settings.fromJson(Settings(shapeConfig = shape).toJson()).shapeConfig
         assertEquals(shape, back)
         assertEquals("uml_aggregation_elbow", back.connector!!.key)
+    }
+
+    @Test fun starredZoomsSurviveTheSettingsRoundTrip() {
+        val starred = Settings(favoriteZooms = listOf(1.5f, 3f))
+        assertEquals(starred.favoriteZooms, Settings.fromJson(starred.toJson()).favoriteZooms)
+    }
+
+    @Test fun pencilcaseItemsSurviveTheSettingsRoundTrip() {
+        val items = listOf(
+            com.xnotes.core.tools.PencilcaseItem(
+                Tool.CALLIGRAPHY,
+                com.xnotes.core.tools.ToolDefaults.configFor(Tool.CALLIGRAPHY).copy(baseWidth = 7.5, neon = true),
+                color = Rgba(10, 20, 30, 255),
+            ),
+            com.xnotes.core.tools.PencilcaseItem(
+                Tool.SHAPE,
+                shape = com.xnotes.core.tools.ShapeConfig(strokeWidth = 5.0, dashed = true),
+                color = Rgba(200, 0, 0, 255),
+            ),
+        )
+        val back = Settings.fromJson(Settings(pencilcase = items).toJson()).pencilcase
+        assertEquals(items.map { it.tool to it.color }, back.map { it.tool to it.color })
+        assertEquals(items[0].config.copy(rgba = back[0].config.rgba), back[0].config)
+        assertEquals(items[1].shape, back[1].shape)
+    }
+
+    @Test fun aSavedPencilcaseItemEqualsItsReloadedCopy() {
+        val pen = com.xnotes.core.tools.PencilcaseItem.of(
+            Tool.PEN,
+            com.xnotes.core.tools.ToolDefaults.configFor(Tool.PEN).copy(rgba = Rgba(1, 2, 3, 255)),
+            com.xnotes.core.tools.ShapeConfig(strokeWidth = 9.0),
+            Rgba(10, 20, 30, 255),
+        ).copy(name = "Fine liner")
+        assertEquals(listOf(pen), Settings.fromJson(Settings(pencilcase = listOf(pen)).toJson()).pencilcase)
+    }
+
+    @Test fun aSavedPencilcaseTableKeepsItsSizeWidthAndColour() {
+        fun table(cols: Int, width: Double, own: Rgba?) = com.xnotes.core.tools.PencilcaseItem.of(
+            Tool.TABLE,
+            com.xnotes.core.tools.ToolDefaults.configFor(Tool.TABLE),
+            com.xnotes.core.tools.ShapeConfig(),
+            Rgba(10, 20, 30, 255),
+            com.xnotes.canvas.TableToolDefaults(cols = cols, rows = 5, width = width, color = own),
+        )
+        val red = table(2, 4.0, Rgba(200, 0, 0, 255))
+        assertEquals(Rgba(200, 0, 0, 255), red.color)
+        assertEquals(Rgba(10, 20, 30, 255), table(2, 4.0, null).color)
+        assertNotEquals(red, table(3, 4.0, Rgba(200, 0, 0, 255)))
+        assertNotEquals(red, table(2, 6.0, Rgba(200, 0, 0, 255)))
+        assertEquals(listOf(red), Settings.fromJson(Settings(pencilcase = listOf(red)).toJson()).pencilcase)
+    }
+
+    @Test fun pencilcaseDropsToolsItCannotHold() {
+        val json = Settings().toJson().put("pencilcase", org.json.JSONArray().put(JSONObject().put("tool", "text")).put(JSONObject().put("tool", "nope")))
+        assertEquals(emptyList<Any>(), Settings.fromJson(json).pencilcase)
+    }
+
+    @Test fun aSettingsFileWithoutStarredZoomsFallsBackToTheDefaults() {
+        assertEquals(DEFAULT_FAVORITE_ZOOMS, Settings.fromJson(JSONObject()).favoriteZooms)
+    }
+
+    @Test fun starringAZoomAddsItAndStarringItAgainDropsIt() {
+        val starred = Settings(favoriteZooms = listOf(2f)).toggleFavoriteZoom(3.25f)
+        assertEquals(listOf(2f, 3.25f), starred.favoriteZooms)
+        assertEquals(listOf(2f), starred.toggleFavoriteZoom(3.25f).favoriteZooms)
+    }
+
+    @Test fun aZoomWithinToleranceOfAStarredOneIsTheSameJump() {
+        val starred = Settings(favoriteZooms = listOf(2f)).toggleFavoriteZoom(2f + ZOOM_MATCH_TOLERANCE / 2f)
+        assertEquals(emptyList<Float>(), starred.favoriteZooms)
+    }
+
+    @Test fun theZoomBarIsOffUntilTurnedOn() {
+        assertFalse(Settings.fromJson(JSONObject()).prefs.showZoomBar)
+        assertTrue(Settings.fromJson(Settings(prefs = Preferences(showZoomBar = true)).toJson()).prefs.showZoomBar)
+    }
+
+    @Test fun savingPastTheCapKeepsTheNewZoom() {
+        val full = Settings(favoriteZooms = (1..MAX_FAVORITE_ZOOMS).map { it * 0.25f })
+        val saved = full.toggleFavoriteZoom(8f).favoriteZooms
+        assertEquals(MAX_FAVORITE_ZOOMS, saved.size)
+        assertEquals(8f, saved.last())
     }
 
     @Test fun theTextBoxDefaultsRoundTrip() {

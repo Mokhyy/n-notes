@@ -166,6 +166,7 @@ object RoomCut {
             Stroke(s).also {
                 it.cuts = farCuts
                 it.locked = s.locked
+                it.link = s.link
                 it.sync = s.sync
                 it.translate(dx, dy)
             }
@@ -187,7 +188,9 @@ object RoomCut {
         val far = farPart?.let { f ->
             ImageItem(p.image, ImageCrop.croppedRect(p, f), p.orientation, p.angle, p.flip, ImageCrop.partOf(p, f)).also {
                 it.locked = p.locked
+                it.link = p.link
                 it.sync = p.sync
+                it.paper = p.paper
                 it.translate(dx, dy)
             }
         }

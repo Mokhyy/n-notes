@@ -21,6 +21,8 @@ import com.xnotes.core.model.TapeItem
 import com.xnotes.core.model.TapePattern
 import com.xnotes.core.model.TextItem
 import com.xnotes.core.model.TextMarkup
+import com.xnotes.core.model.TextStyle
+import kotlin.math.roundToInt
 
 /**
  * A reversible edit (spec 07). A command is pushed onto the history **after**
@@ -235,6 +237,27 @@ class BoxEdit(val item: TextItem, private val edit: Command) : Command {
     override fun touched(locate: (CanvasItem) -> Page?) = pagedItems(listOf(item), locate)
 }
 
+/** Change the text of an existing text box. */
+class EditText(
+    private val item: TextItem,
+    private val oldText: String,
+    private val newText: String,
+    /** Told each time the text flips, (from, to); a recognized formula relearns its corrections here. */
+    private val onSwap: ((String, String) -> Unit)? = null,
+) : Command {
+    override fun redo() {
+        item.text = newText
+        onSwap?.invoke(oldText, newText)
+    }
+
+    override fun undo() {
+        item.text = oldText
+        onSwap?.invoke(newText, oldText)
+    }
+
+    override fun touched(locate: (CanvasItem) -> Page?) = pagedItems(listOf(item), locate)
+}
+
 /** A text box's base style: what its text takes where a run says nothing of its own. A null [color] follows the theme. */
 data class BoxBase(val color: Rgba?, val sizePt: Double, val face: com.xnotes.core.pal.FontFace) {
     companion object {
@@ -348,6 +371,65 @@ class RefillShapes(private val entries: List<Entry>) : Command {
     }
 }
 
+/** Which of dashed, neon and filled the selection can take (null: none of it can) and whether all of it is. */
+data class Effects(val dashed: Boolean?, val neon: Boolean?, val filled: Boolean?)
+
+/** Turn dashes, glow and fill on or off on shapes and connectors: one step for the whole selection. */
+class RestyleEffects(private val entries: List<Entry>) : Command {
+    class Entry(val item: CanvasItem, val before: State, val after: State)
+
+    data class State(val dashed: Boolean, val neon: Boolean, val fill: Rgba?) {
+        fun applyTo(item: CanvasItem) {
+            when (item) {
+                is ShapeItem -> { item.dashed = dashed; item.neon = neon; item.fillRgba = fill }
+                is com.xnotes.core.model.ConnectorItem -> { item.dashed = dashed; item.neon = neon }
+                else -> {}
+            }
+        }
+    }
+
+    override fun redo() {
+        for (e in entries) e.after.applyTo(e.item)
+    }
+
+    override fun undo() {
+        for (e in entries) e.before.applyTo(e.item)
+    }
+
+    override fun touched(locate: (CanvasItem) -> Page?) = pagedItems(entries.map { it.item }, locate)
+
+    companion object {
+        private fun state(item: CanvasItem): State? = when (item) {
+            is ShapeItem -> if (item.isFill || item.shape == com.xnotes.core.shapes.ShapeKind.GLYPHS) null else State(item.dashed, item.neon, item.fillRgba)
+            is com.xnotes.core.model.ConnectorItem -> State(item.dashed, item.neon, null)
+            else -> null
+        }
+
+        fun effects(items: List<CanvasItem>): Effects {
+            val styled = items.filter { !it.locked && state(it) != null }
+            val fillable = styled.filterIsInstance<ShapeItem>().filter { it.canFill }
+            return Effects(
+                dashed = styled.takeIf { it.isNotEmpty() }?.all { state(it)!!.dashed },
+                neon = styled.takeIf { it.isNotEmpty() }?.all { state(it)!!.neon },
+                filled = fillable.takeIf { it.isNotEmpty() }?.all { it.fillRgba != null },
+            )
+        }
+
+        /** The entries that set the non-null of [dashed], [neon] and [filled] on [items]; a new fill takes the outline's colour at the shape tool's opacity. */
+        fun of(items: List<CanvasItem>, dashed: Boolean?, neon: Boolean?, filled: Boolean?): List<Entry> = items.mapNotNull { item ->
+            if (item.locked) return@mapNotNull null
+            val before = state(item) ?: return@mapNotNull null
+            val fill = when {
+                item !is ShapeItem || !item.canFill || filled == null -> before.fill
+                !filled -> null
+                else -> before.fill ?: item.strokeRgba.copy(a = (com.xnotes.core.tools.ShapeConfig.FILL_ALPHA * 255).roundToInt())
+            }
+            val after = State(dashed ?: before.dashed, neon ?: before.neon, fill)
+            if (after == before) null else Entry(item, before, after)
+        }
+    }
+}
+
 /**
  * Pin items in place, or release them. One command for the whole selection, so a lock and its undo
  * are a single step however much was held.
@@ -401,6 +483,24 @@ class AddPage(
 
     override fun undo() {
         marks = document.removePage(page)
+    }
+}
+
+/** Swap the note's source PDF (another note's PDF merged in); [onSwap] reloads what draws it. */
+class SetPdfFile(
+    private val document: Document,
+    private val before: java.io.File?,
+    private val after: java.io.File?,
+    private val onSwap: () -> Unit,
+) : Command {
+    override fun redo() {
+        document.pdfFile = after
+        onSwap()
+    }
+
+    override fun undo() {
+        document.pdfFile = before
+        onSwap()
     }
 }
 

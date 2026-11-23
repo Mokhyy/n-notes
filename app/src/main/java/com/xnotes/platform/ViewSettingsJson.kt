@@ -1,5 +1,8 @@
 package com.xnotes.platform
 
+import com.xnotes.canvas.PdfColorFilter
+import com.xnotes.canvas.ReaderPageMode
+import com.xnotes.canvas.ReaderSettings
 import com.xnotes.canvas.ViewOverrides
 import com.xnotes.canvas.ViewSettings
 import com.xnotes.canvas.ViewingMode
@@ -41,6 +44,23 @@ internal object ViewSettingsJson {
         keepImages = o.optBoolean("keepImages", base.keepImages),
         rotation = ViewSettings.normalizeRotation(o.optInt("rotation", base.rotation)),
         scrollbar = o.optBoolean("scrollbar", base.scrollbar),
+    )
+}
+
+/** JSON for [ReaderSettings]: its view fields as [ViewSettingsJson] writes them, with the reader's own beside them. */
+internal object ReaderSettingsJson {
+
+    fun write(s: ReaderSettings): JSONObject = ViewSettingsJson.write(JSONObject(), s.view).apply {
+        put("pageMode", s.pageMode.id)
+        put("turnAnimation", s.turnAnimation)
+        put("tapToTurn", s.tapToTurn)
+    }
+
+    fun read(o: JSONObject): ReaderSettings = ReaderSettings(
+        view = ViewSettingsJson.read(o),
+        pageMode = ReaderPageMode.fromId(o.optString("pageMode")),
+        turnAnimation = o.optBoolean("turnAnimation", true),
+        tapToTurn = o.optBoolean("tapToTurn", true),
     )
 }
 

@@ -110,6 +110,7 @@ internal fun TextToolConfigPopup(editor: Editor, onDismiss: () -> Unit) {
         MenuCard(buildList<MenuGroup> {
             add { MenuSwitch(stringResource(R.string.markdown_shortcuts), editor.markdownInput) { editor.setMarkdownInputPref(it) } }
             add { MenuSwitch(stringResource(R.string.slash_commands), editor.slashCommands) { editor.setSlashCommandsPref(it) } }
+            add { MenuSwitch(stringResource(R.string.translate_callouts), editor.translateCallouts) { editor.setTranslateCalloutsPref(it) } }
         })
     }
 }
