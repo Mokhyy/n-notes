@@ -917,7 +917,14 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
         }
         // Tables alone get their own cards, the colour among them; beside other items they add theirs after.
         if (onlyTables) table?.let { t ->
-            t.groups(color, host.hostRecentColors, colourGroup, emptyList()) { next, preview ->
+            val tableColour: MenuGroup = {
+                MenuRow(stringResource(R.string.caption_colour)) {
+                    ColorPickerDot(color, custom = true, onPick = { color = it; host.restyleSelection(it, null) }, dismissOnPick = false) { d, p ->
+                        ColorPickerPopup(color, host.hostRecentColors, d, p)
+                    }
+                }
+            }
+            t.groups(color, host.hostRecentColors, tableColour, emptyList()) { next, preview ->
                 table = next
                 host.restyleSelectionTables(preview) { next }
             }.forEach { MenuCard(it) }
