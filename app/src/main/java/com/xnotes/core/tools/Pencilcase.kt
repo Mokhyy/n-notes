@@ -22,7 +22,7 @@ data class PencilcaseItem(
         val TOOLS: Set<Tool> = (Tool.PENS + listOf(Tool.HIGHLIGHTER, Tool.ERASER, Tool.TAPE, Tool.SHAPE, Tool.TABLE)).toSet()
 
         /** Keeps only what [tool] uses and settings store, so the same tool saved twice compares equal. */
-        val DEFAULT_TABLE = TableToolDefaults(cols = 3, rows = 3, width = 2.0)
+        val DEFAULT_TABLE = TableToolDefaults(cols = 3, rows = 3, look = com.xnotes.core.model.TableLook(2.0, com.xnotes.core.model.BoxStyle.NONE, com.xnotes.core.model.TableLines()))
 
         /** Keeps only what [tool] uses and settings store, so the same tool saved twice compares equal.
          *  A table's colour is fixed to what it draws in now, its own or the ink it follows. */

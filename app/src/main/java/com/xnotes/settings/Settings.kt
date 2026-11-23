@@ -298,7 +298,15 @@ data class Settings(
             .apply {
                 when (item.tool) {
                     Tool.SHAPE -> put("shape", shapeConfigJson(item.shape))
-                    Tool.TABLE -> put("table", JSONObject().put("cols", item.table.cols).put("rows", item.table.rows).put("width", item.table.width))
+                    Tool.TABLE -> put("table", JSONObject().put("cols", item.table.cols).put("rows", item.table.rows).put("width", item.table.look.width).apply {
+                        val box = item.table.look.box
+                        val lines = item.table.look.lines
+                        box.fill?.let { put("fill", rgbaArr(it)) }
+                        box.border?.let { put("border", rgbaArr(it)) }
+                        put("border_width", box.borderWidth).put("corner", box.corner)
+                        put("dashed", lines.dashed).put("dash_length", lines.dashLength).put("dash_gap", lines.dashGap)
+                        put("neon", lines.neon).put("neon_strength", lines.neonStrength)
+                    })
                     else -> put("config", toolConfigJson(item.config))
                 }
             }
@@ -317,9 +325,20 @@ data class Settings(
                     table = o.optJSONObject("table")?.let { t ->
                         val d = PencilcaseItem.DEFAULT_TABLE
                         d.copy(
-                            cols = t.optInt("cols", d.cols).coerceIn(1, 20),
-                            rows = t.optInt("rows", d.rows).coerceIn(1, 20),
-                            width = t.optDouble("width", d.width).coerceIn(1.0, 12.0),
+                            cols = t.optInt("cols", d.cols).coerceIn(1, com.xnotes.core.model.TableItem.MAX_LINES),
+                            rows = t.optInt("rows", d.rows).coerceIn(1, com.xnotes.core.model.TableItem.MAX_LINES),
+                            look = com.xnotes.core.model.TableLook(
+                                t.optDouble("width", d.look.width).coerceIn(1.0, 12.0),
+                                com.xnotes.core.model.BoxStyle(
+                                    rgba(t.optJSONArray("fill")), rgba(t.optJSONArray("border")),
+                                    t.optDouble("border_width", 0.0).coerceIn(0.0, com.xnotes.core.model.BoxStyle.MAX_BORDER),
+                                    t.optDouble("corner", 0.0).coerceIn(0.0, com.xnotes.core.model.BoxStyle.MAX_CORNER),
+                                ),
+                                com.xnotes.core.model.TableLines(
+                                    t.optBoolean("dashed", false), t.optDouble("dash_length", 10.0), t.optDouble("dash_gap", 8.0),
+                                    t.optBoolean("neon", false), t.optDouble("neon_strength", 0.6),
+                                ),
+                            ),
                         )
                     } ?: PencilcaseItem.DEFAULT_TABLE,
                     name = o.optString("name").takeIf { it.isNotBlank() },

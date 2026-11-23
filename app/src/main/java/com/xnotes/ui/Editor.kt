@@ -3020,7 +3020,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
      *  tool's config popup). The table is then dragged onto the page like a shape. Not persisted. */
     var tableToolCols by mutableStateOf(3)
     var tableToolRows by mutableStateOf(3)
-    var tableToolWidth by mutableStateOf(2.0)
+    var tableToolLook by mutableStateOf(com.xnotes.core.tools.PencilcaseItem.DEFAULT_TABLE.look)
 
     /** The next table's line colour; null follows the toolbar's ink colour. */
     var tableToolColor by mutableStateOf<Rgba?>(null)
@@ -3293,7 +3293,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         sidebarVisible = settings.sidebarVisible
         shapeConfig = settings.shapeConfig
         controller.shapeConfig = settings.shapeConfig
-        controller.tableToolDefaults = { com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolWidth, tableToolColor) }
+        controller.tableToolDefaults = { com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolLook, tableToolColor) }
         for (t in ToolDefaults.persistedTools) controller.setToolConfig(t, settings.configFor(t))
         controller.inkColor = toolbarColors[activeColorIndex]
         selectTool(settings.lastTool)
@@ -9054,7 +9054,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun pencilcaseSnapshot(): com.xnotes.core.tools.PencilcaseItem? = tool.takeIf { it in com.xnotes.core.tools.PencilcaseItem.TOOLS }
         ?.let { com.xnotes.core.tools.PencilcaseItem.of(
             it, controller.configFor(it), shapeConfig, controller.inkColor,
-            com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolWidth, tableToolColor),
+            com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolLook, tableToolColor),
         ) }
 
     /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
@@ -9063,7 +9063,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         if (item.tool == Tool.TABLE) {
             tableToolCols = item.table.cols
             tableToolRows = item.table.rows
-            tableToolWidth = item.table.width
+            tableToolLook = item.table.look
             tableToolColor = item.color
             return
         }
@@ -9987,8 +9987,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     override fun selectionShapeLook() = controller.selectionShapeLook()
     override fun selectionPenLook() = controller.selectionPenLook()
-    override fun selectionTableBox() = controller.selectionTableBox()
-    override fun restyleSelectionTables(preview: Boolean, change: (com.xnotes.core.model.BoxStyle) -> com.xnotes.core.model.BoxStyle) = controller.restyleSelectionTables(preview, change)
+    override fun selectionTableLook() = controller.selectionTableLook()
+    override fun selectionOnlyTables() = controller.selectionOnlyTables()
+    override fun restyleSelectionTables(preview: Boolean, change: (com.xnotes.core.model.TableLook) -> com.xnotes.core.model.TableLook) = controller.restyleSelectionTables(preview, change)
     override fun restyleSelectionShapes(preview: Boolean, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) = controller.restyleSelectionShapes(preview, change)
     override fun restyleSelectionPens(preview: Boolean, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) = controller.restyleSelectionPens(preview, change)
 

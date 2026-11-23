@@ -793,7 +793,14 @@ class SettingsTest {
             com.xnotes.core.tools.ToolDefaults.configFor(Tool.TABLE),
             com.xnotes.core.tools.ShapeConfig(),
             Rgba(10, 20, 30, 255),
-            com.xnotes.canvas.TableToolDefaults(cols = cols, rows = 5, width = width, color = own),
+            com.xnotes.canvas.TableToolDefaults(
+                cols = cols, rows = 5, color = own,
+                look = com.xnotes.core.model.TableLook(
+                    width,
+                    com.xnotes.core.model.BoxStyle(Rgba(1, 2, 3, 64), Rgba(4, 5, 6, 255), 2.5, 8.0),
+                    com.xnotes.core.model.TableLines(dashed = true, dashLength = 12.0, neon = true, neonStrength = 0.3),
+                ),
+            ),
         )
         val red = table(2, 4.0, Rgba(200, 0, 0, 255))
         assertEquals(Rgba(200, 0, 0, 255), red.color)

@@ -202,8 +202,9 @@ interface SelectionMenuHost : SwatchHost {
     fun restyleSelectionShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) {}
     fun selectionPenLook(): com.xnotes.core.history.PenLook? = null
     fun restyleSelectionPens(preview: Boolean = false, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) {}
-    fun selectionTableBox(): com.xnotes.core.model.BoxStyle? = null
-    fun restyleSelectionTables(preview: Boolean = false, change: (com.xnotes.core.model.BoxStyle) -> com.xnotes.core.model.BoxStyle) {}
+    fun selectionTableLook(): com.xnotes.core.model.TableLook? = null
+    fun selectionOnlyTables(): Boolean = false
+    fun restyleSelectionTables(preview: Boolean = false, change: (com.xnotes.core.model.TableLook) -> com.xnotes.core.model.TableLook) {}
 
     /** The first selected tape's pattern, for the restyle popup to open on; null when no tape is selected. */
     fun selectionTapePattern(): com.xnotes.core.model.TapePattern?
@@ -855,7 +856,8 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
     var boxStyle by remember { mutableStateOf(textBox?.box) }
     var look by remember { mutableStateOf(host.selectionShapeLook()) }
     var pen by remember { mutableStateOf(host.selectionPenLook()) }
-    var tableBox by remember { mutableStateOf(host.selectionTableBox()) }
+    var table by remember { mutableStateOf(host.selectionTableLook()) }
+    val onlyTables = remember { host.selectionOnlyTables() }
     fun restyleShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook = { it }) {
         host.restyleSelectionShapes(preview, change)
         look = host.selectionShapeLook()
@@ -869,7 +871,7 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
         boxStyle?.let { host.setSelectedBoxStyle(it, preview = false) }
         if (look != null) restyleShapes()
         if (pen != null) restylePens()
-        if (tableBox != null) host.restyleSelectionTables { it }
+        if (table != null) host.restyleSelectionTables { it }
         onDismiss()
     }
 
@@ -880,12 +882,6 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
                 host.setSelectedBoxStyle(next, preview)
             }
         }
-        tableBox?.let { style ->
-            BoxStyleCard(style, host.hostRecentColors) { next, preview ->
-                tableBox = next
-                host.restyleSelectionTables(preview) { next }
-            }
-        }
         pen?.let { p ->
             PanelCard(padding = PaddingValues(6.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -893,8 +889,7 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
                 }
             }
         }
-        MenuCard(buildList<MenuGroup> {
-            if (!fillsOnly) add {
+        val colourGroup: MenuGroup = {
                 Column(Modifier.padding(10.dp)) {
                     PanelCaption(stringResource(R.string.caption_colour))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -919,7 +914,16 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
                         }
                     }
                 }
-            }
+        }
+        // Tables alone get their own cards, the colour among them; beside other items they add theirs after.
+        if (onlyTables) table?.let { t ->
+            t.groups(color, host.hostRecentColors, colourGroup, emptyList()) { next, preview ->
+                table = next
+                host.restyleSelectionTables(preview) { next }
+            }.forEach { MenuCard(it) }
+        }
+        if (!onlyTables) MenuCard(buildList<MenuGroup> {
+            if (!fillsOnly) add(colourGroup)
             host.selectionTapePattern()?.let { opened ->
                 add {
                     var pattern by remember { mutableStateOf(opened) }
@@ -1060,6 +1064,12 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
                 }
             }
         })
+        if (!onlyTables) table?.let { t ->
+            t.groups(color, host.hostRecentColors, null, emptyList()) { next, preview ->
+                table = next
+                host.restyleSelectionTables(preview) { next }
+            }.forEach { MenuCard(it) }
+        }
         if (!fillsOnly) {
             Text(
                 stringResource(R.string.change_style_hint),

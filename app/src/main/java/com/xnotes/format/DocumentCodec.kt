@@ -660,6 +660,15 @@ class DocumentCodec(
         }
         if (t.box.borderWidth != 0.0) j.name("box_border_width").value(t.box.borderWidth)
         if (t.box.corner != 0.0) j.name("box_corner").value(t.box.corner)
+        if (t.lines.neon) {
+            j.name("neon").value(true)
+            j.name("neon_strength").value(t.lines.neonStrength)
+        }
+        if (t.lines.dashed) {
+            j.name("dashed").value(true)
+            j.name("dash_length").value(t.lines.dashLength)
+            j.name("dash_gap").value(t.lines.dashGap)
+        }
         if (t.locked) j.name("locked").value(true)
         t.link?.let { j.name("link").value(it) }
         t.group?.let { j.name("group").value(it) }
@@ -1696,6 +1705,7 @@ class DocumentCodec(
         val rows = s.tableRows?.takeIf { it.isNotEmpty() } ?: return null
         return TableItem(rect, cols, rows, s.strokeRgba ?: Rgba(0, 0, 0, 255), s.strokeWidth).also {
             it.box = BoxStyle(s.boxFill, s.boxBorder, s.boxBorderWidth.coerceIn(0.0, BoxStyle.MAX_BORDER), s.boxCorner.coerceIn(0.0, BoxStyle.MAX_CORNER))
+            it.lines = com.xnotes.core.model.TableLines(s.dashed, s.dashLength, s.dashGap, s.neon, s.neonStrength)
         }
     }
 

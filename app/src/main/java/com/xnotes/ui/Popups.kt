@@ -635,43 +635,33 @@ fun SelectConfigPopup(editor: ToolPopupHost, tool: Tool = Tool.SELECT, onPick: (
 }
 
 /**
- * Table-tool configuration popup: the line colour, column/row counts and line thickness for the next table.
- * The table itself is drawn on the page by dragging, like the shape tool; these are just its
- * defaults. An existing table's columns/rows are edited in table edit mode, its width via the
- * selection's Change-style slider.
+ * Table-tool configuration popup: everything the next table starts with. The table itself is drawn
+ * on the page by dragging, like the shape tool; an existing one is restyled through Change style.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TableConfigPopup(editor: Editor, onDismiss: () -> Unit) {
     var cols by remember { mutableStateOf(editor.tableToolCols) }
     var rows by remember { mutableStateOf(editor.tableToolRows) }
-    var width by remember { mutableStateOf(editor.tableToolWidth.toFloat()) }
+    var look by remember { mutableStateOf(editor.tableToolLook) }
     var color by remember { mutableStateOf(editor.tableToolColor) }
-    DropdownMenu(expanded = true, onDismissRequest = onDismiss) {
-        Column(Modifier.width(250.dp).padding(horizontal = 14.dp, vertical = 8.dp)) {
-            PopupTitle(stringResource(R.string.title_table))
-            StyleCaption(stringResource(R.string.caption_colour))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                ModeChip(stringResource(R.string.default_choice), color == null) { color = null; editor.tableToolColor = null }
-                ColorPickerDot(
-                    color,
-                    custom = color != null,
-                    onPick = { color = it; editor.tableToolColor = it },
-                    dismissOnPick = false,
-                ) { d, p ->
-                    ColorPickerPopup(
-                        initial = color ?: editor.hostToolbarColors.getOrNull(editor.hostActiveColorIndex),
-                        recents = editor.hostRecentColors,
-                        onDismiss = d,
-                        onPick = p,
-                    )
-                }
+    val active = editor.hostToolbarColors.getOrNull(editor.hostActiveColorIndex) ?: LocalPalette.current.text
+    val colour: MenuGroup = {
+        // "Default" follows the toolbar's ink colour; a colour picked here pins the tool to it.
+        MenuRow(stringResource(R.string.caption_colour)) {
+            ColorOrNone(stringResource(R.string.default_choice), color, suggested = active, onChange = { color = it; editor.tableToolColor = it }) { d, p ->
+                ColorPickerPopup(initial = color ?: active, recents = editor.hostRecentColors, onDismiss = d, onPick = p)
             }
-            Spacer(Modifier.size(12.dp))
-            TableStepperRow(stringResource(R.string.caption_columns), cols, 1, 20) { cols = it; editor.tableToolCols = it }
-            TableStepperRow(stringResource(R.string.caption_rows), rows, 1, 20) { rows = it; editor.tableToolRows = it }
-            SliderRow(stringResource(R.string.caption_thickness), width, 1f..12f) { width = it; editor.tableToolWidth = it.toDouble() }
         }
+    }
+    val counts = listOf(
+        tableCount(R.string.caption_columns, cols) { cols = it; editor.tableToolCols = it },
+        tableCount(R.string.caption_rows, rows) { rows = it; editor.tableToolRows = it },
+    )
+    ToolMenu(stringResource(R.string.title_table), onDismiss) {
+        look.groups(color ?: active, editor.hostRecentColors, colour, counts) { next, _ ->
+            look = next
+            editor.tableToolLook = next
+        }.forEach { MenuCard(it) }
     }
 }
 
@@ -798,33 +788,6 @@ fun MarkupToolPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
             }
         })
     }
-}
-
-/** A −/value/+ integer stepper row, used by [TableConfigPopup]. */
-@Composable
-private fun TableStepperRow(label: String, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
-    val palette = LocalPalette.current
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp)) {
-        Text(
-            "$label  $value",
-            color = palette.text.toComposeColor(),
-            fontFamily = FontFamily.Monospace,
-            fontSize = 12.sp,
-            modifier = Modifier.weight(1f),
-        )
-        TableStepButton("−") { onChange((value - 1).coerceAtLeast(min)) }
-        Spacer(Modifier.size(8.dp))
-        TableStepButton("+") { onChange((value + 1).coerceAtMost(max)) }
-    }
-}
-
-@Composable
-private fun TableStepButton(label: String, onClick: () -> Unit) {
-    val palette = LocalPalette.current
-    Box(
-        Modifier.size(32.dp).clip(MaterialTheme.shapes.extraSmall).background(palette.surface.toComposeColor()).clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Text(label, color = palette.text.toComposeColor(), fontSize = 16.sp) }
 }
 
 private fun markupIcon(mode: MarkupMode): ImageVector = when (mode) {

@@ -83,9 +83,9 @@ class LiveRestyle<S>(private val read: (CanvasItem) -> S?, private val write: (C
             },
         )
 
-        fun tables() = LiveRestyle<com.xnotes.core.model.BoxStyle>(
-            read = { (it as? com.xnotes.core.model.TableItem)?.box },
-            write = { item, box -> (item as com.xnotes.core.model.TableItem).box = box },
+        fun tables() = LiveRestyle<com.xnotes.core.model.TableLook>(
+            read = { (it as? com.xnotes.core.model.TableItem)?.let(com.xnotes.core.model.TableLook::of) },
+            write = { item, look -> look.applyTo(item as com.xnotes.core.model.TableItem) },
         )
 
         fun pens() = LiveRestyle<PenLook>(

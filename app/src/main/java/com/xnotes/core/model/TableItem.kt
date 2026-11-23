@@ -6,7 +6,32 @@ import com.xnotes.core.geometry.Pt
 import com.xnotes.core.geometry.Rect
 import com.xnotes.core.pal.Pen
 import com.xnotes.core.pal.Renderer
+import com.xnotes.core.shapes.PathRole
+import com.xnotes.core.shapes.ShapePainter
+import com.xnotes.core.shapes.ShapePath
 import kotlin.math.max
+
+/** What the table tool and a table's Change style both set, colour aside. */
+data class TableLook(val width: Double, val box: BoxStyle, val lines: TableLines) {
+    fun applyTo(t: TableItem) {
+        t.strokeWidth = width
+        t.box = box
+        t.lines = lines
+    }
+
+    companion object {
+        fun of(t: TableItem) = TableLook(t.strokeWidth, t.box, t.lines)
+    }
+}
+
+/** How a table's lines look beyond colour and thickness: dashes and glow. */
+data class TableLines(
+    val dashed: Boolean = false,
+    val dashLength: Double = 10.0,
+    val dashGap: Double = 8.0,
+    val neon: Boolean = false,
+    val neonStrength: Double = 0.6,
+)
 
 /**
  * A grid table (spec: n-notes addition): an outer [rect] divided into columns and rows. Column
@@ -30,6 +55,9 @@ class TableItem(
     /** The frame around the grid: its fill, an outline of its own and rounded corners. */
     var box: BoxStyle = BoxStyle.NONE
 
+    /** Dashes and glow on every line, the frame's included. */
+    var lines: TableLines = TableLines()
+
     val colFractions: MutableList<Double> = colFractions.toMutableList()
     val rowFractions: MutableList<Double> = rowFractions.toMutableList()
 
@@ -51,19 +79,31 @@ class TableItem(
     }
 
     override fun paint(r: Renderer) {
-        val pen = Pen(color = strokeRgba, width = strokeWidth, cosmetic = false)
-        val frame = box.border?.takeIf { box.outlined }?.let { Pen(it, box.borderWidth, cosmetic = false) } ?: pen
+        val pen = Pen(color = strokeRgba, width = strokeWidth, cosmetic = false, dashed = lines.dashed, dashOn = lines.dashLength, dashGap = lines.dashGap)
+        val frame = box.border?.takeIf { box.outlined }?.let { pen.copy(color = it, width = box.borderWidth) } ?: pen
         // No rounder than the outer cells, so no inner line pokes out past a corner.
         val corner = listOf(box.corner, colFractions.first() * rect.w, colFractions.last() * rect.w, rowFractions.first() * rect.h, rowFractions.last() * rect.h)
             .min().coerceAtLeast(0.0)
         val ring = if (corner > 0.0) TextItem.roundedRect(rect, corner) else null
         box.fill?.let { if (ring != null) r.fillPolygon(ring, it) else r.fillRect(rect, it) }
-        for (i in 1 until cols) r.strokePolyline(listOf(Pt(colX(i), rect.top), Pt(colX(i), rect.bottom)), pen)
-        for (j in 1 until rows) r.strokePolyline(listOf(Pt(rect.left, rowY(j)), Pt(rect.right, rowY(j))), pen)
-        if (ring != null) r.strokePolygon(ring, frame) else r.strokeRect(rect, frame)
+        val inner = (1 until cols).map { i -> ShapePath.lines(listOf(Pt(colX(i), rect.top), Pt(colX(i), rect.bottom)), closed = false) } +
+            (1 until rows).map { j -> ShapePath.lines(listOf(Pt(rect.left, rowY(j)), Pt(rect.right, rowY(j))), closed = false) }
+        val edge = ShapePath.lines(ring ?: listOf(Pt(rect.left, rect.top), Pt(rect.right, rect.top), Pt(rect.right, rect.bottom), Pt(rect.left, rect.bottom)), closed = true)
+        if (inner.isNotEmpty()) strokeLines(r, ShapePath(inner, PathRole.STROKE_ONLY), pen)
+        strokeLines(r, ShapePath(listOf(edge), PathRole.STROKE_ONLY), frame)
     }
 
-    override fun bounds(): Rect = rect.outset(maxOf(strokeWidth, if (box.outlined) box.borderWidth else 0.0) / 2.0 + 1.0)
+    private fun strokeLines(r: Renderer, path: ShapePath, pen: Pen) {
+        if (lines.neon) Outline.paintNeon(r, listOf(path), null, pen, lines.neonStrength, paintBounds())
+        else ShapePainter.stroke(r, listOf(path), pen)
+    }
+
+    private val widest: Double get() = maxOf(strokeWidth, if (box.outlined) box.borderWidth else 0.0)
+
+    override fun bounds(): Rect = rect.outset(widest / 2.0 + 1.0)
+
+    override fun paintBounds(): Rect =
+        if (lines.neon) bounds().outset(Outline.glowRadius(widest, lines.neonStrength) * 2.0 + 4.0) else bounds()
 
     override fun translate(dx: Double, dy: Double) { rect = rect.translate(dx, dy) }
 

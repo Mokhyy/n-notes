@@ -115,7 +115,7 @@ enum class PointerMode {
 }
 
 /** Column/row counts and line width for the next table drawn with the table tool. */
-data class TableToolDefaults(val cols: Int, val rows: Int, val width: Double, val color: Rgba? = null)
+data class TableToolDefaults(val cols: Int, val rows: Int, val look: com.xnotes.core.model.TableLook, val color: Rgba? = null)
 
 /**
  * Geometry of the live text editor field: [x]/[y] place its top-left in viewport pixels, while
@@ -519,7 +519,7 @@ class InteractionController(
     private var shapePageIndex: Int? = null
 
     // TABLE (drawn like a shape). The defaults come from the editor's table-tool settings, read live.
-    var tableToolDefaults: () -> TableToolDefaults = { TableToolDefaults(3, 3, 2.0) }
+    var tableToolDefaults: () -> TableToolDefaults = { TableToolDefaults(3, 3, com.xnotes.core.model.TableLook(2.0, BoxStyle.NONE, com.xnotes.core.model.TableLines())) }
     private var pendingTable: TableItem? = null
     private var tableDrawPageIndex: Int? = null
     private var tableDrawStart = Pt.ZERO
@@ -3417,7 +3417,7 @@ class InteractionController(
         clearSelection()
         val d = tableToolDefaults()
         tableDrawStart = state.toPageSpace(pageIndex, content)
-        pendingTable = TableItem.create(Rect(tableDrawStart.x, tableDrawStart.y, 0.0, 0.0), d.cols, d.rows, d.color ?: inkColor, d.width)
+        pendingTable = TableItem.create(Rect(tableDrawStart.x, tableDrawStart.y, 0.0, 0.0), d.cols, d.rows, d.color ?: inkColor).also { d.look.applyTo(it) }
         tableDrawPageIndex = pageIndex
         mode = PointerMode.TABLE_DRAW
         requestRender()
@@ -4755,8 +4755,9 @@ class InteractionController(
     private val penLook = com.xnotes.core.history.LiveRestyle.pens()
     private val tableBox = com.xnotes.core.history.LiveRestyle.tables()
 
-    fun selectionTableBox() = tableBox.first(selection.map { it.item })
-    fun restyleSelectionTables(preview: Boolean, change: (BoxStyle) -> BoxStyle) =
+    fun selectionTableLook() = tableBox.first(selection.map { it.item })
+    fun selectionOnlyTables() = selection.isNotEmpty() && selection.all { it.item is TableItem }
+    fun restyleSelectionTables(preview: Boolean, change: (com.xnotes.core.model.TableLook) -> com.xnotes.core.model.TableLook) =
         settleLook(tableBox.apply(selection.map { it.item }, preview, change))
 
     fun selectionShapeLook() = shapeLook.first(selection.map { it.item })
