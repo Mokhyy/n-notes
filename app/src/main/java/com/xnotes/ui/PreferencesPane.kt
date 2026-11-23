@@ -69,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
@@ -658,8 +659,17 @@ fun PreferencesPane(
         }
         // Phones lay the panel over the settings, so opening it never squeezes the column.
         if (panelOver) {
-            Box(Modifier.fillMaxSize().background(palette.materialColors.scrim.withAlpha(82).toComposeColor()).clickable { sectionsOpen = false })
-            sectionsPanel()
+            // Out over the pane's gutter, so the panel sits flush with the screen's edge.
+            Box(
+                Modifier.fillMaxSize().layout { measurable, constraints ->
+                    val g = PANE_GUTTER.roundToPx()
+                    val placeable = measurable.measure(constraints.copy(minWidth = constraints.minWidth + g, maxWidth = constraints.maxWidth + g))
+                    layout(constraints.maxWidth, placeable.height) { placeable.place(-g, 0) }
+                },
+            ) {
+                Box(Modifier.fillMaxSize().background(palette.materialColors.scrim.withAlpha(82).toComposeColor()).clickable { sectionsOpen = false })
+                sectionsPanel()
+            }
         }
         }
         }

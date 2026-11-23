@@ -289,7 +289,7 @@ private const val SIDEBAR_ANIM_MS = 150
 
 private val SIDEBAR_WIDTH = 264.dp
 private val RAIL_WIDTH = 80.dp
-private val PANE_GUTTER = 16.dp
+internal val PANE_GUTTER = 16.dp
 private val DRAWER_WIDTH = 296.dp
 
 /** The sidebar's sheet floats this far off the screen's edges, as the floating toolbar does. */
