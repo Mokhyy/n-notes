@@ -669,6 +669,19 @@ class DocumentCodec(
             j.name("dash_length").value(t.lines.dashLength)
             j.name("dash_gap").value(t.lines.dashGap)
         }
+        if (t.cells.isNotEmpty()) {
+            j.name("cells").beginArray()
+            t.cells.forEach { (at, c) ->
+                j.beginObject()
+                j.name("row").value(at.first)
+                j.name("col").value(at.second)
+                c.fill?.let { j.name("fill"); writeRgba(j, it) }
+                c.border?.let { j.name("border"); writeRgba(j, it) }
+                if (c.borderWidth != 0.0) j.name("border_width").value(c.borderWidth)
+                j.endObject()
+            }
+            j.endArray()
+        }
         if (t.locked) j.name("locked").value(true)
         t.link?.let { j.name("link").value(it) }
         t.group?.let { j.name("group").value(it) }
@@ -1310,6 +1323,7 @@ class DocumentCodec(
         var functionYMax: Double? = null
         var tableCols: List<Double>? = null
         var tableRows: List<Double>? = null
+        var tableCells: Map<Pair<Int, Int>, com.xnotes.core.model.CellStyle>? = null
         var rid = 0
         var name = ""
         var durationMs = 0
@@ -1416,6 +1430,7 @@ class DocumentCodec(
                 "function_ymax" -> s.functionYMax = doubleOr(p, 0.0)
                 "cols" -> s.tableCols = doubleListOrNull(p)
                 "rows" -> s.tableRows = doubleListOrNull(p)
+                "cells" -> s.tableCells = cellsOrNull(p)
                 "locked" -> s.locked = boolOr(p, false)
                 "paper" -> s.paper = boolOr(p, false)
                 "link" -> s.link = stringOr(p, "").ifEmpty { null }
@@ -1706,6 +1721,7 @@ class DocumentCodec(
         return TableItem(rect, cols, rows, s.strokeRgba ?: Rgba(0, 0, 0, 255), s.strokeWidth).also {
             it.box = BoxStyle(s.boxFill, s.boxBorder, s.boxBorderWidth.coerceIn(0.0, BoxStyle.MAX_BORDER), s.boxCorner.coerceIn(0.0, BoxStyle.MAX_CORNER))
             it.lines = com.xnotes.core.model.TableLines(s.dashed, s.dashLength, s.dashGap, s.neon, s.neonStrength)
+            s.tableCells?.let { c -> it.cells.putAll(c) }
         }
     }
 
@@ -2198,6 +2214,36 @@ class DocumentCodec(
         while (out.isNotEmpty() && out.last().x.isNaN()) out.removeAt(out.size - 1)
         while (out.isNotEmpty() && out.first().x.isNaN()) out.removeAt(0)
         return if (out.count { !it.x.isNaN() } >= 2) out else null
+    }
+
+    private fun cellsOrNull(p: JsonPull): Map<Pair<Int, Int>, com.xnotes.core.model.CellStyle>? {
+        if (p.peek() != JsonPull.Token.BEGIN_ARRAY) {
+            p.skipValue()
+            return null
+        }
+        val out = HashMap<Pair<Int, Int>, com.xnotes.core.model.CellStyle>()
+        p.beginArray()
+        while (p.hasNext()) {
+            if (p.peek() != JsonPull.Token.BEGIN_OBJECT) { p.skipValue(); continue }
+            var row = -1; var col = -1
+            var fill: Rgba? = null; var border: Rgba? = null; var width = 0.0
+            p.beginObject()
+            while (p.hasNext()) {
+                when (p.nextName()) {
+                    "row" -> row = intOr(p, -1)
+                    "col" -> col = intOr(p, -1)
+                    "fill" -> fill = rgbaOrNull(p)
+                    "border" -> border = rgbaOrNull(p)
+                    "border_width" -> width = doubleOr(p, 0.0).coerceIn(0.0, BoxStyle.MAX_BORDER)
+                    else -> p.skipValue()
+                }
+            }
+            p.endObject()
+            val style = com.xnotes.core.model.CellStyle(fill, border, width)
+            if (row >= 0 && col >= 0 && !style.isEmpty) out[row to col] = style
+        }
+        p.endArray()
+        return out.ifEmpty { null }
     }
 
     private fun doubleListOrNull(p: JsonPull): List<Double>? {

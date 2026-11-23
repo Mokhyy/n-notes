@@ -2,11 +2,16 @@ package com.xnotes.ui
 
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.xnotes.R
 import com.xnotes.core.model.BoxStyle
+import com.xnotes.core.model.CellStyle
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.model.TableItem
 import com.xnotes.core.model.TableLook
@@ -101,5 +106,44 @@ internal fun tableCount(label: Int, n: Int, onChange: (Int) -> Unit): MenuGroup 
             canLess = n > 1, canMore = n < TableItem.MAX_LINES,
             onLess = { onChange(n - 1) }, onMore = { onChange(n + 1) },
         )
+    }
+}
+
+/** Change style while columns or rows are picked on a table's bars: the fill and border of just those cells. */
+@Composable
+internal fun CellStylePopup(host: SelectionMenuHost, opened: CellStyle, ink: Rgba, onDismiss: () -> Unit) {
+    var cell by remember { mutableStateOf(opened) }
+    fun restyle(preview: Boolean, change: (CellStyle) -> CellStyle) {
+        host.restyleSelectionCells(preview, change)
+        cell = change(cell)
+    }
+    val close = {
+        host.restyleSelectionCells(false) { it }
+        onDismiss()
+    }
+    ToolMenu(stringResource(R.string.title_change_style), close, focusable = false) {
+        MenuCard(listOf<MenuGroup>(
+            {
+                MenuRow(stringResource(R.string.box_fill)) {
+                    ColorOrNone(stringResource(R.string.none), cell.fill, ink.withAlpha(64), onChange = { f -> restyle(false) { it.copy(fill = f) } }) { d, p ->
+                        ColorPickerPopup(cell.fill ?: ink, host.hostRecentColors, d, p)
+                    }
+                }
+            },
+            {
+                MenuRow(stringResource(R.string.box_border)) {
+                    ColorOrNone(
+                        stringResource(R.string.none), cell.border, cell.border ?: ink,
+                        onChange = { b -> restyle(false) { it.copy(border = b, borderWidth = if (b == null || it.borderWidth > 0.0) it.borderWidth else FIRST_BORDER) } },
+                    ) { d, p -> ColorPickerPopup(cell.border ?: ink, host.hostRecentColors, d, p) }
+                }
+                if (cell.border != null) {
+                    MenuSlider(
+                        stringResource(R.string.caption_thickness), cell.borderWidth.toFloat(), 0.5f..BoxStyle.MAX_BORDER.toFloat(),
+                        step = 0.5f, child = true, onChangeFinished = { restyle(false) { it } },
+                    ) { w -> restyle(true) { it.copy(borderWidth = w.toDouble()) } }
+                }
+            },
+        ))
     }
 }

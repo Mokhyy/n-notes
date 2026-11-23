@@ -4760,6 +4760,25 @@ class InteractionController(
     fun restyleSelectionTables(preview: Boolean, change: (com.xnotes.core.model.TableLook) -> com.xnotes.core.model.TableLook) =
         settleLook(tableBox.apply(selection.map { it.item }, preview, change))
 
+    private var cellsBefore: GeometrySnapshot? = null
+
+    /** The first picked cell's own style when the lone selected table has columns or rows picked on its bars, else null. */
+    fun selectionTableCells(): com.xnotes.core.model.CellStyle? {
+        val t = singleSelectedTable() ?: return null
+        if (tableColPick == null && tableRowPick == null) return null
+        return t.cells[rowPick(t).first to colPick(t).first] ?: com.xnotes.core.model.CellStyle()
+    }
+
+    /** Apply [change] to each picked cell; a [preview] skips history and the next settled call records one step. */
+    fun restyleSelectionCells(preview: Boolean, change: (com.xnotes.core.model.CellStyle) -> com.xnotes.core.model.CellStyle) {
+        val t = singleSelectedTable() ?: return
+        val before = cellsBefore ?: t.snapshotGeometry()
+        for (r in rowPick(t)) for (c in colPick(t)) t.setCell(r, c, change(t.cells[r to c] ?: com.xnotes.core.model.CellStyle()))
+        cellsBefore = if (preview) before else null
+        val after = t.snapshotGeometry()
+        settleLook(if (preview || after == before) null else TransformItems(listOf(t), listOf(before), listOf(after)))
+    }
+
     fun selectionShapeLook() = shapeLook.first(selection.map { it.item })
     fun selectionPenLook() = penLook.first(selection.map { it.item })
 

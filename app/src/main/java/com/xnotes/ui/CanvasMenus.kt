@@ -205,6 +205,8 @@ interface SelectionMenuHost : SwatchHost {
     fun selectionTableLook(): com.xnotes.core.model.TableLook? = null
     fun selectionOnlyTables(): Boolean = false
     fun restyleSelectionTables(preview: Boolean = false, change: (com.xnotes.core.model.TableLook) -> com.xnotes.core.model.TableLook) {}
+    fun selectionTableCells(): com.xnotes.core.model.CellStyle? = null
+    fun restyleSelectionCells(preview: Boolean = false, change: (com.xnotes.core.model.CellStyle) -> com.xnotes.core.model.CellStyle) {}
 
     /** The first selected tape's pattern, for the restyle popup to open on; null when no tape is selected. */
     fun selectionTapePattern(): com.xnotes.core.model.TapePattern?
@@ -858,6 +860,8 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
     var pen by remember { mutableStateOf(host.selectionPenLook()) }
     var table by remember { mutableStateOf(host.selectionTableLook()) }
     val onlyTables = remember { host.selectionOnlyTables() }
+    val cells = remember { host.selectionTableCells() }
+    if (cells != null) return CellStylePopup(host, cells, color, onDismiss)
     fun restyleShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook = { it }) {
         host.restyleSelectionShapes(preview, change)
         look = host.selectionShapeLook()
