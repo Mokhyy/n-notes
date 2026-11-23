@@ -292,7 +292,6 @@ fun SelectionMenu(
     var overflowOpen by remember { mutableStateOf(false) }
     var subOpen by remember { mutableStateOf<SelectionAction?>(null) }
     var styleOpen by remember { mutableStateOf(false) }
-    var boxStyleOpen by remember { mutableStateOf(false) }
     var linkDialogOpen by remember { mutableStateOf(false) }
     var functionDialogOpen by remember { mutableStateOf(false) }
     var mathDialogOpen by remember { mutableStateOf(false) }
@@ -320,10 +319,9 @@ fun SelectionMenu(
         SelectionAction.SIZE -> size != null
         SelectionAction.MIRROR -> host.canMirrorSelection()
         // Nothing selected carries ink, a fill or text colour: an image has nothing to restyle.
-        SelectionAction.CHANGE_STYLE -> host.selectionStyles().isNotEmpty() || host.selectionFills().isNotEmpty()
+        SelectionAction.CHANGE_STYLE -> host.selectionStyles().isNotEmpty() || host.selectionFills().isNotEmpty() || textBox != null
         SelectionAction.EDIT_FUNCTION -> host.selectionFunction != null
         SelectionAction.EDIT_TEXT -> host.selectionIsText
-        SelectionAction.BOX_STYLE -> textBox != null
         SelectionAction.CONVERT_TEXT -> host.selectionHasInk
         SelectionAction.CONVERT_MATH -> host.selectionHasInk && host.canConvertToMath
         SelectionAction.LINK -> host.selectionCanLink
@@ -366,7 +364,6 @@ fun SelectionMenu(
             SelectionAction.EDIT_FUNCTION -> functionDialogOpen = true
             // A formula is edited as its LaTeX source, not in the text box editor.
             SelectionAction.EDIT_TEXT -> if (host.selectionMath != null) mathDialogOpen = true else host.editSelectedTextBox()
-            SelectionAction.BOX_STYLE -> boxStyleOpen = true
             SelectionAction.CONVERT_TEXT -> host.convertSelectionToText()
             SelectionAction.CONVERT_MATH -> host.convertSelectionToMath()
             SelectionAction.LINK -> linkDialogOpen = true
@@ -394,7 +391,6 @@ fun SelectionMenu(
     }
 
     val styleOnBar = layout.bar.any { it.action == SelectionAction.CHANGE_STYLE && it.visible }
-    val boxStyleOnBar = layout.bar.any { it.action == SelectionAction.BOX_STYLE && it.visible }
     val barActions = layout.bar.filter { it.visible && applies(it.action) }.map { it.action }
     val moreActions = layout.more.filter { it.visible && applies(it.action) }.map { it.action }
 
@@ -419,7 +415,6 @@ fun SelectionMenu(
                     shortcut = if (a == SelectionAction.DELETE) Keys.DELETE else null,
                     tint = if (a == SelectionAction.DELETE) palette.danger.toComposeColor() else null,
                 ) { run(a) }
-                if (a == SelectionAction.BOX_STYLE && boxStyleOpen) BoxStylePopup(host) { boxStyleOpen = false }
                 subRows(a)?.let { rows ->
                     DropdownMenu(
                         expanded = subOpen == a,
@@ -453,7 +448,6 @@ fun SelectionMenu(
                 if (!styleOnBar && styleOpen) {
                     SelectionStylePopup(host) { host.restyleSelection(null, null); styleOpen = false }
                 }
-                if (!boxStyleOnBar && boxStyleOpen) BoxStylePopup(host) { boxStyleOpen = false }
             }
         }
         val latex = host.selectionMath
@@ -514,7 +508,6 @@ val SelectionAction.icon: ImageVector
         SelectionAction.CHANGE_STYLE -> XnotesIcons.palette
         SelectionAction.EDIT_FUNCTION -> XnotesIcons.function
         SelectionAction.EDIT_TEXT -> XnotesIcons.edit
-        SelectionAction.BOX_STYLE -> XnotesIcons.palette
         SelectionAction.CONVERT_TEXT -> XnotesIcons.convertText
         SelectionAction.CONVERT_MATH -> XnotesIcons.sigma
         SelectionAction.LINK -> XnotesIcons.link
@@ -847,9 +840,22 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
     val fills = remember(effects) { host.selectionFills() }
     // Only dropped colours selected: they have a fill and nothing else to restyle.
     val fillsOnly = first == null
-    if (fillsOnly && fills.isEmpty()) return
+    val textBox = remember { host.selectedTextBox() }
+    if (fillsOnly && fills.isEmpty() && textBox == null) return
+    var boxStyle by remember { mutableStateOf(textBox?.box) }
+    // Closing settles whatever a box slider left as a preview.
+    val close = {
+        boxStyle?.let { host.setSelectedBoxStyle(it, preview = false) }
+        onDismiss()
+    }
 
-    ToolMenu(stringResource(R.string.title_change_style), onDismiss, focusable = false) {
+    ToolMenu(stringResource(R.string.title_change_style), close, focusable = false) {
+        boxStyle?.let { style ->
+            BoxStyleCard(style, host.hostRecentColors) { next, preview ->
+                boxStyle = next
+                host.setSelectedBoxStyle(next, preview)
+            }
+        }
         MenuCard(buildList<MenuGroup> {
             if (!fillsOnly) add {
                 Column(Modifier.padding(10.dp)) {

@@ -112,7 +112,6 @@ val com.xnotes.core.tools.SelectionAction.labelRes: Int
         com.xnotes.core.tools.SelectionAction.CHANGE_STYLE -> R.string.change_style
         com.xnotes.core.tools.SelectionAction.EDIT_FUNCTION -> R.string.canvas_menu_edit_function
         com.xnotes.core.tools.SelectionAction.EDIT_TEXT -> R.string.canvas_menu_edit
-        com.xnotes.core.tools.SelectionAction.BOX_STYLE -> R.string.box_style
         com.xnotes.core.tools.SelectionAction.CONVERT_TEXT -> R.string.canvas_menu_convert_to_text
         com.xnotes.core.tools.SelectionAction.CONVERT_MATH -> R.string.canvas_menu_convert_to_math
         com.xnotes.core.tools.SelectionAction.LINK -> R.string.canvas_menu_add_link

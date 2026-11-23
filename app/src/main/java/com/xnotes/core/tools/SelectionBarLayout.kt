@@ -19,7 +19,6 @@ enum class SelectionAction(val id: String, val onBarByDefault: Boolean) {
     CHANGE_STYLE("change_style", false),
     EDIT_FUNCTION("edit_function", false),
     EDIT_TEXT("edit_text", true),
-    BOX_STYLE("box_style", true),
     CONVERT_TEXT("convert_text", false),
     CONVERT_MATH("convert_math", false),
     LINK("link", false),
@@ -33,7 +32,8 @@ enum class SelectionAction(val id: String, val onBarByDefault: Boolean) {
     SAVE_STICKER("save_sticker", false);
 
     companion object {
-        fun fromId(id: String?): SelectionAction? = entries.firstOrNull { it.id == id }
+        // "box_style" was merged into Change style; a saved bar keeps the button where it was.
+        fun fromId(id: String?): SelectionAction? = entries.firstOrNull { it.id == id } ?: CHANGE_STYLE.takeIf { id == "box_style" }
     }
 }
 
