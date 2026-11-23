@@ -363,6 +363,7 @@ internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size:
                 .size(size)
                 .clip(MaterialTheme.shapes.small)
                 .background(if (selected) palette.selectionBackground.toComposeColor() else Color.Transparent)
+                .then(if (selected) Modifier.border(1.5.dp, palette.accent.toComposeColor(), MaterialTheme.shapes.small) else Modifier)
                 .clickable(role = Role.RadioButton, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
