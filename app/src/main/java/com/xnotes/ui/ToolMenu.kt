@@ -147,8 +147,8 @@ internal fun MenuSwitch(label: String, checked: Boolean, enabled: Boolean = true
             modifier = Modifier.weight(1f),
         )
         // Scaled to a checkbox's height; the box holds the scaled size so the row's end stays put.
-        Box(Modifier.size(32.dp, 20.dp), contentAlignment = Alignment.Center) {
-            Switch(checked = checked, onCheckedChange = onChange, enabled = enabled, modifier = Modifier.requiredSize(52.dp, 32.dp).scale(0.6f))
+        Box(Modifier.size(39.dp, 24.dp), contentAlignment = Alignment.Center) {
+            Switch(checked = checked, onCheckedChange = onChange, enabled = enabled, modifier = Modifier.requiredSize(52.dp, 32.dp).scale(0.75f))
         }
     }
 }
