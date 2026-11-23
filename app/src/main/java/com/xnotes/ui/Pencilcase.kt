@@ -83,6 +83,7 @@ fun BoxScope.Pencilcase(
     var area by remember { mutableStateOf(IntSize.Zero) }
     var size by remember { mutableStateOf(IntSize.Zero) }
     var dock by remember { mutableStateOf(Dock.NONE) }
+    var moving by remember { mutableStateOf(false) }
     var vertical by remember { mutableStateOf(false) }
     var trayOpen by remember { mutableStateOf(false) }
     var barGrab by remember { mutableStateOf(Offset.Zero) }
@@ -119,6 +120,7 @@ fun BoxScope.Pencilcase(
     }
 
     fun startMove(at: Offset) {
+        moving = true
         offset = shown()
         barGrab = at
         barFinger = offset + at
@@ -136,8 +138,17 @@ fun BoxScope.Pencilcase(
         offset = shown(barFinger - barGrab)
     }
 
-    fun settle(snap: Float) {
-        if (dock == Dock.NONE && offset.getDistance() < snap) offset = Offset.Zero
+    val reach = with(androidx.compose.ui.platform.LocalDensity.current) { SNAP_REACH.toPx() }
+    fun landing(): Offset = snapToEdges(
+        shown(),
+        0f..(area.width - size.width).coerceAtLeast(0).toFloat(),
+        0f..(area.height - size.height).coerceAtLeast(0).toFloat(),
+        reach,
+    )
+
+    fun settle() {
+        moving = false
+        offset = landing()
     }
 
     /** Where the dragged item lands in the list without it. */
@@ -159,6 +170,7 @@ fun BoxScope.Pencilcase(
             .onSizeChanged { area = it }
             .onGloballyPositioned { origin = it.positionInRoot() },
     ) {
+        if (moving) landing().takeIf { it != shown() }?.let { SnapMark(it, size, Alignment.TopStart) }
         Surface(
             Modifier
                 .align(Alignment.TopStart)
@@ -169,8 +181,8 @@ fun BoxScope.Pencilcase(
                     val snap = 48.dp.toPx()
                     detectDragGesturesAfterLongPress(
                         onDragStart = { startMove(it) },
-                        onDragEnd = { settle(snap) },
-                        onDragCancel = { settle(snap) },
+                        onDragEnd = { settle() },
+                        onDragCancel = { settle() },
                     ) { change, drag ->
                         change.consume()
                         moveBy(drag, snap)
@@ -186,8 +198,8 @@ fun BoxScope.Pencilcase(
                             onHandle = handleBounds.inflate(viewConfiguration.touchSlop).contains(barAt + at)
                             if (onHandle) startMove(at)
                         },
-                        onDragEnd = { if (onHandle) settle(snap) },
-                        onDragCancel = { if (onHandle) settle(snap) },
+                        onDragEnd = { if (onHandle) settle() },
+                        onDragCancel = { if (onHandle) settle() },
                     ) { change, drag ->
                         if (!onHandle) return@detectDragGestures
                         change.consume()

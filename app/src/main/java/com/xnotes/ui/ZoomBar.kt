@@ -54,17 +54,30 @@ fun BoxScope.ZoomBar(
     var area by remember { mutableStateOf(IntSize.Zero) }
     var size by remember { mutableStateOf(IntSize.Zero) }
     var savedOpen by remember { mutableStateOf(false) }
+    var dragging by remember { mutableStateOf(false) }
+    val reach = with(androidx.compose.ui.platform.LocalDensity.current) { SNAP_REACH.toPx() }
+    fun landing() = snapToEdges(
+        offset,
+        -(area.width - size.width).coerceAtLeast(0).toFloat()..0f,
+        0f..(area.height - size.height).coerceAtLeast(0).toFloat(),
+        reach,
+    )
     val current = zoomPercent / 100f
     val saved = favorites.any { isSameZoom(it, current) }
 
     Box(Modifier.matchParentSize().padding(LocalToolbarCover.current).padding(12.dp).onSizeChanged { area = it }) {
+        if (dragging) landing().takeIf { it != offset }?.let { SnapMark(it, size, Alignment.TopEnd) }
         Surface(
             Modifier
                 .align(Alignment.TopEnd)
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
                 .onSizeChanged { size = it }
                 .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress { change, drag ->
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { dragging = true },
+                        onDragEnd = { offset = landing(); dragging = false },
+                        onDragCancel = { offset = landing(); dragging = false },
+                    ) { change, drag ->
                         change.consume()
                         offset = Offset(
                             (offset.x + drag.x).coerceIn(-(area.width - size.width).coerceAtLeast(0).toFloat(), 0f),
