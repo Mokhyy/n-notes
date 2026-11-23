@@ -179,7 +179,7 @@ private fun ChipPager(
             }
         }
     }
-    HorizontalPager(state = state, modifier = Modifier.fillMaxWidth().height((rows * CHIP + (rows - 1) * GAP).dp)) { page ->
+    HorizontalPager(state = state, modifier = Modifier.fillMaxWidth().height((rows * CHIP + (rows - 1) * GAP).dp), verticalAlignment = Alignment.Top) { page ->
         Column(verticalArrangement = Arrangement.spacedBy(GAP.dp)) { content(page) }
     }
 }
