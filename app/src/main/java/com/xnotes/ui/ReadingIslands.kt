@@ -327,7 +327,7 @@ private fun TitleIsland(editor: Editor, modifier: Modifier) {
     }
 }
 
-/** The gear, which never fades, and beside it in a split the pane's close. */
+/** The reader exit and the gear, which never fade, and beside them in a split the pane's close. */
 @Composable
 private fun GearIsland(
     editor: Editor,
@@ -342,6 +342,7 @@ private fun GearIsland(
     CompositionLocalProvider(LocalTipSide provides TipSide.BELOW) {
         Island(modifier) {
             // The panel hangs just under the island, its end lined up with the island's.
+            ToolbarIcon(XnotesIcons.bookOpen, stringResource(R.string.reader_exit), active = true) { editor.toggleReadOnly() }
             CompositionLocalProvider(LocalMenuOffset provides DpOffset(ISLAND_PAD, (bar.thickness - bar.button) / 2 + PANEL_GAP)) {
                 NoteSettingsButton(editor, fullscreen, onToggleFullscreen, onImportTemplate) { chrome.panelOpen = it }
             }

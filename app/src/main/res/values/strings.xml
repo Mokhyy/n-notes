@@ -30,6 +30,7 @@
     <string name="edit_text">Edit text</string>
     <string name="tool_markup">PDF text markup</string>
     <string name="tool_reader">Reader</string>
+    <string name="reader_exit">Exit reader</string>
     <string name="reader_settings">Reader settings</string>
     <string name="caption_page_turning">Pages</string>
     <string name="reader_vertical">Vertical</string>
