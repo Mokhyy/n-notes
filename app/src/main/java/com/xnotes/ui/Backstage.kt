@@ -625,8 +625,6 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
 @Composable
 private fun PrefsNavItems(p: PrefsNav) {
     Column(Modifier.verticalScroll(rememberScrollState())) {
-        Command(XnotesIcons.prev, p.backLabel) { p.onBack() }
-        RailDivider()
         p.titles.forEachIndexed { i, title -> Command(p.icons[i], title, selected = i == p.current) { p.onPick(i) } }
     }
 }
