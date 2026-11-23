@@ -28,6 +28,9 @@ private const val FIRST_BORDER = 1.5
  * A card of a text box's frame: fill and border colour, each with None, then border thickness and
  * corner roundness. [onChange] hears every move; its flag is true while a slider is still dragged.
  */
+/** Sharp, Rounded and Soft corners, as the corner style preference names them. */
+private val CORNER_PRESETS = listOf(0.0, 8.0, 16.0)
+
 @Composable
 internal fun BoxStyleCard(style: BoxStyle, recents: List<Rgba>, onChange: (BoxStyle, preview: Boolean) -> Unit) {
     val ink = LocalPalette.current.text
@@ -56,6 +59,10 @@ internal fun BoxStyleCard(style: BoxStyle, recents: List<Rgba>, onChange: (BoxSt
             ) { onChange(style.copy(borderWidth = it.toDouble()), true) }
         }
         add {
+            MenuSegmented(
+                listOf(stringResource(R.string.corners_sharp), stringResource(R.string.corners_rounded), stringResource(R.string.corners_soft)),
+                CORNER_PRESETS.indexOf(style.corner),
+            ) { onChange(style.copy(corner = CORNER_PRESETS[it]), false) }
             MenuSlider(
                 stringResource(R.string.box_corners), style.corner.toFloat(), 0f..BoxStyle.MAX_CORNER.toFloat(),
                 step = 1f, onChangeFinished = { onChange(style, false) },
