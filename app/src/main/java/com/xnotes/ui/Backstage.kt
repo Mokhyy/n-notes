@@ -82,6 +82,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -294,6 +297,9 @@ private val SHEET_MARGIN = 8.dp
 /** Sidebar rows sit this far inside the sheet, their corners curving about the sheet's. */
 private val ROW_INSET = 8.dp
 
+/** [Preferences.sidebarFloating]: the sidebar on a floating sheet with pill rows, else flush with square rows. */
+private val LocalFloatingSidebar = staticCompositionLocalOf { false }
+
 /**
  * The home-first layout: the explorer (or Preferences) fills the screen beside the sidebar. Wide
  * screens show either the full sidebar or its rail, remembered across launches; phones slide the
@@ -439,10 +445,14 @@ private fun BackstageContent(
             ) {
                 // Flush with the screen's edge, so only its open side is rounded.
                 val shape = MaterialTheme.shapes.large.copy(topStart = CornerSize(0.dp), bottomStart = CornerSize(0.dp))
-                BackstageSidebar(
-                    Modifier.width(DRAWER_WIDTH).swipeToClose(prefs, dismissDrawer).background(palette.menuBg.toComposeColor(), shape).clip(shape).padding(vertical = SHEET_MARGIN),
-                    editor, nav, dismissDrawer,
-                )
+                val surface = if (prefs.sidebarFloating) {
+                    Modifier.background(palette.menuBg.toComposeColor(), shape).clip(shape).padding(vertical = SHEET_MARGIN)
+                } else {
+                    Modifier.background(palette.panel.toComposeColor())
+                }
+                CompositionLocalProvider(LocalFloatingSidebar provides prefs.sidebarFloating) {
+                    BackstageSidebar(Modifier.width(DRAWER_WIDTH).swipeToClose(prefs, dismissDrawer).then(surface), editor, nav, dismissDrawer)
+                }
             }
         }
     } else {
@@ -466,10 +476,14 @@ private fun BackstageContent(
                 focusSync, { focusSync = false }, syncLogOpen, { syncLogOpen = it }, prefsSidebar, { prefsSidebar = it },
             )
             // Both stay composed so a fold never pays to build one; only the current one is measured and placed.
+            val floating = prefs.sidebarFloating
+            val margin = if (floating) SHEET_MARGIN else 0.dp
             Layout(
                 content = {
-                    BackstageRail(Modifier.width(RAIL_WIDTH - SHEET_MARGIN), nav) { setRailed(false) }
-                    BackstageSidebar(Modifier.width(SIDEBAR_WIDTH - SHEET_MARGIN), editor, nav) { setRailed(true) }
+                    CompositionLocalProvider(LocalFloatingSidebar provides floating) {
+                        BackstageRail(Modifier.width(RAIL_WIDTH - margin), nav) { setRailed(false) }
+                        BackstageSidebar(Modifier.width(SIDEBAR_WIDTH - margin), editor, nav) { setRailed(true) }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxHeight()
@@ -478,8 +492,10 @@ private fun BackstageContent(
                         val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
                         layout(w, placeable.height) { placeable.place(0, 0) }
                     }
-                    .padding(start = SHEET_MARGIN, top = SHEET_MARGIN, bottom = SHEET_MARGIN)
-                    .floatingBar(),
+                    .then(
+                        if (floating) Modifier.padding(start = SHEET_MARGIN, top = SHEET_MARGIN, bottom = SHEET_MARGIN).floatingBar()
+                        else Modifier.background(palette.panel.toComposeColor()).clipToBounds(),
+                    ),
             ) { measurables, constraints ->
                 val shown = measurables[if (railed) 0 else 1].measure(Constraints(maxHeight = constraints.maxHeight, minHeight = constraints.maxHeight))
                 // Fully folded, the panel is left unplaced so keyboard focus can't land on buttons nobody can see.
@@ -540,7 +556,7 @@ private class SidebarNav(
 @Composable
 private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav, onCollapse: () -> Unit) {
     val palette = LocalPalette.current
-    Column(modifier.fillMaxHeight().padding(vertical = 8.dp)) {
+    Column(modifier.fillMaxHeight().padding(vertical = if (LocalFloatingSidebar.current) 8.dp else 12.dp)) {
         Row(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 2.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -603,7 +619,7 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
 private fun BackstageRail(modifier: Modifier, nav: SidebarNav, onExpand: () -> Unit) {
     val palette = LocalPalette.current
     Column(
-        modifier.fillMaxHeight().padding(vertical = 8.dp),
+        modifier.fillMaxHeight().padding(vertical = if (LocalFloatingSidebar.current) 8.dp else 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Tooltip(stringResource(R.string.expand_sidebar), side = TipSide.RIGHT) {
@@ -705,16 +721,20 @@ private fun BackstageMain(
 /** A sidebar row's pill, inset in the sheet on the usual 48dp pitch and filled when [selected]; the caller adds its click and content padding. */
 @Composable
 private fun Modifier.sidebarRow(selected: Boolean): Modifier {
+    val fill = if (selected) Modifier.background(LocalPalette.current.selectionBackground.toComposeColor()) else Modifier
+    if (!LocalFloatingSidebar.current) return fillMaxWidth().height(48.dp).then(fill)
     val shape = MaterialTheme.shapes.large.nested(ROW_INSET, LocalDensity.current)
     return fillMaxWidth()
         .padding(horizontal = ROW_INSET, vertical = 2.dp)
         .height(44.dp)
         .clip(shape)
-        .then(if (selected) Modifier.background(LocalPalette.current.selectionBackground.toComposeColor()) else Modifier)
+        .then(fill)
 }
 
-/** Content padding inside a sidebar row's pill, wider on the text side (see the menus' rows). */
-private val SIDEBAR_ROW_PADDING = PaddingValues(start = 12.dp, end = 16.dp)
+/** Content padding inside a sidebar row, wider on the text side; a flush row adds the pill's inset so its text stays put. */
+@Composable
+private fun sidebarRowPadding(start: Dp = 12.dp): PaddingValues =
+    if (LocalFloatingSidebar.current) PaddingValues(start = start, end = 16.dp) else PaddingValues(start = start + ROW_INSET, end = 16.dp + ROW_INSET)
 
 /** A sidebar row; [folded] adds a chevron for a group that unfolds in place. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -733,7 +753,7 @@ private fun Command(
         Modifier
             .sidebarRow(selected)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(SIDEBAR_ROW_PADDING),
+            .padding(sidebarRowPadding()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, contentDescription = label, tint = (if (selected) palette.selectionForeground else palette.accent).toComposeColor(), modifier = Modifier.size(20.dp))
@@ -814,7 +834,7 @@ private fun ColorCommand(color: Rgba, name: String, selected: Boolean, onClick: 
             Modifier
                 .sidebarRow(selected)
                 .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })
-                .padding(SIDEBAR_ROW_PADDING),
+                .padding(sidebarRowPadding()),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(20.dp), contentAlignment = Alignment.Center) {
@@ -866,7 +886,7 @@ private fun PinnedCommand(label: String, selected: Boolean, onClick: () -> Unit,
             Modifier
                 .sidebarRow(selected)
                 .combinedClickable(onClick = onClick, onLongClick = { menuOpen = true })
-                .padding(start = 28.dp, end = 16.dp),
+                .padding(sidebarRowPadding(start = 28.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(XnotesIcons.folder, null, tint = (if (selected) palette.selectionForeground else palette.accent).toComposeColor(), modifier = Modifier.size(20.dp))
@@ -888,7 +908,7 @@ private fun PinnedCommand(label: String, selected: Boolean, onClick: () -> Unit,
 
 @Composable
 private fun RailDivider() {
-    HorizontalDivider(color = LocalPalette.current.border.toComposeColor(), modifier = Modifier.padding(horizontal = ROW_INSET, vertical = 8.dp))
+    HorizontalDivider(color = LocalPalette.current.border.toComposeColor(), modifier = Modifier.padding(horizontal = if (LocalFloatingSidebar.current) ROW_INSET else 18.dp, vertical = 8.dp))
 }
 
 /** One row of the explorer's "Sort by" menu: a check and direction arrow mark the active field. */

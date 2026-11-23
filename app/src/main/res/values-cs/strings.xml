@@ -23,6 +23,7 @@
     <string name="tool_markup">Značení textu v PDF</string>
     <string name="tool_reader">Čtečka</string>
     <string name="reader_exit">Ukončit čtečku</string>
+    <string name="pref_sidebar_style">Styl postranního panelu</string>
     <string name="reader_settings">Nastavení čtečky</string>
     <string name="caption_page_turning">Stránky</string>
     <string name="reader_vertical">Svisle</string>

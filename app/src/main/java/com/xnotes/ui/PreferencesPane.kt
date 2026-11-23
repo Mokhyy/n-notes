@@ -1147,6 +1147,11 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
             }
         }
     }
+    FieldLabel(stringResource(R.string.pref_sidebar_style))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.toolbar_docked), !prefs.sidebarFloating) { updateHome(prefs.copy(sidebarFloating = false)) }
+        Chip(stringResource(R.string.toolbar_floating), prefs.sidebarFloating) { updateHome(prefs.copy(sidebarFloating = true)) }
+    }
     FieldLabel(stringResource(R.string.pref_sidebar_sections))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         @Composable

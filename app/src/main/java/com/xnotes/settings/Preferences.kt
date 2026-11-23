@@ -153,6 +153,8 @@ data class Preferences(
     val sidebarTrash: Boolean = true,
     val sidebarFiles: Boolean = true,
     val sidebarSync: Boolean = true,
+    /** Whether the home sidebar floats on a rounded sheet off the screen's edges instead of sitting flush. */
+    val sidebarFloating: Boolean = false,
     /** Where Home opens: "top" (the notes folder), "last" (the folder last shown) or "shelves" (the notes folder under Recent and Pinned). */
     val homeOpensTo: String = "top",
     /** What a swipe right / left on Home does: one of [HOME_SWIPES]. */
@@ -292,6 +294,7 @@ data class Preferences(
         .put("sidebar_pinned", sidebarPinned)
         .put("sidebar_colours", sidebarColours)
         .put("sidebar_trash", sidebarTrash)
+        .put("sidebar_floating", sidebarFloating)
         .put("sidebar_files", sidebarFiles)
         .put("sidebar_sync", sidebarSync)
         .put("home_opens_to", homeOpensTo)
@@ -461,6 +464,7 @@ data class Preferences(
                 sidebarPinned = o.optBoolean("sidebar_pinned", true),
                 sidebarColours = o.optBoolean("sidebar_colours", true),
                 sidebarTrash = o.optBoolean("sidebar_trash", true),
+                sidebarFloating = o.optBoolean("sidebar_floating", false),
                 sidebarFiles = o.optBoolean("sidebar_files", true),
                 sidebarSync = o.optBoolean("sidebar_sync", true),
                 homeOpensTo = o.optString("home_opens_to", "top").let { if (it == "last" || it == "shelves") it else "top" },

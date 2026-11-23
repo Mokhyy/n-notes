@@ -23,6 +23,7 @@
     <string name="tool_markup">Marcado de texto PDF</string>
     <string name="tool_reader">Lector</string>
     <string name="reader_exit">Salir del lector</string>
+    <string name="pref_sidebar_style">Estilo de la barra lateral</string>
     <string name="reader_settings">Ajustes del lector</string>
     <string name="caption_page_turning">Páginas</string>
     <string name="reader_vertical">Vertical</string>
