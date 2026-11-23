@@ -78,7 +78,7 @@ fun ShapeConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
                 add { MenuSwitch(stringResource(R.string.caption_perfect), config.perfect) { emit(config.copy(perfect = it)) } }
             }
             add {
-                MenuSlider(stringResource(R.string.caption_width), config.strokeWidth.toFloat(), 1f..20f, step = ToolConversions.WIDTH_STEP.toFloat()) {
+                MenuSlider(stringResource(R.string.caption_thickness), config.strokeWidth.toFloat(), 1f..20f, step = ToolConversions.WIDTH_STEP.toFloat()) {
                     emit(config.copy(strokeWidth = it.toDouble()))
                 }
             }

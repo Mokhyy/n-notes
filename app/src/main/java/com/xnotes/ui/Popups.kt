@@ -238,7 +238,7 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
             }
             add {
                 MenuSlider(
-                    stringResource(R.string.caption_width), width,
+                    stringResource(R.string.caption_thickness), width,
                     range.start.toFloat()..range.endInclusive.toFloat(), step = ToolConversions.WIDTH_STEP.toFloat(),
                 ) { width = it; emit() }
             }
@@ -670,7 +670,7 @@ fun TableConfigPopup(editor: Editor, onDismiss: () -> Unit) {
             Spacer(Modifier.size(12.dp))
             TableStepperRow(stringResource(R.string.caption_columns), cols, 1, 20) { cols = it; editor.tableToolCols = it }
             TableStepperRow(stringResource(R.string.caption_rows), rows, 1, 20) { rows = it; editor.tableToolRows = it }
-            SliderRow(stringResource(R.string.caption_width), width, 1f..12f) { width = it; editor.tableToolWidth = it.toDouble() }
+            SliderRow(stringResource(R.string.caption_thickness), width, 1f..12f) { width = it; editor.tableToolWidth = it.toDouble() }
         }
     }
 }
@@ -727,7 +727,7 @@ fun TapeConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
                 add {
                     val range = ToolConversions.widthRange(Tool.TAPE)
                     MenuSlider(
-                        stringResource(R.string.caption_width), width,
+                        stringResource(R.string.caption_thickness), width,
                         range.start.toFloat()..range.endInclusive.toFloat(), step = ToolConversions.WIDTH_STEP.toFloat(),
                     ) { width = it; emit() }
                 }
