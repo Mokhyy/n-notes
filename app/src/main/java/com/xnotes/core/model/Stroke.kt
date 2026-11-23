@@ -34,7 +34,7 @@ import kotlin.math.max
  * whole on every edit, so a stroke can be read from another thread while the pen draws on it.
  */
 class Stroke(
-    val tool: Tool,
+    var tool: Tool,
     /** Scaled in place when the stroke is resized (var so [applyTransform] can swap a width-scaled
      *  copy); otherwise the immutable style snapshot captured at pen-down. */
     var config: ToolConfig,

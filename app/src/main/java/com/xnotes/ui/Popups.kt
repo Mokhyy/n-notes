@@ -554,7 +554,7 @@ fun EraserConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun penIcon(pen: Tool): ImageVector = ImageVector.vectorResource(
+internal fun penIcon(pen: Tool): ImageVector = ImageVector.vectorResource(
     when (pen) {
         Tool.DASHED -> R.drawable.ic_stroke_dashed
         Tool.CALLIGRAPHY -> R.drawable.ic_stroke_calligraphy

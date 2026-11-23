@@ -9985,6 +9985,11 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     override fun setSelectionEffects(dashed: Boolean?, neon: Boolean?, filled: Boolean?) = controller.setSelectionEffects(dashed, neon, filled)
 
+    override fun selectionShapeLook() = controller.selectionShapeLook()
+    override fun selectionPenLook() = controller.selectionPenLook()
+    override fun restyleSelectionShapes(preview: Boolean, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) = controller.restyleSelectionShapes(preview, change)
+    override fun restyleSelectionPens(preview: Boolean, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) = controller.restyleSelectionPens(preview, change)
+
     override fun setSelectionTapePattern(pattern: com.xnotes.core.model.TapePattern) = controller.setSelectionTapePattern(pattern)
 
     override fun refillSelection(color: Rgba?, preview: Boolean) {

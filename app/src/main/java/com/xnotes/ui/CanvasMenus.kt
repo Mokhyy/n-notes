@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -74,6 +75,7 @@ import com.xnotes.core.model.FunctionSpec
 import com.xnotes.core.model.PageSize
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.tools.SelectionAction
+import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.SelectionBarLayout
 import com.xnotes.core.tools.ToolConversions
 import com.xnotes.ui.icons.XnotesIcons
@@ -194,6 +196,12 @@ interface SelectionMenuHost : SwatchHost {
 
     /** Turn the non-null of [dashed], [neon] and [filled] on or off across the selection, as one undo step. */
     fun setSelectionEffects(dashed: Boolean? = null, neon: Boolean? = null, filled: Boolean? = null)
+
+    /** Dash, glow and fill details of the selected shapes, and of the pen strokes: read off the first, set on all. */
+    fun selectionShapeLook(): com.xnotes.core.history.ShapeLook? = null
+    fun restyleSelectionShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) {}
+    fun selectionPenLook(): com.xnotes.core.history.PenLook? = null
+    fun restyleSelectionPens(preview: Boolean = false, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) {}
 
     /** The first selected tape's pattern, for the restyle popup to open on; null when no tape is selected. */
     fun selectionTapePattern(): com.xnotes.core.model.TapePattern?
@@ -843,9 +851,21 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
     val textBox = remember { host.selectedTextBox() }
     if (fillsOnly && fills.isEmpty() && textBox == null) return
     var boxStyle by remember { mutableStateOf(textBox?.box) }
+    var look by remember { mutableStateOf(host.selectionShapeLook()) }
+    var pen by remember { mutableStateOf(host.selectionPenLook()) }
+    fun restyleShapes(preview: Boolean = false, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook = { it }) {
+        host.restyleSelectionShapes(preview, change)
+        look = host.selectionShapeLook()
+    }
+    fun restylePens(preview: Boolean = false, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook = { it }) {
+        host.restyleSelectionPens(preview, change)
+        pen = host.selectionPenLook()
+    }
     // Closing settles whatever a box slider left as a preview.
     val close = {
         boxStyle?.let { host.setSelectedBoxStyle(it, preview = false) }
+        if (look != null) restyleShapes()
+        if (pen != null) restylePens()
         onDismiss()
     }
 
@@ -854,6 +874,13 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
             BoxStyleCard(style, host.hostRecentColors) { next, preview ->
                 boxStyle = next
                 host.setSelectedBoxStyle(next, preview)
+            }
+        }
+        pen?.let { p ->
+            PanelCard(padding = PaddingValues(6.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    for (t in Tool.PENS) MenuTile(penIcon(t), stringResource(t.labelRes), t == p.tool, 44.dp) { if (t != p.tool) restylePens { it.asPen(t) } }
+                }
             }
         }
         MenuCard(buildList<MenuGroup> {
@@ -893,14 +920,62 @@ private fun SelectionStylePopup(host: SelectionMenuHost, onDismiss: () -> Unit) 
                     }
                 }
             }
+            pen?.let { p ->
+                val c = p.config
+                if (p.tool == Tool.DASHED) {
+                    add { MenuSlider(stringResource(R.string.caption_dash), c.dashLength.toFloat(), 2f..40f, onChangeFinished = { restylePens() }) { v -> restylePens(true) { it.copy(config = it.config.copy(dashLength = v.toDouble())) } } }
+                    add { MenuSlider(stringResource(R.string.caption_gap), c.dashGap.toFloat(), 2f..40f, onChangeFinished = { restylePens() }) { v -> restylePens(true) { it.copy(config = it.config.copy(dashGap = v.toDouble())) } } }
+                }
+                // Neon paints at full strength whatever the opacity, so opacity hides under it, as on the pen.
+                if (!c.neon) add {
+                    MenuSwitch(stringResource(R.string.caption_opacity), c.opacityEnabled) { on -> restylePens { it.copy(config = it.config.copy(opacityEnabled = on)) } }
+                    if (c.opacityEnabled) {
+                        MenuSlider(stringResource(R.string.caption_intensity), ToolConversions.opacityToPercent(c.opacity).toFloat(), 10f..100f, step = 1f, child = true, onChangeFinished = { restylePens() }) { v ->
+                            restylePens(true) { it.copy(config = it.config.copy(opacity = ToolConversions.percentToOpacity(v.toDouble()))) }
+                        }
+                    }
+                }
+                if (p.tool != Tool.DASHED) add {
+                    MenuSwitch(stringResource(R.string.caption_neon), c.neon) { on -> restylePens { it.copy(config = it.config.copy(neon = on)) } }
+                    if (c.neon) {
+                        MenuSlider(stringResource(R.string.caption_glow_intensity), ToolConversions.neonStrengthToIntensity(c.neonStrength).toFloat(), 0f..100f, child = true, onChangeFinished = { restylePens() }) { v ->
+                            restylePens(true) { it.copy(config = it.config.copy(neonStrength = ToolConversions.intensityToNeonStrength(v.toDouble()))) }
+                        }
+                    }
+                }
+            }
             effects.dashed?.let { on ->
-                add { MenuSwitch(stringResource(R.string.caption_dashed), on) { host.setSelectionEffects(dashed = it); effects = host.selectionEffects() } }
+                add {
+                    MenuSwitch(stringResource(R.string.caption_dashed), on) { host.setSelectionEffects(dashed = it); effects = host.selectionEffects() }
+                    val l = look
+                    if (on && l != null) {
+                        MenuSlider(stringResource(R.string.caption_dash), l.dashLength.toFloat(), 2f..40f, child = true, onChangeFinished = { restyleShapes() }) { v -> restyleShapes(true) { it.copy(dashLength = v.toDouble()) } }
+                        MenuSlider(stringResource(R.string.caption_gap), l.dashGap.toFloat(), 2f..40f, child = true, onChangeFinished = { restyleShapes() }) { v -> restyleShapes(true) { it.copy(dashGap = v.toDouble()) } }
+                    }
+                }
             }
             effects.neon?.let { on ->
-                add { MenuSwitch(stringResource(R.string.caption_neon), on) { host.setSelectionEffects(neon = it); effects = host.selectionEffects() } }
+                add {
+                    MenuSwitch(stringResource(R.string.caption_neon), on) { host.setSelectionEffects(neon = it); effects = host.selectionEffects() }
+                    val l = look
+                    if (on && l != null) {
+                        MenuSlider(stringResource(R.string.caption_glow_intensity), ToolConversions.neonStrengthToIntensity(l.neonStrength).toFloat(), 0f..100f, child = true, onChangeFinished = { restyleShapes() }) { v ->
+                            restyleShapes(true) { it.copy(neonStrength = ToolConversions.intensityToNeonStrength(v.toDouble())) }
+                        }
+                    }
+                }
             }
             effects.filled?.let { on ->
-                add { MenuSwitch(stringResource(R.string.caption_fill), on) { host.setSelectionEffects(filled = it); effects = host.selectionEffects() } }
+                add {
+                    MenuSwitch(stringResource(R.string.caption_fill), on) { host.setSelectionEffects(filled = it); effects = host.selectionEffects(); look = host.selectionShapeLook() }
+                    val alpha = look?.fill?.a
+                    if (on && alpha != null) {
+                        val minPct = (com.xnotes.core.tools.ShapeConfig.FILL_ALPHA_MIN * 100).toFloat()
+                        MenuSlider(stringResource(R.string.caption_opacity), alpha / 2.55f, minPct..100f, step = 1f, child = true, onChangeFinished = { restyleShapes() }) { v ->
+                            restyleShapes(true) { it.copy(fill = it.fill?.copy(a = (v * 2.55f).roundToInt().coerceIn(0, 255))) }
+                        }
+                    }
+                }
             }
             if (fills.isNotEmpty()) add {
                 var fill by remember { mutableStateOf<Rgba?>(fills.first().copy(a = 255)) }

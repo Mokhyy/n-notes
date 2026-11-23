@@ -876,6 +876,26 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         publishOverlay()
     }
 
+    private val shapeLook = com.xnotes.core.history.LiveRestyle.shapes()
+    private val penLook = com.xnotes.core.history.LiveRestyle.pens()
+
+    override fun selectionShapeLook() = shapeLook.first(selection.items)
+    override fun selectionPenLook() = penLook.first(selection.items)
+
+    override fun restyleSelectionShapes(preview: Boolean, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) =
+        settleLook(shapeLook.apply(selection.items, preview, change))
+
+    override fun restyleSelectionPens(preview: Boolean, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) =
+        settleLook(penLook.apply(selection.items, preview, change))
+
+    private fun settleLook(step: com.xnotes.core.history.Command?) {
+        document.itemsChanged(selection.items)
+        step?.let { history.push(OnCanvas(document, it, selection.items)) }
+        markDirty()
+        refresh()
+        publishOverlay()
+    }
+
     override fun selectionTapePattern(): com.xnotes.core.model.TapePattern? =
         selection.items.firstNotNullOfOrNull { (it as? TapeItem)?.pattern }
 

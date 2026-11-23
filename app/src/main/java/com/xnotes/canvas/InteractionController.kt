@@ -4751,6 +4751,25 @@ class InteractionController(
         requestRender()
     }
 
+    private val shapeLook = com.xnotes.core.history.LiveRestyle.shapes()
+    private val penLook = com.xnotes.core.history.LiveRestyle.pens()
+
+    fun selectionShapeLook() = shapeLook.first(selection.map { it.item })
+    fun selectionPenLook() = penLook.first(selection.map { it.item })
+
+    fun restyleSelectionShapes(preview: Boolean, change: (com.xnotes.core.history.ShapeLook) -> com.xnotes.core.history.ShapeLook) =
+        settleLook(shapeLook.apply(selection.map { it.item }, preview, change))
+
+    fun restyleSelectionPens(preview: Boolean, change: (com.xnotes.core.history.PenLook) -> com.xnotes.core.history.PenLook) =
+        settleLook(penLook.apply(selection.map { it.item }, preview, change))
+
+    private fun settleLook(step: com.xnotes.core.history.Command?) {
+        step?.let { history.push(it) }
+        state.document.dirty = true
+        onContentChanged()
+        requestRender()
+    }
+
     /** The first selected tape's pattern, or null when no tape is selected. */
     fun selectionTapePattern(): TapePattern? = selection.firstNotNullOfOrNull { (it.item as? TapeItem)?.pattern }
 
