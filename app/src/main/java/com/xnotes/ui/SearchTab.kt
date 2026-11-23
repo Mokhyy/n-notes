@@ -115,9 +115,9 @@ private fun QueryField(editor: Editor) {
             .fillMaxWidth()
             .padding(start = 8.dp, end = 8.dp, top = 12.dp, bottom = 2.dp)
             .height(36.dp)
-            .clip(CircleShape)
+            .clip(MaterialTheme.shapes.large)
             .background(palette.surface.toComposeColor())
-            .border(1.dp, palette.border.toComposeColor(), CircleShape)
+            .border(1.dp, palette.border.toComposeColor(), MaterialTheme.shapes.large)
             .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
