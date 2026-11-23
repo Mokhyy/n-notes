@@ -44,16 +44,9 @@
     <string name="toolbar_sidebar">Barre latérale</string>
     <string name="undo">Annuler</string>
     <string name="redo">Rétablir</string>
-    <string name="toolbar_page_nav">Navigation des pages</string>
-    <string name="toolbar_styles">Styles</string>
-    <string name="toolbar_margins">Marges</string>
     <string name="toolbar_view">Affichage</string>
-    <string name="toolbar_zoom">Zoom</string>
-    <string name="toolbar_fit">Ajuster</string>
-    <string name="toolbar_zoom_lock">Verrouillage du zoom</string>
     <string name="toolbar_fullscreen">Plein écran</string>
     <string name="toolbar_colours">Couleurs</string>
-    <string name="toolbar_waypoints">Repères</string>
     <string name="toolbar_minimap">Mini-carte</string>
     <string name="toolbar_pencilcase">Trousse</string>
     <string name="pencilcase_save">Ranger l\'outil dans la trousse</string>
@@ -121,7 +114,6 @@
     <string name="caption_template">Modèle</string>
     <string name="caption_accent_colour">Couleur d\'accent</string>
     <string name="customize">Personnaliser</string>
-    <string name="back_customize">"‹  Personnaliser"</string>
     <string name="import_template">Importer</string>
     <string name="remove_template">Retirer de la bibliothèque</string>
     <string name="keep_template">Ajouter à la bibliothèque</string>
@@ -145,7 +137,6 @@
     <string name="caption_vertical_scrolling">Défilement vertical</string>
     <string name="caption_free_movement">Déplacement libre des pages</string>
     <string name="caption_pdf_filters">Filtres de couleur PDF</string>
-    <string name="adjust">Ajuster</string>
     <string name="filter_contrast">Contraste</string>
     <string name="filter_invert">Inverser</string>
     <string name="filter_brightness">Luminosité</string>
@@ -505,7 +496,6 @@
     <string name="collapse_sidebar">Réduire la barre latérale</string>
     <string name="home">Accueil</string>
     <string name="new_note">Nouvelle note</string>
-    <string name="new_note_in">Nouvelle note dans %1$s</string>
     <string name="close_new_note">Fermer sans créer</string>
     <string name="cover">Couverture</string>
     <string name="no_cover">Aucune couverture</string>
@@ -514,11 +504,7 @@
     <string name="change_cover">Changer la couverture…</string>
     <string name="change_cover_title">Changer la couverture</string>
     <string name="remove_cover">Supprimer la couverture</string>
-    <string name="templates_built_in">Intégrés</string>
-    <string name="templates_examples">Exemples</string>
     <string name="templates_imported">Importés</string>
-    <string name="templates_imported_help">Conservés dans votre dossier de notes, ils se synchronisent avec vos notes.</string>
-    <string name="cover_designs">Modèles</string>
     <string name="import_template_file">Importer un modèle</string>
     <string name="page_from_image">Modèle de page à partir d\'une image</string>
     <string name="cover_from_image">Modèle de couverture à partir d\'une image</string>
@@ -546,10 +532,7 @@
     <string name="ai_prompt_cover_pattern">Avec Python, dessine un motif génératif de cercles translucides qui se chevauchent dans des bleus profonds et un bleu sarcelle, et fais-en un modèle de couverture avec un fin cadre doré et une étiquette pour le titre.</string>
     <string name="ai_prompt_cover_leather">Un modèle de couverture qui ressemble à un carnet en cuir : dessine avec Python un grain de cuir sombre en jeux d\'ombre et de lumière sur une couleur que je peux changer, et ajoute une bordure estampée à sec et une étiquette dorée.</string>
     <string name="tag_all">Tous</string>
-    <string name="every_page">Chaque page</string>
     <string name="plain_paper">Papier uni</string>
-    <string name="pick_template_hint">Choisissez un modèle pour définir ses lignes, ses couleurs et son espacement.</string>
-    <string name="pick_cover_hint">Choisissez un modèle pour commencer la note avec une couverture.</string>
     <string name="page_size_mm">%1$s × %2$s mm</string>
     <string name="custom_size_range">Chaque côté entre %1$s et %2$s mm</string>
     <string name="new_canvas">Nouveau canevas</string>
@@ -883,7 +866,6 @@
     <string name="no_bookmarks">— aucun signet —</string>
     <string name="add">Ajouter</string>
     <string name="page_n">Page %1$d</string>
-    <string name="bookmark_entry">%1$s · p. %2$d</string>
 
     <!-- Selection and long-press menus -->
     <string name="bring_to_front">Mettre au premier plan</string>
@@ -1010,7 +992,6 @@
     <!-- Colour picker -->
     <string name="swatches">Nuancier</string>
     <string name="spectrum">Spectre</string>
-    <string name="caption_recent">Récentes</string>
     <string name="eyedropper">Choisir une couleur à l\'écran</string>
     <string name="eyedropper_hint">Touchez une couleur pour la choisir</string>
 
@@ -1123,24 +1104,15 @@
     <!-- Explorer -->
     <string name="sort_created">Date de création</string>
     <string name="select_all">Tout sélectionner</string>
-    <string name="close_view_options">Fermer les options d\'affichage</string>
     <string name="opt_layout">Disposition</string>
-    <string name="opt_rows">Lignes</string>
-    <string name="rows_comfortable">Confortable</string>
-    <string name="rows_compact">Compact</string>
     <string name="opt_tile_size">Taille des vignettes</string>
-    <string name="pinch_hint">Ou pincez la grille pour redimensionner les vignettes</string>
     <string name="opt_place_by">Placer les fichiers par</string>
-    <string name="opt_thumbnail">Miniature</string>
-    <string name="thumb_top">Haut de la page</string>
-    <string name="thumb_page">Page entière</string>
     <string name="opt_show_on_tiles">Afficher sur les vignettes</string>
     <string name="show_page_count">Nombre de pages</string>
     <string name="show_time">Heure</string>
     <string name="colour_code">Code couleur</string>
     <string name="opt_group_by">Grouper par</string>
     <string name="view_every_folder">Utiliser cet affichage dans tous les dossiers</string>
-    <string name="view_every_folder_hint">Désactivé : chaque dossier garde son propre affichage</string>
     <string name="sort_z_to_a">Z à A</string>
     <string name="sort_a_to_z">A à Z</string>
     <string name="largest_first">Plus grands d\'abord</string>

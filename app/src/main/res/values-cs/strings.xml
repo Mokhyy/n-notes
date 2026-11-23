@@ -44,16 +44,9 @@
     <string name="toolbar_sidebar">Postranní panel</string>
     <string name="undo">Zpět</string>
     <string name="redo">Znovu</string>
-    <string name="toolbar_page_nav">Navigace stránek</string>
-    <string name="toolbar_styles">Styly</string>
-    <string name="toolbar_margins">Okraje</string>
     <string name="toolbar_view">Zobrazení</string>
-    <string name="toolbar_zoom">Lupa</string>
-    <string name="toolbar_fit">Přizpůsobit</string>
-    <string name="toolbar_zoom_lock">Zámek lupy</string>
     <string name="toolbar_fullscreen">Celá obrazovka</string>
     <string name="toolbar_colours">Barvy</string>
-    <string name="toolbar_waypoints">Uložené pohledy</string>
     <string name="toolbar_minimap">Minimapa</string>
     <string name="toolbar_pencilcase">Penál</string>
     <string name="pencilcase_save">Uložit nástroj do penálu</string>
@@ -121,7 +114,6 @@
     <string name="caption_template">Šablona</string>
     <string name="caption_accent_colour">Barva zvýraznění</string>
     <string name="customize">Přizpůsobit</string>
-    <string name="back_customize">"‹  Přizpůsobit"</string>
     <string name="import_template">Importovat</string>
     <string name="remove_template">Odebrat z knihovny</string>
     <string name="keep_template">Přidat do knihovny</string>
@@ -145,7 +137,6 @@
     <string name="caption_vertical_scrolling">Svislé posouvání</string>
     <string name="caption_free_movement">Volný pohyb stránky</string>
     <string name="caption_pdf_filters">Barevné filtry PDF</string>
-    <string name="adjust">Upravit</string>
     <string name="filter_contrast">Kontrast</string>
     <string name="filter_invert">Invertovat</string>
     <string name="filter_brightness">Jas</string>
@@ -505,7 +496,6 @@
     <string name="collapse_sidebar">Sbalit postranní panel</string>
     <string name="home">Domů</string>
     <string name="new_note">Nová poznámka</string>
-    <string name="new_note_in">Nová poznámka v %1$s</string>
     <string name="close_new_note">Zavřít bez vytvoření</string>
     <string name="cover">Obálka</string>
     <string name="no_cover">Bez obálky</string>
@@ -514,11 +504,7 @@
     <string name="change_cover">Změnit obálku…</string>
     <string name="change_cover_title">Změnit obálku</string>
     <string name="remove_cover">Odebrat obálku</string>
-    <string name="templates_built_in">Vestavěné</string>
-    <string name="templates_examples">Příklady</string>
     <string name="templates_imported">Importované</string>
-    <string name="templates_imported_help">Jsou uložené ve složce s poznámkami, takže se synchronizují spolu s nimi.</string>
-    <string name="cover_designs">Vzory</string>
     <string name="import_template_file">Importovat šablonu</string>
     <string name="page_from_image">Šablona stránky z obrázku</string>
     <string name="cover_from_image">Šablona obálky z obrázku</string>
@@ -546,10 +532,7 @@
     <string name="ai_prompt_cover_pattern">V Pythonu nakresli generativní vzor z překrývajících se průsvitných kruhů v tmavě modrých a tyrkysových odstínech a udělej z něj šablonu obálky s tenkým zlatým rámečkem a štítkem pro název.</string>
     <string name="ai_prompt_cover_leather">Šablona obálky, která vypadá jako kožený zápisník: v Pythonu nakresli tmavou texturu kůže jako světla a stíny přes barvu, kterou můžu změnit, a přidej slepotiskový okraj a zlatý štítek.</string>
     <string name="tag_all">Vše</string>
-    <string name="every_page">Každá stránka</string>
     <string name="plain_paper">Čistý papír</string>
-    <string name="pick_template_hint">Vyber šablonu a nastav tím linky, barvy a rozestupy.</string>
-    <string name="pick_cover_hint">Vyber vzor a poznámka začne obálkou.</string>
     <string name="page_size_mm">%1$s × %2$s mm</string>
     <string name="custom_size_range">Každá strana mezi %1$s a %2$s mm</string>
     <string name="new_canvas">Nové plátno</string>
@@ -911,7 +894,6 @@
     <string name="no_bookmarks">— žádné záložky —</string>
     <string name="add">Přidat</string>
     <string name="page_n">Stránka %1$d</string>
-    <string name="bookmark_entry">%1$s · s. %2$d</string>
 
     <!-- Selection and long-press menus -->
     <string name="bring_to_front">Přenést do popředí</string>
@@ -1040,7 +1022,6 @@
     <string name="spectrum">Spektrum</string>
     <string name="eyedropper">Vybrat barvu z obrazovky</string>
     <string name="eyedropper_hint">Klepni na barvu, kterou chceš vybrat</string>
-    <string name="caption_recent">Nedávné</string>
 
     <!-- Canvas and storage -->
     <string name="pull_to_add_page">Táhni a přidej stránku</string>
@@ -1159,24 +1140,15 @@
     <!-- Explorer -->
     <string name="sort_created">Datum vytvoření</string>
     <string name="select_all">Vybrat vše</string>
-    <string name="close_view_options">Zavřít možnosti zobrazení</string>
     <string name="opt_layout">Rozložení</string>
-    <string name="opt_rows">Řádky</string>
-    <string name="rows_comfortable">Pohodlné</string>
-    <string name="rows_compact">Kompaktní</string>
     <string name="opt_tile_size">Velikost dlaždic</string>
-    <string name="pinch_hint">Nebo stažením prstů na mřížce změň velikost dlaždic</string>
     <string name="opt_place_by">Řadit soubory podle</string>
-    <string name="opt_thumbnail">Náhled</string>
-    <string name="thumb_top">Horní část stránky</string>
-    <string name="thumb_page">Celá stránka</string>
     <string name="opt_show_on_tiles">Zobrazit na dlaždicích</string>
     <string name="show_page_count">Počet stránek</string>
     <string name="show_time">Čas</string>
     <string name="colour_code">Barevné označení</string>
     <string name="opt_group_by">Seskupit podle</string>
     <string name="view_every_folder">Použít toto zobrazení ve všech složkách</string>
-    <string name="view_every_folder_hint">Vypnuto: každá složka si pamatuje vlastní zobrazení</string>
     <string name="sort_z_to_a">Z až A</string>
     <string name="sort_a_to_z">A až Z</string>
     <string name="largest_first">Od největšího</string>

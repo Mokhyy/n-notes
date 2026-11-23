@@ -44,16 +44,9 @@
     <string name="toolbar_sidebar">Barra lateral</string>
     <string name="undo">Deshacer</string>
     <string name="redo">Rehacer</string>
-    <string name="toolbar_page_nav">Navegación</string>
-    <string name="toolbar_styles">Estilos</string>
-    <string name="toolbar_margins">Márgenes</string>
     <string name="toolbar_view">Vista</string>
-    <string name="toolbar_zoom">Zoom</string>
-    <string name="toolbar_fit">Ajustar</string>
-    <string name="toolbar_zoom_lock">Bloquear zoom</string>
     <string name="toolbar_fullscreen">Pantalla completa</string>
     <string name="toolbar_colours">Colores</string>
-    <string name="toolbar_waypoints">Puntos de referencia</string>
     <string name="toolbar_minimap">Minimapa</string>
     <string name="toolbar_pencilcase">Estuche</string>
     <string name="pencilcase_save">Guardar herramienta en el estuche</string>
@@ -121,7 +114,6 @@
     <string name="caption_template">Plantilla</string>
     <string name="caption_accent_colour">Color de énfasis</string>
     <string name="customize">Personalizar</string>
-    <string name="back_customize">"‹  Personalizar"</string>
     <string name="import_template">Importar</string>
     <string name="remove_template">Quitar de la biblioteca</string>
     <string name="keep_template">Añadir a la biblioteca</string>
@@ -145,7 +137,6 @@
     <string name="caption_vertical_scrolling">Desplazamiento vertical</string>
     <string name="caption_free_movement">Movimiento libre de páginas</string>
     <string name="caption_pdf_filters">Filtros de color del PDF</string>
-    <string name="adjust">Ajustar</string>
     <string name="filter_contrast">Contraste</string>
     <string name="filter_invert">Invertir</string>
     <string name="filter_brightness">Brillo</string>
@@ -505,7 +496,6 @@
     <string name="collapse_sidebar">Contraer barra lateral</string>
     <string name="home">Inicio</string>
     <string name="new_note">Nueva nota</string>
-    <string name="new_note_in">Nueva nota en %1$s</string>
     <string name="close_new_note">Cerrar sin crear</string>
     <string name="cover">Portada</string>
     <string name="no_cover">Sin portada</string>
@@ -514,11 +504,7 @@
     <string name="change_cover">Cambiar portada…</string>
     <string name="change_cover_title">Cambiar portada</string>
     <string name="remove_cover">Quitar portada</string>
-    <string name="templates_built_in">Integradas</string>
-    <string name="templates_examples">Ejemplos</string>
     <string name="templates_imported">Importadas</string>
-    <string name="templates_imported_help">Se guardan en tu carpeta de notas, por lo que se sincronizan con tus notas.</string>
-    <string name="cover_designs">Diseños</string>
     <string name="import_template_file">Importar plantilla</string>
     <string name="page_from_image">Plantilla de página desde imagen</string>
     <string name="cover_from_image">Plantilla de portada desde imagen</string>
@@ -546,10 +532,7 @@
     <string name="ai_prompt_cover_pattern">Con Python, dibuja un patrón generativo de círculos translúcidos superpuestos en azules oscuros y verde azulado, y conviértelo en una plantilla de portada con un marco dorado fino y una etiqueta para el título.</string>
     <string name="ai_prompt_cover_leather">Una plantilla de portada que parezca un cuaderno de cuero: dibuja con Python un grano de cuero oscuro como luces y sombras sobre un color que pueda cambiar, y añade un borde gofrado en seco y una etiqueta dorada.</string>
     <string name="tag_all">Todas</string>
-    <string name="every_page">Todas las páginas</string>
     <string name="plain_paper">Papel liso</string>
-    <string name="pick_template_hint">Elige una plantilla para definir sus líneas, colores y espaciado.</string>
-    <string name="pick_cover_hint">Elige un diseño para empezar la nota con una portada.</string>
     <string name="page_size_mm">%1$s × %2$s mm</string>
     <string name="custom_size_range">Cada lado entre %1$s y %2$s mm</string>
     <string name="new_canvas">Nuevo lienzo</string>
@@ -897,7 +880,6 @@
     <string name="no_bookmarks">— sin marcadores —</string>
     <string name="add">Añadir</string>
     <string name="page_n">Página %1$d</string>
-    <string name="bookmark_entry">%1$s · p.%2$d</string>
 
     <!-- Selection and long-press menus -->
     <string name="bring_to_front">Traer al frente</string>
@@ -1026,7 +1008,6 @@
     <string name="spectrum">Espectro</string>
     <string name="eyedropper">Elegir un color de la pantalla</string>
     <string name="eyedropper_hint">Toca un color para elegirlo</string>
-    <string name="caption_recent">Recientes</string>
 
     <!-- Canvas and storage -->
     <string name="pull_to_add_page">Desliza para añadir una página</string>
@@ -1141,24 +1122,15 @@
     <!-- Explorer -->
     <string name="sort_created">Fecha de creación</string>
     <string name="select_all">Seleccionar todo</string>
-    <string name="close_view_options">Cerrar opciones de vista</string>
     <string name="opt_layout">Diseño</string>
-    <string name="opt_rows">Filas</string>
-    <string name="rows_comfortable">Amplias</string>
-    <string name="rows_compact">Compactas</string>
     <string name="opt_tile_size">Tamaño de miniaturas</string>
-    <string name="pinch_hint">O pellizca la cuadrícula para cambiar el tamaño</string>
     <string name="opt_place_by">Colocar archivos por</string>
-    <string name="opt_thumbnail">Miniatura</string>
-    <string name="thumb_top">Parte superior</string>
-    <string name="thumb_page">Página completa</string>
     <string name="opt_show_on_tiles">Mostrar en miniaturas</string>
     <string name="show_page_count">Número de páginas</string>
     <string name="show_time">Hora</string>
     <string name="colour_code">Código de color</string>
     <string name="opt_group_by">Agrupar por</string>
     <string name="view_every_folder">Usar esta vista en todas las carpetas</string>
-    <string name="view_every_folder_hint">Desactivado: cada carpeta recuerda su propia vista</string>
     <string name="sort_z_to_a">De la Z a la A</string>
     <string name="sort_a_to_z">De la A a la Z</string>
     <string name="largest_first">Más grandes primero</string>
