@@ -823,8 +823,8 @@ private fun TextMargins(editor: Editor, tab: Int) {
         valueRange = FlowMargins.MIN_MM.toFloat()..maxMm.toFloat(),
         interactionSource = held,
     )
-    PanelCheck(stringResource(R.string.expand_range), expanded) { expanded = it }
-    PanelCheck(stringResource(R.string.show_margins), editor.showMargins) { editor.setShowMarginsPref(it) }
+    PanelToggle(stringResource(R.string.expand_range), expanded) { expanded = it }
+    PanelToggle(stringResource(R.string.show_margins), editor.showMargins) { editor.setShowMarginsPref(it) }
 }
 
 /** Text margins up to this many mm unless Expand range is on. */

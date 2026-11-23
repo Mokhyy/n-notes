@@ -319,6 +319,18 @@ internal fun PanelCheck(label: String, checked: Boolean, onChange: (Boolean) -> 
     }
 }
 
+/** A labelled switch on a panel, its label lined up with the captions above it. */
+@Composable
+internal fun PanelToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().height(40.dp).clickable(role = Role.Switch) { onChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = LocalPalette.current.text.toComposeColor(), fontSize = 13.sp, modifier = Modifier.weight(1f))
+        CompactSwitch(checked, onChange = onChange)
+    }
+}
+
 /** A labelled slider with its value at the caption's end. */
 @Composable
 internal fun PanelSlider(

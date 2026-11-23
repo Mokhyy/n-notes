@@ -434,7 +434,7 @@ internal fun SavedZooms(owner: Editor, zoomPercent: Int, locked: Boolean, onPick
         PanelChip(stringResource(R.string.zoom_save, zoomPercent), starred, XnotesIcons.bookmark) { owner.toggleFavoriteZoom(current) }
     }
     if (favorites.isNotEmpty()) SavedZoomChips(favorites, current, locked, onPick, owner::toggleFavoriteZoom)
-    PanelCheck(stringResource(R.string.zoom_show_bar), owner.showZoomBar, owner::setShowZoomBar)
+    PanelToggle(stringResource(R.string.zoom_show_bar), owner.showZoomBar, owner::setShowZoomBar)
 }
 
 internal fun isSameZoom(a: Float, b: Float) = abs(a - b) <= ZOOM_MATCH_TOLERANCE
