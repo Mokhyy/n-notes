@@ -9021,7 +9021,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     val showZoomBar: Boolean
         get() { prefsVersion; return preferences.showZoomBar }
 
-    fun setShowZoomBar(on: Boolean) = applyPreferences(preferences.copy(showZoomBar = on))
+    fun setShowZoomBar(on: Boolean) = applyHomePreferences(preferences.copy(showZoomBar = on))
 
     /** Saved tools, shared by every note and canvas. */
     val pencilcase: List<com.xnotes.core.tools.PencilcaseItem>
