@@ -22,7 +22,6 @@
     <string name="tool_text_box">文本框</string>
     <string name="tool_markup">PDF 文本标注</string>
     <string name="tool_reader">阅读模式</string>
-    <string name="reader_exit">退出阅读模式</string>
     <string name="reader_settings">阅读器设置</string>
     <string name="caption_page_turning">页面</string>
     <string name="reader_vertical">纵向</string>

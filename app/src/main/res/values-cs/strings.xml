@@ -22,7 +22,6 @@
     <string name="tool_text_box">Textové pole</string>
     <string name="tool_markup">Značení textu v PDF</string>
     <string name="tool_reader">Čtečka</string>
-    <string name="reader_exit">Ukončit čtečku</string>
     <string name="reader_settings">Nastavení čtečky</string>
     <string name="caption_page_turning">Stránky</string>
     <string name="reader_vertical">Svisle</string>

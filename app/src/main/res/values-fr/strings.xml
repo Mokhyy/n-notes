@@ -22,7 +22,6 @@
     <string name="tool_text_box">Zone de texte</string>
     <string name="tool_markup">Annotation de texte PDF</string>
     <string name="tool_reader">Lecteur</string>
-    <string name="reader_exit">Quitter le lecteur</string>
     <string name="reader_settings">Réglages du lecteur</string>
     <string name="caption_page_turning">Pages</string>
     <string name="reader_vertical">Vertical</string>
