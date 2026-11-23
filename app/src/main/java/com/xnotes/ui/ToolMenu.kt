@@ -354,7 +354,7 @@ private fun StepperEnd(icon: ImageVector, label: String, enabled: Boolean, onCli
 
 /** An icon tile of a single-choice grid, such as the shapes; the chosen one is filled. */
 @Composable
-internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size: Dp, latex: String? = null, onClick: () -> Unit) {
+internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size: Dp, latex: String? = null, outlined: Boolean = false, onClick: () -> Unit) {
     val palette = LocalPalette.current
     val tint = (if (selected) palette.selectionForeground else palette.textDim).toComposeColor()
     Tooltip(label) {
@@ -363,7 +363,13 @@ internal fun MenuTile(icon: ImageVector, label: String, selected: Boolean, size:
                 .size(size)
                 .clip(MaterialTheme.shapes.small)
                 .background(if (selected) palette.selectionBackground.toComposeColor() else Color.Transparent)
-                .then(if (selected) Modifier.border(1.5.dp, palette.accent.toComposeColor(), MaterialTheme.shapes.small) else Modifier)
+                .then(
+                    when {
+                        selected -> Modifier.border(1.5.dp, palette.accent.toComposeColor(), MaterialTheme.shapes.small)
+                        outlined -> Modifier.border(1.dp, palette.border.toComposeColor(), MaterialTheme.shapes.small)
+                        else -> Modifier
+                    },
+                )
                 .clickable(role = Role.RadioButton, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {

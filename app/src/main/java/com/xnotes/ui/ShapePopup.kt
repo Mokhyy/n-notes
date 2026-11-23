@@ -131,7 +131,7 @@ private fun ShapePager(config: ShapeConfig, hidden: Set<String>, order: List<Str
     ChipPager(pages.size, initial, { pageLabel(pages[it]) }, rows, { onPage(all.indexOf(pages[it].key)) }) { page ->
         for (row in pages[page].presets.chunked(ShapePresets.COLUMNS)) {
             Row(horizontalArrangement = Arrangement.spacedBy(GAP.dp)) {
-                for (p in row) MenuTile(ShapeIcons.of(p), chipLabel(p), selected = p.key == config.preset, size = CHIP.dp, latex = chipLatex(p)) { onPick(p) }
+                for (p in row) MenuTile(ShapeIcons.of(p), chipLabel(p), selected = p.key == config.preset, size = CHIP.dp, latex = chipLatex(p), outlined = true) { onPick(p) }
             }
         }
     }
@@ -147,7 +147,7 @@ private fun ConnectorPager(config: ShapeConfig, hidden: Set<String>, order: List
     ChipPager(pages.size, initial, { connectorPageLabel(pages[it]) }, ConnectorPresets.ROWS, { onPage(all.indexOf(pages[it].key)) }) { page ->
         for (row in pages[page].presets.chunked(ConnectorPresets.COLUMNS)) {
             Row(horizontalArrangement = Arrangement.spacedBy(GAP.dp)) {
-                for (p in row) MenuTile(ShapeIcons.connector(p), stringResource(connectorLabel(p.key)), selected = p.key == config.preset, size = CHIP.dp) { onPick(p) }
+                for (p in row) MenuTile(ShapeIcons.connector(p), stringResource(connectorLabel(p.key)), selected = p.key == config.preset, size = CHIP.dp, outlined = true) { onPick(p) }
             }
         }
     }
