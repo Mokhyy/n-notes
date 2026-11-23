@@ -250,7 +250,7 @@ fun PreferencesPane(
     val nav = rememberUpdatedState(
         PrefsNav(
             PrefCategory.entries.map { stringResource(it.title) }, PrefCategory.entries.map { it.icon }, category?.ordinal,
-            onPick = { category = PrefCategory.entries[it] },
+            onBack = { category = null }, onPick = { category = PrefCategory.entries[it] },
         ),
     )
     LaunchedEffect(showsOwnSidebar, hosted) {
@@ -1547,6 +1547,7 @@ class PrefsNav(
     val titles: List<String>,
     val icons: List<ImageVector>,
     val current: Int?,
+    val onBack: () -> Unit,
     val onPick: (Int) -> Unit,
 )
 
