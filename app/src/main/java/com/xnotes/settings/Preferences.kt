@@ -129,7 +129,7 @@ data class Preferences(
     val cloudFolders: Map<String, CloudFolder> = emptyMap(),
     val syncWifiOnly: Boolean = false,
     /** Minutes between background syncs; 0 means never. */
-    val syncIntervalMinutes: Int = 60,
+    val syncIntervalMinutes: Int = 1440,
     val syncOnNoteExit: Boolean = false,
     val syncOnAppOpen: Boolean = false,
     val syncOnAppClose: Boolean = false,
@@ -445,7 +445,7 @@ data class Preferences(
                 syncWifiOnly = o.optBoolean("sync_wifi_only", o.optBoolean("filen_wifi_only", false)),
                 // The old "Automatically" switch turned off is now the "Never" interval.
                 syncIntervalMinutes = if (!o.optBoolean("sync_auto", o.optBoolean("filen_auto_sync", true))) 0
-                    else o.optInt("sync_interval_minutes", o.optInt("filen_sync_interval_minutes", 60)).let { if (it == 0) 0 else it.coerceIn(15, 1440) },
+                    else o.optInt("sync_interval_minutes", o.optInt("filen_sync_interval_minutes", 1440)).let { if (it == 0) 0 else it.coerceIn(15, 1440) },
                 syncOnNoteExit = o.optBoolean("sync_on_note_exit", o.optBoolean("filen_sync_on_note_exit", false)),
                 syncOnAppOpen = o.optBoolean("sync_on_app_open", o.optBoolean("filen_sync_on_app_open", false)),
                 syncOnAppClose = o.optBoolean("sync_on_app_close", false),

@@ -247,7 +247,7 @@ class SettingsTest {
         assertEquals(0, Preferences.fromJson(JSONObject().put("filen_auto_sync", false)).syncIntervalMinutes)
         assertEquals(0, Preferences.fromJson(JSONObject().put("sync_auto", true).put("sync_interval_minutes", 0)).syncIntervalMinutes)
         assertEquals(30, Preferences.fromJson(JSONObject().put("sync_interval_minutes", 30)).syncIntervalMinutes)
-        assertEquals(60, Preferences.fromJson(JSONObject()).syncIntervalMinutes)
+        assertEquals(1440, Preferences.fromJson(JSONObject()).syncIntervalMinutes)
     }
 
     @Test fun neverRoundTripsAndKeepsOlderVersionsOff() {
