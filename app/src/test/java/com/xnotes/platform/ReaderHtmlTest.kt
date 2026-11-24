@@ -141,11 +141,34 @@ class ReaderHtmlTest {
             ),
             parser,
         )
-        assertTrue(html, html.contains("<h2>Data</h2>"))
+        assertTrue(html, html.contains("<h2 id=\"sheet0\">Data</h2>"))
         assertTrue(html, html.contains("<th></th><th>A</th><th>B</th><th>C</th><th>D</th>"))
         assertTrue(html, html.contains("<tr><th>1</th><td>Name</td><td></td><td>When</td><td></td></tr>"))
         assertTrue(html, html.contains("<tr><th>3</th><td>Bob</td><td class=\"num\">0.3</td><td>2024-01-01</td><td>TRUE</td></tr>"))
-        assertTrue(html, html.contains("<h2>Empty</h2><p class=\"missing\">"))
+        assertTrue(html, html.contains("<h2 id=\"sheet1\">Empty</h2><p class=\"missing\">"))
+    }
+
+    @Test
+    fun xlsxMergesStylesFormatsAndHidesWhatExcelHides() {
+        java.util.Locale.setDefault(java.util.Locale.US) // numbers read the way the device's language writes them
+        val wb = """<workbook xmlns:r="r"><sheets><sheet name="S" sheetId="1" r:id="rId1"/><sheet name="H" sheetId="2" state="hidden" r:id="rId1"/></sheets></workbook>"""
+        val wbRels = """<Relationships><Relationship Id="rId1" Type="x/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"""
+        val styles = """<styleSheet><numFmts><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00"/></numFmts>
+            <fonts count="2"><font><color theme="1"/></font><font><b/><color rgb="FFFF0000"/></font></fonts>
+            <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/></patternFill></fill></fills>
+            <cellXfs><xf numFmtId="0"/><xf numFmtId="164" fontId="1" fillId="2"><alignment horizontal="center"/></xf><xf numFmtId="10"/></cellXfs></styleSheet>"""
+        val sheet = """<worksheet><cols><col min="2" max="2" hidden="1"/></cols><sheetData>
+            <row r="1"><c r="A1" t="inlineStr"><is><t>Head</t></is></c></row>
+            <row r="2"><c r="A2" s="1"><v>1234.5</v></c><c r="C2" s="2"><v>0.125</v></c></row>
+            <row r="3" hidden="1"><c r="A3" t="inlineStr"><is><t>gone</t></is></c></row>
+            </sheetData><mergeCells><mergeCell ref="A1:C1"/></mergeCells></worksheet>"""
+        val html = ReaderHtml.xlsx(zip("xl/workbook.xml" to wb, "xl/_rels/workbook.xml.rels" to wbRels, "xl/styles.xml" to styles, "xl/worksheets/sheet1.xml" to sheet), parser)
+        assertFalse(html, html.contains(">H<"))
+        assertTrue(html, html.contains("<th></th><th>A</th><th>C</th></tr>"))
+        assertTrue(html, html.contains("<td colspan=\"2\">Head</td>"))
+        assertTrue(html, html.contains("style=\"font-weight:600;background:#ffff00;color:#ff0000;text-align:center;\">$1,234.50</td>"))
+        assertTrue(html, html.contains(">12.50%</td>"))
+        assertFalse(html, html.contains("gone"))
     }
 
     @Test

@@ -98,6 +98,9 @@ object ReaderHtml {
             td.num{text-align:right;font-variant-numeric:tabular-nums}
             table.csv{font-size:14px;line-height:1.35}
             table.csv th{position:sticky;top:0}
+            table.sheet td{white-space:nowrap}
+            .sheets{display:flex;flex-wrap:wrap;gap:6px}
+            .sheets a{border:1px solid ${c.border};border-radius:999px;padding:2px 12px;text-decoration:none;font-size:14px}
             li:has(> input[type=checkbox]){list-style:none}
             li > input[type=checkbox]{margin:0 .4em 0 -1.3em;accent-color:${c.accent}}
             .props{border:1px solid ${c.border};border-radius:6px;padding:6px 10px;margin:0 0 1em;font-size:.88em;color:${c.muted}}
@@ -752,23 +755,167 @@ object ReaderHtml {
         val rels = rels(newParser, zip.read("xl/_rels/workbook.xml.rels"), "xl")
         val sheets = ArrayList<Pair<String, String>>()
         walk(newParser, workbook, onStart = { p, name ->
-            if (name == "sheet") p.relId()?.let { rels[it] }?.let { sheets.add(p.attr("name").orEmpty() to it.target) }
+            if (name == "sheet" && p.attr("state").let { it != "hidden" && it != "veryHidden" }) {
+                p.relId()?.let { rels[it] }?.let { sheets.add(p.attr("name").orEmpty() to it.target) }
+            }
         })
         if (sheets.isEmpty()) return "<p class=\"missing\">${esc(labels.empty)}</p>"
         val shared = sharedStrings(newParser, zip.read("xl/sharedStrings.xml"))
-        val dateStyles = dateStyles(newParser, zip.read("xl/styles.xml"))
+        val styles = cellStyles(newParser, zip.read("xl/styles.xml"), themeColors(newParser, zip.read("xl/theme/theme1.xml")))
         val out = StringBuilder()
-        for ((name, path) in sheets) {
-            val bytes = zip.read(path) ?: continue
-            if (sheets.size > 1) out.append("<h2>").append(esc(name)).append("</h2>")
-            out.append(sheetTable(bytes, shared, dateStyles, newParser, labels))
+        // Several sheets get a row of links to each, as Excel's tabs.
+        if (sheets.size > 1) {
+            out.append("<p class=\"sheets\">")
+            sheets.forEachIndexed { i, (name, _) -> out.append("<a href=\"#sheet$i\">").append(esc(name)).append("</a>") }
+            out.append("</p>")
+        }
+        sheets.forEachIndexed { i, (name, path) ->
+            val bytes = zip.read(path) ?: return@forEachIndexed
+            if (sheets.size > 1) out.append("<h2 id=\"sheet$i\">").append(esc(name)).append("</h2>")
+            out.append(sheetTable(bytes, shared, styles, newParser, labels))
         }
         return out.toString()
     }
 
-    /** One worksheet as a table headed by column letters, each row led by its number. */
-    private fun sheetTable(bytes: ByteArray, shared: List<String>, dateStyles: Set<Int>, newParser: () -> XmlPullParser, labels: Labels): String {
-        val rows = java.util.TreeMap<Int, HashMap<Int, String>>()
+    /** A cell style (cellXfs entry): how its number reads, and its font, fill and alignment as CSS. */
+    internal class CellStyle(val date: Boolean, val format: NumberFormat?, val css: String)
+
+    /** The part of an Excel number format the reader honours: decimals, thousands grouping, percent and the text around the number. */
+    internal class NumberFormat(val decimals: Int, val grouping: Boolean, val percent: Boolean, val prefix: String, val suffix: String) {
+        fun format(value: Double): String {
+            val v = if (percent) value * 100 else value
+            val pattern = (if (grouping) "#,##0" else "0") + (if (decimals > 0) "." + "0".repeat(decimals) else "")
+            return prefix + java.text.DecimalFormat(pattern).format(v) + suffix
+        }
+
+        companion object {
+            private val builtIn = mapOf(1 to "0", 2 to "0.00", 3 to "#,##0", 4 to "#,##0.00", 9 to "0%", 10 to "0.00%", 37 to "#,##0", 38 to "#,##0", 39 to "#,##0.00", 40 to "#,##0.00")
+
+            fun of(id: Int, custom: Map<Int, String>): NumberFormat? = (custom[id] ?: builtIn[id])?.let(::parse)
+
+            /** The first section of [code], or null for General, text and the forms it does not read (scientific, fractions). */
+            fun parse(code: String): NumberFormat? {
+                val first = code.split(';').first()
+                val literal = first
+                    .replace(Regex("\\[\\$([^-\\]]*)[^\\]]*]")) { it.groupValues[1] }
+                    .replace(Regex("\\[[^\\]]*]"), "")
+                    .replace(Regex("\"([^\"]*)\"")) { it.groupValues[1] }
+                    .replace(Regex("[_*]."), "")
+                    .replace(Regex("\\\\(.)")) { it.groupValues[1] }
+                if (literal.equals("General", ignoreCase = true) || '@' in literal || 'E' in literal || '/' in literal) return null
+                val start = literal.indexOfFirst { it == '0' || it == '#' || it == '?' }
+                if (start < 0) return null
+                val end = literal.indexOfLast { it == '0' || it == '#' || it == '?' || it == '.' || it == ',' }
+                val number = literal.substring(start, end + 1)
+                val decimals = number.substringAfter('.', "").count { it == '0' || it == '#' || it == '?' }
+                return NumberFormat(decimals, ',' in number.substringBefore('.'), '%' in literal, literal.substring(0, start), literal.substring(end + 1))
+            }
+        }
+    }
+
+    private class Font(val bold: Boolean, val italic: Boolean, val underline: Boolean, val strike: Boolean, val color: String?)
+
+    /** The workbook theme's colours in the order cells refer to them by index: light 1, dark 1, light 2, dark 2, then the accents. */
+    private fun themeColors(newParser: () -> XmlPullParser, bytes: ByteArray?): List<String> {
+        if (bytes == null) return emptyList()
+        val out = ArrayList<String>()
+        var inScheme = false
+        walk(newParser, bytes, onStart = { p, name ->
+            when (name) {
+                "clrScheme" -> inScheme = true
+                "srgbClr" -> if (inScheme) p.attr("val")?.let { out.add("#" + it.takeLast(6).lowercase()) }
+                "sysClr" -> if (inScheme) out.add("#" + (p.attr("lastClr") ?: "000000").takeLast(6).lowercase())
+            }
+        }, onEnd = { if (it == "clrScheme") inScheme = false })
+        if (out.size >= 4) { java.util.Collections.swap(out, 0, 1); java.util.Collections.swap(out, 2, 3) }
+        return out
+    }
+
+    /** A colour element (rgb, or theme index with a tint) as CSS hex; null when it names none the reader knows. */
+    private fun colorOf(p: XmlPullParser, theme: List<String>): String? {
+        val base = p.attr("rgb")?.takeIf { it.length >= 6 }?.let { "#" + it.takeLast(6).lowercase() }
+            ?: p.attr("theme")?.toIntOrNull()?.let(theme::getOrNull)
+            ?: return null
+        val tint = p.attr("tint")?.toDoubleOrNull() ?: return base
+        val rgb = base.removePrefix("#").chunked(2).map { it.toInt(16) }
+        return "#" + rgb.joinToString("") { c ->
+            val t = if (tint < 0) c * (1 + tint) else c + (255 - c) * tint
+            "%02x".format(t.toInt().coerceIn(0, 255))
+        }
+    }
+
+    private val builtInDateFormats = (14..22).toSet() + setOf(27, 30, 36, 45, 46, 47, 50, 57)
+
+    /** Every cell style in styles.xml, by index. */
+    private fun cellStyles(newParser: () -> XmlPullParser, bytes: ByteArray?, theme: List<String>): List<CellStyle> {
+        if (bytes == null) return emptyList()
+        val customCodes = HashMap<Int, String>()
+        val fonts = ArrayList<Font>()
+        val fills = ArrayList<String?>()
+        val out = ArrayList<CellStyle>()
+        var section = ""
+        var bold = false; var italic = false; var underline = false; var strike = false; var color: String? = null
+        var solid = false; var fill: String? = null
+        var xfFormat = 0; var xfFont = 0; var xfFill = 0; var align: String? = null; var wrap = false
+        walk(newParser, bytes, onStart = { p, name ->
+            when (name) {
+                "fonts", "fills", "cellXfs", "cellStyleXfs", "dxfs" -> section = name
+                "numFmt" -> p.attr("numFmtId")?.toIntOrNull()?.let { customCodes[it] = p.attr("formatCode").orEmpty() }
+                "font" -> if (section == "fonts") { bold = false; italic = false; underline = false; strike = false; color = null }
+                "b" -> bold = !isOff(p.attr("val"))
+                "i" -> italic = !isOff(p.attr("val"))
+                "u" -> underline = !isOff(p.attr("val"))
+                "strike" -> strike = !isOff(p.attr("val"))
+                "color" -> if (section == "fonts") color = colorOf(p, theme)
+                "patternFill" -> if (section == "fills") { solid = p.attr("patternType") == "solid"; fill = null }
+                "fgColor" -> if (section == "fills") fill = colorOf(p, theme)
+                "xf" -> if (section == "cellXfs") {
+                    xfFormat = p.attr("numFmtId")?.toIntOrNull() ?: 0
+                    xfFont = p.attr("fontId")?.toIntOrNull() ?: 0
+                    xfFill = p.attr("fillId")?.toIntOrNull() ?: 0
+                    align = null; wrap = false
+                }
+                "alignment" -> if (section == "cellXfs") { align = p.attr("horizontal"); wrap = p.attr("wrapText") == "1" }
+            }
+        }, onEnd = { name ->
+            when (name) {
+                "fonts", "fills", "cellXfs", "cellStyleXfs", "dxfs" -> section = ""
+                "font" -> if (section == "fonts") fonts.add(Font(bold, italic, underline, strike, color))
+                "fill" -> if (section == "fills") fills.add(if (solid) fill else null)
+                "xf" -> if (section == "cellXfs") {
+                    val code = customCodes[xfFormat].orEmpty().replace(Regex("\"[^\"]*\"|\\[[^\\]]*]"), "").lowercase()
+                    val date = xfFormat in builtInDateFormats ||
+                        (xfFormat in customCodes && (code.any { it == 'y' || it == 'd' || it == 'h' } || (code.contains('m') && !code.contains('0'))))
+                    val font = fonts.getOrNull(xfFont)
+                    // White is what a sheet looks like unfilled; on a dark reader it would only glare.
+                    val background = fills.getOrNull(xfFill)?.takeIf { it != "#ffffff" }
+                    val css = StringBuilder()
+                    if (font?.bold == true) css.append("font-weight:600;")
+                    if (font?.italic == true) css.append("font-style:italic;")
+                    if (font?.underline == true || font?.strike == true) {
+                        css.append("text-decoration:").append(listOfNotNull("underline".takeIf { font.underline }, "line-through".takeIf { font.strike }).joinToString(" ")).append(';')
+                    }
+                    val ink = font?.color?.takeIf { it != "#000000" }
+                    if (background != null) css.append("background:").append(background).append(";color:").append(ink ?: "#000000").append(';')
+                    else if (ink != null && ink != "#ffffff") css.append("color:").append(ink).append(';')
+                    when (align) { "center", "centerContinuous" -> "center"; "right" -> "right"; "left" -> "left"; else -> null }?.let { css.append("text-align:").append(it).append(';') }
+                    if (wrap) css.append("white-space:pre-wrap;")
+                    out.add(CellStyle(date, if (date) null else NumberFormat.of(xfFormat, customCodes), css.toString()))
+                }
+            }
+        })
+        return out
+    }
+
+    /** One worksheet as a table headed by column letters, each row led by its number, styled and merged as in Excel. */
+    private fun sheetTable(bytes: ByteArray, shared: List<String>, styles: List<CellStyle>, newParser: () -> XmlPullParser, labels: Labels): String {
+        class Cell(val text: String, val style: CellStyle?)
+        val rows = java.util.TreeMap<Int, HashMap<Int, Cell>>()
+        val hiddenRows = HashSet<Int>()
+        val hiddenCols = HashSet<Int>()
+        val widths = HashMap<Int, Double>()
+        val merges = HashMap<Pair<Int, Int>, Pair<Int, Int>>() // top-left (row, col) -> (rows, cols)
+        val covered = HashSet<Pair<Int, Int>>()
         var maxCol = -1
         var truncated = false
         var rowNo = 0
@@ -780,7 +927,18 @@ object ReaderHtml {
         var inInline = false
         walk(newParser, bytes, onStart = { p, name ->
             when (name) {
-                "row" -> { rowNo = p.attr("r")?.toIntOrNull() ?: (rowNo + 1); col = -1 }
+                "col" -> {
+                    val min = (p.attr("min")?.toIntOrNull() ?: 1) - 1
+                    val max = ((p.attr("max")?.toIntOrNull() ?: 1) - 1).coerceAtMost(MAX_SHEET_COLS)
+                    for (c in min..max) {
+                        if (p.attr("hidden") == "1") hiddenCols.add(c)
+                        p.attr("width")?.toDoubleOrNull()?.let { widths[c] = it }
+                    }
+                }
+                "row" -> {
+                    rowNo = p.attr("r")?.toIntOrNull() ?: (rowNo + 1); col = -1
+                    if (p.attr("hidden") == "1") hiddenRows.add(rowNo)
+                }
                 "c" -> {
                     col = p.attr("r")?.let { columnIndex(it) } ?: (col + 1)
                     type = p.attr("t")
@@ -790,29 +948,58 @@ object ReaderHtml {
                 "v" -> inValue = true
                 "is" -> inInline = true
                 "t" -> if (inInline) inValue = true
+                "mergeCell" -> p.attr("ref")?.split(':')?.takeIf { it.size == 2 }?.let { (a, b) ->
+                    val r0 = a.filter(Char::isDigit).toIntOrNull() ?: return@let
+                    val r1 = b.filter(Char::isDigit).toIntOrNull() ?: return@let
+                    val c0 = columnIndex(a)
+                    val c1 = columnIndex(b)
+                    merges[r0 to c0] = (r1 - r0 + 1) to (c1 - c0 + 1)
+                    for (r in r0..r1) for (c in c0..c1) if (r != r0 || c != c0) covered.add(r to c)
+                }
             }
         }, onText = { if (inValue) value.append(it) }, onEnd = { name ->
             when (name) {
                 "v", "t" -> inValue = false
                 "is" -> inInline = false
                 "c" -> {
-                    val shown = cellText(value.toString(), type, style, shared, dateStyles)
-                    if (shown.isNotEmpty()) {
-                        if (rowNo > MAX_SHEET_ROWS || col >= MAX_SHEET_COLS) truncated = true
-                        else { rows.getOrPut(rowNo) { HashMap() }[col] = shown; maxCol = maxOf(maxCol, col) }
+                    val cs = styles.getOrNull(style)
+                    val shown = cellText(value.toString(), type, cs, shared)
+                    if (shown.isNotEmpty() || cs?.css?.contains("background") == true) {
+                        if (rowNo > MAX_SHEET_ROWS || col >= MAX_SHEET_COLS) truncated = truncated || shown.isNotEmpty()
+                        else {
+                            rows.getOrPut(rowNo) { HashMap() }[col] = Cell(shown, cs)
+                            if (shown.isNotEmpty()) maxCol = maxOf(maxCol, col)
+                        }
                     }
                 }
             }
         })
-        if (rows.isEmpty()) return "<p class=\"missing\">${esc(labels.empty)}</p>"
-        val sb = StringBuilder("<table class=\"csv\"><thead><tr><th></th>")
-        for (c in 0..maxCol) sb.append("<th>").append(columnName(c)).append("</th>")
+        // A merge reaches as far right as its last column.
+        for ((at, span) in merges) if (rows[at.first]?.get(at.second)?.text?.isNotEmpty() == true) maxCol = maxOf(maxCol, (at.second + span.second - 1).coerceAtMost(MAX_SHEET_COLS - 1))
+        if (maxCol < 0) return "<p class=\"missing\">${esc(labels.empty)}</p>"
+        val cols = (0..maxCol).filter { it !in hiddenCols }
+        val sb = StringBuilder("<table class=\"csv sheet\"><thead><tr><th></th>")
+        for (c in cols) {
+            val w = widths[c]?.let { (it * 7 + 5).toInt() }
+            sb.append(if (w != null) "<th style=\"min-width:${w}px\">" else "<th>").append(columnName(c)).append("</th>")
+        }
         sb.append("</tr></thead><tbody>")
         for ((r, cells) in rows) {
+            if (r in hiddenRows || cells.values.none { it.text.isNotEmpty() || it.style != null } ) continue
             sb.append("<tr><th>").append(r).append("</th>")
-            for (c in 0..maxCol) {
-                val v = cells[c].orEmpty()
-                sb.append(if (numeric.matches(v)) "<td class=\"num\">" else "<td>").append(esc(v)).append("</td>")
+            for (c in cols) {
+                if ((r to c) in covered) continue
+                val cell = cells[c]
+                val v = cell?.text.orEmpty()
+                val attrs = StringBuilder()
+                if (numeric.matches(v) || cell?.style?.format != null && v.isNotEmpty()) attrs.append(" class=\"num\"")
+                merges[r to c]?.let { (rs, cs) ->
+                    if (rs > 1) attrs.append(" rowspan=\"").append(rs).append('"')
+                    val shownCols = (c until c + cs).count { it in cols }
+                    if (shownCols > 1) attrs.append(" colspan=\"").append(shownCols).append('"')
+                }
+                cell?.style?.css?.takeIf { it.isNotEmpty() }?.let { attrs.append(" style=\"").append(it).append('"') }
+                sb.append("<td").append(attrs).append('>').append(esc(v)).append("</td>")
             }
             sb.append("</tr>")
         }
@@ -821,7 +1008,7 @@ object ReaderHtml {
         return sb.toString()
     }
 
-    private fun cellText(raw: String, type: String?, style: Int, shared: List<String>, dateStyles: Set<Int>): String = when (type) {
+    private fun cellText(raw: String, type: String?, style: CellStyle?, shared: List<String>): String = when (type) {
         "s" -> raw.trim().toIntOrNull()?.let { shared.getOrNull(it) }.orEmpty()
         "b" -> if (raw.trim() == "1") "TRUE" else "FALSE"
         "str", "inlineStr", "e" -> raw
@@ -829,7 +1016,8 @@ object ReaderHtml {
             val d = raw.trim().toDoubleOrNull()
             when {
                 d == null -> raw
-                style in dateStyles -> excelDate(d)
+                style?.date == true -> excelDate(d)
+                style?.format != null -> style.format.format(d)
                 else -> java.math.BigDecimal(d).round(java.math.MathContext(12)).stripTrailingZeros().toPlainString()
             }
         }
@@ -879,34 +1067,6 @@ object ReaderHtml {
                 "si" -> out.add(cur.toString())
             }
         })
-        return out
-    }
-
-    private val builtInDateFormats = (14..22).toSet() + setOf(27, 30, 36, 45, 46, 47, 50, 57)
-
-    /** Indexes of the cell styles (cellXfs) that show a date or time. */
-    private fun dateStyles(newParser: () -> XmlPullParser, bytes: ByteArray?): Set<Int> {
-        if (bytes == null) return emptySet()
-        val customDates = HashSet<Int>()
-        val out = HashSet<Int>()
-        var inXfs = false
-        var index = 0
-        walk(newParser, bytes, onStart = { p, name ->
-            when (name) {
-                "numFmt" -> {
-                    val code = p.attr("formatCode").orEmpty().replace(Regex("\"[^\"]*\"|\\[[^\\]]*]"), "").lowercase()
-                    if (code.any { it == 'y' || it == 'd' || it == 'h' } || (code.contains('m') && !code.contains('0'))) {
-                        p.attr("numFmtId")?.toIntOrNull()?.let { customDates.add(it) }
-                    }
-                }
-                "cellXfs" -> { inXfs = true; index = 0 }
-                "xf" -> if (inXfs) {
-                    val id = p.attr("numFmtId")?.toIntOrNull() ?: 0
-                    if (id in builtInDateFormats || id in customDates) out.add(index)
-                    index++
-                }
-            }
-        }, onEnd = { if (it == "cellXfs") inXfs = false })
         return out
     }
 
