@@ -5532,13 +5532,22 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val partner = tabs.removeAt(b)
         val a = tabs.indexOfFirst { documentKey(it.uri) == documentKey(first) }
         if (a < 0) return
-        tabs[a] = tabs[a].copy(pair = partner.uri, ratio = ratio)
+        tabs[a] = tabs[a].copy(pair = partner.uri, ratio = ratio, swapped = false)
         tabs.add(a + 1, partner)
         setTabs(tabs)
     }
 
     /** Split the split tab [uri] is half of back into two tabs. */
     fun unpairTab(uri: String) = setTabs(unpaired(openTabs, uri))
+
+    /** Whether the split tab [uri] is half of shows its second pane first. */
+    fun tabPairSwapped(uri: String): Boolean = tabPair(uri)?.let { openTabs.getOrNull(tabIndex(it.first))?.swapped } == true
+
+    /** Trade the sides of the split tab [uri] is half of. */
+    fun swapTabPair(uri: String) {
+        val at = tabPair(uri)?.let { tabIndex(it.first) } ?: return
+        setTabs(openTabs.toMutableList().also { it[at] = it[at].copy(swapped = !it[at].swapped) })
+    }
 
     /** Remember [ratio] as the divider of the split tab [uri] leads. */
     fun setPairRatio(uri: String, ratio: Float) {
@@ -12292,8 +12301,11 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     var sibling: Editor? = null
         private set
 
-    /** The divider position, as the first pane's share of the split axis. */
+    /** The divider position, as the left or top pane's share of the split axis. */
     var splitRatio by mutableStateOf(0.5f)
+
+    /** True while the second pane stands on the left or top, the first beside it. */
+    var splitSwapped by mutableStateOf(false)
 
     /** The pane that keyboard shortcuts and the file/export actions act on. */
     var focusedPane by mutableStateOf(Pane.PRIMARY)

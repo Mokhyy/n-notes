@@ -123,7 +123,8 @@ data class RecentDoc(val uri: String, val name: String, val opened: Long)
 
 /**
  * A note or canvas kept as a tab in the editor, in the order the tab strip shows them. A tab with a
- * [pair] is the first half of a split tab: the next tab is its second pane, [ratio] the divider.
+ * [pair] is the first half of a split tab: the next tab is its second pane, [ratio] the divider, and
+ * [swapped] puts the second pane on the left or top.
  */
 data class OpenTab(
     val uri: String,
@@ -132,4 +133,5 @@ data class OpenTab(
     val reading: Boolean = false,
     val pair: String? = null,
     val ratio: Float = 0.5f,
+    val swapped: Boolean = false,
 )

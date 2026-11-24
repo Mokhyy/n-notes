@@ -1672,4 +1672,5 @@
     <string name="open_in_split">Open in split screen</string>
     <string name="close_split">Close split screen</string>
     <string name="unsplit_tab">Unsplit</string>
+    <string name="swap_sides">Swap sides</string>
 </resources>

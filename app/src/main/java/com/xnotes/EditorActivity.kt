@@ -919,6 +919,7 @@ private fun EditorScreen(
         guardedAll {
             readerSplit.clear()
             editor.splitRatio = ratio
+            editor.splitSwapped = editor.tabPairSwapped(first)
             scope.launch {
                 if (!firstShown) openInto(editor, first)
                 if (!editor.noteOpen) return@launch
@@ -941,6 +942,7 @@ private fun EditorScreen(
     fun openSplit(firstUri: String, secondUri: String) {
         readerSplit.clear()
         editor.splitRatio = 0.5f
+        editor.splitSwapped = false
         editor.focusPane(com.xnotes.ui.Pane.PRIMARY)
         val second = editor.secondaryPane()
         scope.launch {
@@ -1490,7 +1492,7 @@ private fun EditorScreen(
             fun splitTab(uri: String) {
                 val second = editor.secondaryPane()
                 readerSplit.clear()
-                if (!second.noteOpen) editor.splitRatio = 0.5f
+                if (!second.noteOpen) { editor.splitRatio = 0.5f; editor.splitSwapped = false }
                 guarded(second) {
                     scope.launch {
                         openInto(second, uri)
@@ -1508,6 +1510,11 @@ private fun EditorScreen(
                 kotlinx.coroutines.delay(400)
                 editor.setPairRatio(shownPair.first, editor.splitRatio)
             }
+            /** Trade the panes' places, and with them the halves of their split tab. */
+            fun swapSides() {
+                editor.splitSwapped = !editor.splitSwapped
+                editor.shownUri?.let { if (editor.tabPair(it) != null) editor.swapTabPair(it) }
+            }
             val tabStrip: @Composable () -> Unit = {
                 val tabs = editor.openTabs
                 val pane = editor.active
@@ -1523,6 +1530,10 @@ private fun EditorScreen(
                         onMove = { t, to -> editor.moveTab(t.uri, to) },
                         onMoveFirst = { editor.moveTabFirst(it.uri) },
                         onSplit = { splitTab(it.uri) },
+                        onSwap = { lead ->
+                            if (second != null && editor.tabPair(lead.uri)?.second?.let { shownIn(it) } === second) swapSides()
+                            else editor.swapTabPair(lead.uri)
+                        },
                         onUnsplit = { lead ->
                             if (second != null && editor.tabPair(lead.uri)?.second?.let { shownIn(it) } === second) closePane(second)
                             else editor.unpairTab(lead.uri)
@@ -1533,7 +1544,7 @@ private fun EditorScreen(
                     )
                 }
             }
-            SplitHost(editor, actions, readerSplit, tabStrip) { file, modifier ->
+            SplitHost(editor, actions, readerSplit, tabStrip, ::swapSides) { file, modifier ->
                 Box(modifier) {
                     androidx.compose.runtime.key(file.uri) {
                         com.xnotes.ui.ReaderScreen(editor = editor, file = file, onClose = { readerSplit.remove(file) }, onWikiLink = ::followWikiLink)
@@ -1859,6 +1870,7 @@ private fun SplitHost(
     actions: PaneActions,
     readers: List<com.xnotes.ui.ReaderFile>,
     tabStrip: @Composable () -> Unit,
+    onSwap: () -> Unit,
     reader: @Composable (com.xnotes.ui.ReaderFile, Modifier) -> Unit,
 ) {
     val second = editor.secondary
@@ -1901,13 +1913,15 @@ private fun SplitHost(
                 y = if (sideBySide) 0.dp else along,
             )
 
+            // Swapped, the second pane takes the first place and the first pane the second.
+            val swapped = split && editor.splitSwapped && second?.noteOpen == true
             if (editor.noteOpen) {
                 EditorPane(
                     editor = editor,
                     app = editor,
                     actions = actions,
                     closable = split,
-                    modifier = paneSize(firstExtent),
+                    modifier = if (swapped) paneOffset(firstExtent).then(paneSize(secondExtent)) else paneSize(firstExtent),
                 )
             }
             if (second?.noteOpen == true) {
@@ -1916,7 +1930,7 @@ private fun SplitHost(
                     app = editor,
                     actions = actions,
                     closable = split,
-                    modifier = paneOffset(if (split) firstExtent else 0.dp).then(paneSize(secondExtent)),
+                    modifier = if (swapped) paneSize(firstExtent) else paneOffset(if (split) firstExtent else 0.dp).then(paneSize(secondExtent)),
                 )
             }
             if (besideReader != null) reader(besideReader, paneOffset(firstExtent).then(paneSize(secondExtent)))
@@ -1927,6 +1941,7 @@ private fun SplitHost(
                     extentPx = with(LocalDensity.current) { full.toPx() },
                     ratio = editor.splitRatio,
                     onRatio = { editor.splitRatio = it },
+                    onSwap = onSwap.takeIf { second?.noteOpen == true },
                     modifier = paneOffset((firstExtent - DIVIDER / 2).coerceAtLeast(0.dp))
                         .then(paneSize(DIVIDER)),
                 )
@@ -2201,8 +2216,12 @@ private fun SplitDivider(
     ratio: Float,
     onRatio: (Float) -> Unit,
     modifier: Modifier = Modifier,
+    onSwap: (() -> Unit)? = null,
 ) {
     val palette = LocalPalette.current
+    // A long press offers what else the seam can do: trade the panes' sides.
+    var menu by remember { mutableStateOf(false) }
+    val swapNow = rememberUpdatedState(onSwap)
     // Read inside the long-lived drag gesture, which does not restart as the ratio moves.
     val ratioNow = rememberUpdatedState(ratio)
     val onRatioNow = rememberUpdatedState(onRatio)
@@ -2222,7 +2241,10 @@ private fun SplitDivider(
                 )
             }
             .pointerInput(Unit) {
-                detectTapGestures(onDoubleTap = { onRatioNow.value(0.5f) })
+                detectTapGestures(
+                    onDoubleTap = { onRatioNow.value(0.5f) },
+                    onLongPress = { if (swapNow.value != null) menu = true },
+                )
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -2239,6 +2261,12 @@ private fun SplitDivider(
                 .clip(RoundedCornerShape(DIVIDER_LINE / 2))
                 .background(palette.accent.toComposeColor()),
         )
+        com.xnotes.ui.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            com.xnotes.ui.MenuItem(stringResource(R.string.swap_sides), if (sideBySide) com.xnotes.ui.icons.XnotesIcons.flipHorizontal else com.xnotes.ui.icons.XnotesIcons.flipVertical) {
+                menu = false
+                swapNow.value?.invoke()
+            }
+        }
     }
 }
 

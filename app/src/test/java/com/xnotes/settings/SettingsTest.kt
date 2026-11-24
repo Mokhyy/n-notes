@@ -39,7 +39,7 @@ class SettingsTest {
     }
 
     @Test fun openTabsRoundTrip() {
-        val tabs = listOf(OpenTab("content://a", "A.xnote", pair = "content://b", ratio = 0.25f), OpenTab("content://b", "B.xcanvas", Rgba(200, 40, 40, 255), reading = true))
+        val tabs = listOf(OpenTab("content://a", "A.xnote", pair = "content://b", ratio = 0.25f, swapped = true), OpenTab("content://b", "B.xcanvas", Rgba(200, 40, 40, 255), reading = true))
         assertEquals(tabs, Settings.fromJson(Settings(openTabs = tabs).toJson()).openTabs)
     }
 
