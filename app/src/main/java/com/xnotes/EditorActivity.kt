@@ -1440,6 +1440,8 @@ private fun EditorScreen(
             }
             fun closeTab(uri: String) {
                 val pane = editor.active
+                // In a split, closing a tab on screen closes its pane; the other pane stays.
+                if (editor.openPanes.size > 1) shownIn(uri)?.let { p -> guarded(p) { p.goHome(); editor.closeTab(uri) }; return }
                 if (pane.shownUri?.let { editor.isSameDocument(it, uri) } != true) { editor.closeTab(uri); return }
                 val tabs = editor.openTabs
                 val at = tabs.indexOfFirst { editor.isSameDocument(it.uri, uri) }
@@ -1447,19 +1449,37 @@ private fun EditorScreen(
                 if (next == null) guarded(pane) { pane.goHome(); editor.closeTab(uri) }
                 else switchTab(next.uri) { editor.closeTab(uri) }
             }
+            /** Open [uri] in the second pane beside the note, or in place of what the second pane shows. */
+            fun splitTab(uri: String) {
+                val second = editor.secondaryPane()
+                readerSplit.clear()
+                if (!second.noteOpen) editor.splitRatio = 0.5f
+                guarded(second) {
+                    scope.launch {
+                        openInto(second, uri)
+                        if (second.noteOpen) editor.focusPane(com.xnotes.ui.Pane.SECONDARY)
+                        else { editor.abandonSecondary(); editor.message = context.getString(R.string.err_open_second) }
+                    }
+                }
+            }
             val tabStrip: @Composable () -> Unit = {
                 val tabs = editor.openTabs
                 val pane = editor.active
+                val second = editor.secondary?.takeIf { it.noteOpen }
                 if (tabs.size >= 2 && pane.noteOpen) {
                     com.xnotes.ui.TabStrip(
                         tabs = tabs,
-                        current = pane.shownUri,
+                        primary = editor.shownUri.takeIf { editor.noteOpen },
+                        secondary = second?.shownUri,
+                        focusedSecondary = second != null && pane === second,
                         same = editor::isSameDocument,
                         onSelect = { switchTab(it.uri) },
                         onClose = { closeTab(it.uri) },
                         onMoveFirst = { editor.moveTabFirst(it.uri) },
+                        onSplit = { splitTab(it.uri) },
+                        onCloseSplit = { second?.let { p -> guarded(p) { p.goHome() } } },
                         onColor = { t, c -> editor.colorTab(t.uri, c) },
-                        onCloseOthers = { editor.keepOnlyTab(pane.shownUri) },
+                        onCloseOthers = { editor.keepOnlyTabs(editor.openPanes.mapNotNull { it.shownUri }) },
                     )
                 }
             }

@@ -1609,4 +1609,6 @@
     <string name="pref_show_unsupported">Mostrar archivos que Sponka no puede abrir</string>
     <string name="unsupported_file_title">Archivo no compatible</string>
     <string name="unsupported_file_body">%1$s no se puede abrir en Sponka.</string>
+    <string name="open_in_split">Abrir en pantalla dividida</string>
+    <string name="close_split">Cerrar pantalla dividida</string>
 </resources>

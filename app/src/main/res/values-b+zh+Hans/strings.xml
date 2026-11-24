@@ -1383,4 +1383,6 @@
     <string name="pref_show_unsupported">显示 Sponka 无法打开的文件</string>
     <string name="unsupported_file_title">不支持的文件</string>
     <string name="unsupported_file_body">无法在 Sponka 中打开 %1$s。</string>
+    <string name="open_in_split">在分屏中打开</string>
+    <string name="close_split">关闭分屏</string>
 </resources>

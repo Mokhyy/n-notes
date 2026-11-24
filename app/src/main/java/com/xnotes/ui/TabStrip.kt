@@ -55,16 +55,21 @@ private val TAB_MAX = 220.dp
 /**
  * The open tabs over the editor, drawn like a browser's: the shown tab is cut from the surface just
  * below it (the docked toolbar, or the desk when the bar floats), the rest sit dim on the strip.
- * [current] is the tab on screen in the focused pane, matched by [same].
+ * [primary] and [secondary] are the tabs on screen in the two panes, matched by [same]; while both are
+ * tabs they are drawn as one split tab, its halves in the panes' order. [focusedSecondary] says which half has the focus.
  */
 @Composable
 internal fun TabStrip(
     tabs: List<OpenTab>,
-    current: String?,
+    primary: String?,
+    secondary: String?,
+    focusedSecondary: Boolean,
     same: (String, String) -> Boolean,
     onSelect: (OpenTab) -> Unit,
     onClose: (OpenTab) -> Unit,
     onMoveFirst: (OpenTab) -> Unit,
+    onSplit: (OpenTab) -> Unit,
+    onCloseSplit: () -> Unit,
     onColor: (OpenTab, com.xnotes.core.model.Rgba?) -> Unit,
     onCloseOthers: () -> Unit,
 ) {
@@ -73,7 +78,15 @@ internal fun TabStrip(
     val barBelow = !look.floating && look.position == ToolbarPosition.TOP
     val below = (if (barBelow) palette.panel else palette.bg).toComposeColor()
     val strip = (if (barBelow) palette.bg else palette.panel).toComposeColor()
-    val shown = tabs.indexOfFirst { current != null && same(it.uri, current) }
+    fun indexOf(uri: String?) = if (uri == null) -1 else tabs.indexOfFirst { same(it.uri, uri) }
+    val left = indexOf(primary)
+    val right = indexOf(secondary)
+    val shown = if (focusedSecondary) right else left
+    val merged = left >= 0 && right >= 0 && left != right
+    // The split tab stands where the first of its two tabs did; the other is folded into it.
+    val lead = if (merged) minOf(left, right) else shown
+    val folded = if (merged) maxOf(left, right) else -1
+    val onScreen = setOf(left, right) - setOf(-1)
     Row(
         Modifier.fillMaxWidth().height(STRIP_HEIGHT).background(strip),
         verticalAlignment = Alignment.Bottom,
@@ -82,16 +95,23 @@ internal fun TabStrip(
             val width = (maxWidth / tabs.size.coerceAtLeast(1)).coerceIn(TAB_MIN, TAB_MAX)
             val scroll = rememberScrollState()
             val widthPx = with(LocalDensity.current) { width.roundToPx() }
-            LaunchedEffect(shown, tabs.size) { if (shown >= 0) scroll.animateScrollTo((shown * widthPx - widthPx).coerceAtLeast(0)) }
+            LaunchedEffect(lead, tabs.size) { if (lead >= 0) scroll.animateScrollTo((lead * widthPx - widthPx).coerceAtLeast(0)) }
             Row(Modifier.fillMaxHeight().horizontalScroll(scroll).padding(start = 6.dp), verticalAlignment = Alignment.Bottom) {
+                var previous = -1
                 tabs.forEachIndexed { i, tab ->
+                    if (i == folded) return@forEachIndexed
                     // A hairline parts two dim tabs; none is drawn against the shown one, which has its own edge.
-                    val parted = i > 0 && i != shown && i - 1 != shown
-                    Tab(tab, i == shown, parted, below, Modifier.width(width), { onSelect(tab) }, { onClose(tab) })
+                    val parted = previous >= 0 && i != lead && previous != lead
+                    previous = i
+                    if (merged && i == lead) {
+                        SplitTab(tabs[left], tabs[right], focusedSecondary, below, Modifier.width(width * SPLIT_WIDTH), onSelect, onCloseSplit)
+                    } else {
+                        Tab(tab, i == shown, parted, below, Modifier.width(width), { onSelect(tab) }, { onClose(tab) })
+                    }
                 }
             }
         }
-        TabCounter(tabs, shown, onSelect, onClose, onMoveFirst, onColor, onCloseOthers)
+        TabCounter(tabs, shown, onScreen, primary != null, onSelect, onClose, onMoveFirst, onSplit, onColor, onCloseOthers)
     }
 }
 
@@ -156,6 +176,62 @@ private fun Tab(
     }
 }
 
+/** How much wider than a tab the split tab is: room for two names, not two whole tabs. */
+private const val SPLIT_WIDTH = 1.7f
+
+/** The two tabs a split screen shows, as one tab with a half for each pane; a half takes that pane's focus, the x ends the split. */
+@Composable
+private fun SplitTab(
+    first: OpenTab,
+    second: OpenTab,
+    focusedSecond: Boolean,
+    below: Color,
+    modifier: Modifier,
+    onSelect: (OpenTab) -> Unit,
+    onCloseSplit: () -> Unit,
+) {
+    val palette = LocalPalette.current
+    val shape = MaterialTheme.shapes.small.copy(bottomStart = androidx.compose.foundation.shape.CornerSize(0.dp), bottomEnd = androidx.compose.foundation.shape.CornerSize(0.dp))
+    val dim = palette.textDim.toComposeColor()
+    Row(
+        modifier.height(STRIP_HEIGHT - 6.dp).clip(shape).background(below).padding(end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        @Composable
+        fun half(tab: OpenTab, focused: Boolean) {
+            Box(Modifier.weight(1f).fillMaxHeight().clickable(role = Role.Tab) { onSelect(tab) }) {
+                Row(Modifier.fillMaxHeight().padding(start = 10.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(kindIcon(tab.name), contentDescription = null, tint = tab.color?.toComposeColor() ?: dim, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        DocumentKind.stripSuffix(tab.name),
+                        color = if (focused) palette.text.toComposeColor() else dim,
+                        fontSize = 13.sp,
+                        fontWeight = if (focused) FontWeight.Medium else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                tab.color?.let { c ->
+                    Box(
+                        Modifier.align(Alignment.TopCenter).padding(horizontal = 10.dp).fillMaxWidth().height(3.dp)
+                            .clip(RoundedCornerShape(bottomStart = 2.dp, bottomEnd = 2.dp)).background(c.toComposeColor()),
+                    )
+                }
+            }
+        }
+        half(first, !focusedSecond)
+        Box(Modifier.width(1.dp).height(16.dp).background(palette.border.toComposeColor()))
+        half(second, focusedSecond)
+        Box(
+            Modifier.size(24.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onCloseSplit),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(XnotesIcons.close, contentDescription = stringResource(R.string.close_split), tint = dim, modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
 private fun kindIcon(name: String): ImageVector = when (DocumentKind.ofName(name)) {
     DocumentKind.CANVAS -> XnotesIcons.canvas
     DocumentKind.PDF -> XnotesIcons.pdfFile
@@ -167,9 +243,12 @@ private fun kindIcon(name: String): ImageVector = when (DocumentKind.ofName(name
 private fun TabCounter(
     tabs: List<OpenTab>,
     shown: Int,
+    onScreen: Set<Int>,
+    canSplit: Boolean,
     onSelect: (OpenTab) -> Unit,
     onClose: (OpenTab) -> Unit,
     onMoveFirst: (OpenTab) -> Unit,
+    onSplit: (OpenTab) -> Unit,
     onColor: (OpenTab, com.xnotes.core.model.Rgba?) -> Unit,
     onCloseOthers: () -> Unit,
 ) {
@@ -191,7 +270,20 @@ private fun TabCounter(
                     Modifier.widthIn(min = 20.dp).height(20.dp).border(1.5.dp, text, MaterialTheme.shapes.extraSmall).padding(horizontal = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(if (tabs.size > 99) "99+" else tabs.size.toString(), color = text, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 11.sp)
+                    // The font's own padding and line gap would sit the digits low in the box.
+                    Text(
+                        if (tabs.size > 99) "\u221E" else tabs.size.toString(),
+                        color = text,
+                        fontSize = if (tabs.size > 99) 14.sp else 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        style = androidx.compose.ui.text.TextStyle(
+                            platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                            lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                            ),
+                        ),
+                    )
                 }
                 Icon(XnotesIcons.chevronDown, contentDescription = null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(16.dp))
             }
@@ -203,6 +295,7 @@ private fun TabCounter(
                 tab != null -> {
                     MenuBack(DocumentKind.stripSuffix(tab.name)) { acting = null }
                     MenuItem(stringResource(R.string.move_to_first), XnotesIcons.arrowUp, enabled = tabs.firstOrNull() != tab) { open = false; onMoveFirst(tab) }
+                    MenuItem(stringResource(R.string.open_in_split), XnotesIcons.split, enabled = canSplit && tabs.indexOf(tab) !in onScreen) { open = false; onSplit(tab) }
                     MenuItem(stringResource(R.string.colour_code), XnotesIcons.palette, more = true) { colours = true }
                     MenuItem(stringResource(R.string.close_tab), XnotesIcons.close, danger = true) { open = false; onClose(tab) }
                 }
@@ -213,7 +306,7 @@ private fun TabCounter(
                         DropdownMenuItem(
                             text = { Text(DocumentKind.stripSuffix(t.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                             onClick = { open = false; onSelect(t) },
-                            selected = i == shown,
+                            selected = i == shown || i in onScreen,
                             leadingIcon = {
                                 Icon(kindIcon(t.name), contentDescription = null, tint = t.color?.toComposeColor() ?: androidx.compose.material3.LocalContentColor.current, modifier = Modifier.size(18.dp))
                             },

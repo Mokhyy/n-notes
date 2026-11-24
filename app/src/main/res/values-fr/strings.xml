@@ -1587,4 +1587,6 @@
     <string name="pref_show_unsupported">Afficher les fichiers que Sponka ne peut pas ouvrir</string>
     <string name="unsupported_file_title">Fichier non pris en charge</string>
     <string name="unsupported_file_body">%1$s ne peut pas être ouvert dans Sponka.</string>
+    <string name="open_in_split">Ouvrir en écran partagé</string>
+    <string name="close_split">Fermer l\'écran partagé</string>
 </resources>

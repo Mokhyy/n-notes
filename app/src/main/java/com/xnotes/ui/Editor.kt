@@ -5504,10 +5504,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         if (at >= 0) setTabs(openTabs.toMutableList().also { it[at] = it[at].copy(color = color) })
     }
 
-    /** Close every tab but [uri]'s, or all of them when [uri] has none. */
-    fun keepOnlyTab(uri: String?) {
-        val key = uri?.let(::documentKey)
-        setTabs(openTabs.filter { documentKey(it.uri) == key })
+    /** Close every tab but those of [uris], the documents on screen. */
+    fun keepOnlyTabs(uris: List<String>) {
+        val keys = uris.map(::documentKey).toSet()
+        setTabs(openTabs.filter { documentKey(it.uri) in keys })
     }
 
     /** Forget everything in Recent. */
