@@ -435,6 +435,11 @@ fun PreferencesPane(
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
                 SectionTitle(stringResource(R.string.pref_appearance))
                 ThemeControls(prefs, ::update, ::updateHome)
+                FieldLabel(stringResource(R.string.pref_sidebar_style))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip(stringResource(R.string.toolbar_docked), !prefs.sidebarFloating) { updateHome(prefs.copy(sidebarFloating = false)) }
+                    Chip(stringResource(R.string.toolbar_floating), prefs.sidebarFloating) { updateHome(prefs.copy(sidebarFloating = true)) }
+                }
                 CheckRow(stringResource(R.string.pref_split_categories), prefs.prefsCategories) { updateHome(prefs.copy(prefsCategories = it)) }
                 TextButton(onClick = { update(Preferences()) }) { Text(stringResource(R.string.reset_to_defaults), fontSize = 13.sp) }
             }
@@ -1174,11 +1179,6 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
                 if (next.isNotEmpty()) updateHome(prefs.copy(switcherLayouts = ExplorerLayout.entries.filter { it in next }))
             }
         }
-    }
-    FieldLabel(stringResource(R.string.pref_sidebar_style))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Chip(stringResource(R.string.toolbar_docked), !prefs.sidebarFloating) { updateHome(prefs.copy(sidebarFloating = false)) }
-        Chip(stringResource(R.string.toolbar_floating), prefs.sidebarFloating) { updateHome(prefs.copy(sidebarFloating = true)) }
     }
     FieldLabel(stringResource(R.string.pref_sidebar_sections))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
