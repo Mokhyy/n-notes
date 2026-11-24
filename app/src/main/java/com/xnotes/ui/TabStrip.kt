@@ -267,8 +267,10 @@ private fun TabCounter(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                // A whole-pixel line, or the antialiasing draws some sides thicker than others.
+                val line = with(LocalDensity.current) { 1.5.dp.roundToPx().coerceAtLeast(1).toDp() }
                 Box(
-                    Modifier.widthIn(min = 20.dp).height(20.dp).border(1.5.dp, text, MaterialTheme.shapes.extraSmall).padding(horizontal = 4.dp),
+                    Modifier.widthIn(min = 20.dp).height(20.dp).border(line, text, MaterialTheme.shapes.extraSmall).padding(horizontal = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     // The font's own padding and line gap would sit the digits low in the box.
@@ -301,9 +303,10 @@ private fun TabCounter(
                     MenuItem(stringResource(R.string.close_tab), XnotesIcons.close, danger = true) { open = false; onClose(tab) }
                 }
                 else -> {
-                    MenuItem(stringResource(R.string.close_all_tabs), XnotesIcons.close) { open = false; onCloseOthers() }
+                    MenuItem(stringResource(R.string.close_all_tabs), XnotesIcons.close, danger = true) { open = false; onCloseOthers() }
                     if (onCloseSplit != null) MenuItem(stringResource(R.string.close_split), XnotesIcons.split) { open = false; onCloseSplit() }
-                    MenuDivider()
+                    // A hairline with no gap of its own, so the actions above sit as close as the tabs do.
+                    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(palette.border.toComposeColor()))
                     tabs.forEachIndexed { i, t ->
                         DropdownMenuItem(
                             text = { Text(DocumentKind.stripSuffix(t.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
