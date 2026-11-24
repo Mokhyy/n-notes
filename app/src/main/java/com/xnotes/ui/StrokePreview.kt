@@ -27,6 +27,9 @@ import com.xnotes.canvas.InteractionController
 import com.xnotes.core.geometry.Pt
 import com.xnotes.core.model.Rgba
 import com.xnotes.core.model.Stroke
+import com.xnotes.core.model.TapeItem
+import com.xnotes.core.model.TapeMode
+import com.xnotes.core.model.TapeShape
 import com.xnotes.core.pal.Pen
 import com.xnotes.core.pal.Renderer
 import com.xnotes.core.stroke.Sample
@@ -46,7 +49,8 @@ import kotlin.math.sin
 
 /**
  * The stroke [tool] draws with [config] as it stands: one canned pen gesture through the real
- * engine and painter, on the paper in view and at the size the nib leaves on screen now.
+ * engine and painter, on the paper in view and at the size the nib leaves on screen now. Tape is
+ * laid over a line of stand-in words instead.
  */
 @Composable
 internal fun StrokePreview(tool: Tool, config: ToolConfig, host: ToolPopupHost, modifier: Modifier = Modifier) {
@@ -91,6 +95,10 @@ private object StrokeSample {
         val surface = AndroidRasterSurface.create(w, h)
         surface.fill(paper)
         val r = surface.renderer()
+        if (tool == Tool.TAPE) {
+            paintTape(r, config, paper, zoom, w, h, density)
+            return surface.bitmap.asImageBitmap()
+        }
         // Scale off holds the width on screen whatever the zoom. Either way a wide nib is shrunk to
         // fit, and one zoomed out to nothing is kept wide enough to see.
         val natural = if (config.scale && zoom.isFinite() && zoom > 0.0) zoom else 1.0
@@ -145,6 +153,37 @@ private object StrokeSample {
         }
         return out
     }
+
+    /** A tape at the size it is laid now, over words so it reads as hiding them; a rectangle is as tall as it is dragged. */
+    private fun paintTape(r: Renderer, config: ToolConfig, paper: Rgba, zoom: Double, w: Int, h: Int, density: Double) {
+        val natural = if (config.scale && zoom.isFinite() && zoom > 0.0) zoom else 1.0
+        val rect = config.tapeMode == TapeMode.RECTANGLE
+        val width = config.baseWidth.coerceAtLeast(1.0)
+        val s = if (rect) natural else min(natural, TAPE_FIT * h / width)
+        r.scale(s, s)
+        val cw = w / s
+        val ch = h / s
+        val dp = density / s
+        paintWords(r, cw, ch, dp, paper)
+        val pad = 34 * dp
+        val cy = ch / 2
+        val shape = when (config.tapeMode) {
+            TapeMode.FREEHAND -> {
+                val room = (ch / 2 - width / 2 - 3 * dp).coerceAtLeast(0.0)
+                val amp = min(room, ch * 0.12)
+                TapeShape(TapeMode.FREEHAND, (0 until POINTS).map { i ->
+                    val u = i / (POINTS - 1.0)
+                    Pt(pad + u * (cw - 2 * pad), cy + amp * sin(2 * PI * u))
+                }, width)
+            }
+            TapeMode.RECTANGLE -> TapeShape(TapeMode.RECTANGLE, listOf(Pt(pad, cy), Pt(cw - pad, cy)), ch * TAPE_FIT)
+            TapeMode.STRAIGHT -> TapeShape(TapeMode.STRAIGHT, listOf(Pt(pad, cy), Pt(cw - pad, cy)), width)
+        }
+        TapeItem(shape, config.colorOverride ?: config.rgba, config.tapePattern).paint(r)
+    }
+
+    /** The widest a tape may come out, as a share of the preview's height. */
+    private const val TAPE_FIT = 0.6
 
     /** A line of stand-in words for the highlighter to run over, so its blend shows. */
     private fun paintWords(r: Renderer, cw: Double, ch: Double, dp: Double, paper: Rgba) {

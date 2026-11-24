@@ -691,10 +691,15 @@ fun TapeConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
     ToolMenu(stringResource(R.string.tool_tape), onDismiss) {
         MenuCard(buildList<MenuGroup> {
             add {
+                val active = editor.hostToolbarColors.getOrNull(editor.hostActiveColorIndex)
+                val preview = base.copy(
+                    tapeMode = mode, tapePattern = pattern, baseWidth = ToolConversions.snapWidth(Tool.TAPE, width.toDouble()),
+                    scale = scale, colorOverride = colorOverride, rgba = active ?: LocalPalette.current.text,
+                )
+                StrokePreview(Tool.TAPE, preview, editor, Modifier.padding(start = 10.dp, top = 10.dp, end = 10.dp))
                 val modes = TapeMode.entries
                 MenuSegmented(modes.map { stringResource(it.labelRes) }, modes.indexOf(mode)) { mode = modes[it]; emit() }
                 MenuRow(stringResource(R.string.caption_colour)) {
-                    val active = editor.hostToolbarColors.getOrNull(editor.hostActiveColorIndex)
                     ColorOrNone(
                         stringResource(R.string.default_choice),
                         colorOverride,
