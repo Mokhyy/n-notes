@@ -1665,4 +1665,8 @@
     <string name="all_tabs">All tabs</string>
     <string name="tab_options">Tab options</string>
     <string name="preview_background">Switch preview background</string>
+    <string name="view_show_unsupported">Show unsupported files</string>
+    <string name="pref_show_unsupported">Show files Sponka cannot open</string>
+    <string name="unsupported_file_title">Unsupported file</string>
+    <string name="unsupported_file_body">%1$s can\'t be opened in Sponka.</string>
 </resources>

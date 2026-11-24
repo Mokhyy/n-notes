@@ -1379,4 +1379,8 @@
     <string name="all_tabs">所有标签页</string>
     <string name="tab_options">标签页选项</string>
     <string name="preview_background">切换预览背景</string>
+    <string name="view_show_unsupported">显示不支持的文件</string>
+    <string name="pref_show_unsupported">显示 Sponka 无法打开的文件</string>
+    <string name="unsupported_file_title">不支持的文件</string>
+    <string name="unsupported_file_body">无法在 Sponka 中打开 %1$s。</string>
 </resources>

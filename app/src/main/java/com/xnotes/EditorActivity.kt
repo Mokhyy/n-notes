@@ -409,6 +409,8 @@ private fun EditorScreen(
     // (editor.noteOpen). Every launch starts on backstage.
     var backstageView by remember { mutableStateOf(com.xnotes.ui.BackstageView.HOME) }
     var showShareChooser by remember { mutableStateOf(false) }
+    // A file the app lists but cannot open, tapped: only said, never opened.
+    var unsupportedFile by remember { mutableStateOf<String?>(null) }
     var guardAction by remember { mutableStateOf<GuardRequest?>(null) }
     var pendingAfterSave by remember { mutableStateOf<(() -> Unit)?>(null) }
     // The pane an image was picked for, and where a long-press menu asked it to land. Held together
@@ -501,7 +503,7 @@ private fun EditorScreen(
         // plain text / markdown / csv / html / rtf
         "text/plain", "text/markdown", "text/x-markdown",
         "text/csv", "text/comma-separated-values", "application/csv",
-        "text/html", "text/rtf", "application/rtf", "text/xml", "application/xml",
+        "text/html", "text/rtf", "application/rtf", "text/xml", "application/xml", "application/x-tex", "text/x-tex",
         // ebook / office
         "application/epub+zip", "application/x-fictionbook+xml", "application/x-fictionbook",
         "application/x-mobipocket-ebook", "application/vnd.amazon.ebook", "application/vnd.amazon.mobi8-ebook",
@@ -940,6 +942,8 @@ private fun EditorScreen(
 
     /** Open any two files side by side: two notes as panes, a note with a reader, or two readers. */
     fun openPair(firstUri: String, secondUri: String) {
+        listOf(firstUri, secondUri).map { displayNameOf(resolver, Uri.parse(it)).orEmpty() }
+            .firstOrNull { com.xnotes.core.util.ReaderKind.isUnsupported(it) }?.let { unsupportedFile = it; return }
         val first = readerFileOf(firstUri)
         val second = readerFileOf(secondUri)
         when {
@@ -1251,8 +1255,11 @@ private fun EditorScreen(
                 onImportPdf = { importPdfLauncher.launch(importMimeTypes) },
                 onOpenFile = { uri ->
                     val name = displayNameOf(resolver, Uri.parse(uri)).orEmpty()
-                    if (com.xnotes.core.util.ReaderKind.isReadable(name)) readerStack.add(com.xnotes.ui.ReaderFile(uri, name))
-                    else guarded(editor) { openTreeFile(uri) }
+                    when {
+                        com.xnotes.core.util.ReaderKind.isReadable(name) -> readerStack.add(com.xnotes.ui.ReaderFile(uri, name))
+                        com.xnotes.core.util.ReaderKind.isUnsupported(name) -> unsupportedFile = name
+                        else -> guarded(editor) { openTreeFile(uri) }
+                    }
                 },
                 onPickRoot = { pickRootLauncher.launch(null) },
                 // A PDF is shared as the file it is; only a note or a canvas has a second form to offer.
@@ -1554,6 +1561,14 @@ private fun EditorScreen(
                     }
                 }
             },
+        )
+    }
+    unsupportedFile?.let { name ->
+        com.xnotes.ui.SheetDialog(
+            title = stringResource(R.string.unsupported_file_title),
+            onDismiss = { unsupportedFile = null },
+            text = stringResource(R.string.unsupported_file_body, name),
+            foot = { com.xnotes.ui.SheetButton(stringResource(R.string.close), Modifier.fillMaxWidth()) { unsupportedFile = null } },
         )
     }
     guardAction?.let { request ->

@@ -1605,4 +1605,8 @@
     <string name="all_tabs">Todas las pestañas</string>
     <string name="tab_options">Opciones de pestaña</string>
     <string name="preview_background">Cambiar fondo de la vista previa</string>
+    <string name="view_show_unsupported">Mostrar archivos no compatibles</string>
+    <string name="pref_show_unsupported">Mostrar archivos que Sponka no puede abrir</string>
+    <string name="unsupported_file_title">Archivo no compatible</string>
+    <string name="unsupported_file_body">%1$s no se puede abrir en Sponka.</string>
 </resources>

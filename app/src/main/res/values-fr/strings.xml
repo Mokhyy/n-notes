@@ -1583,4 +1583,8 @@
     <string name="all_tabs">Tous les onglets</string>
     <string name="tab_options">Options de l\'onglet</string>
     <string name="preview_background">Changer le fond de l\'aperçu</string>
+    <string name="view_show_unsupported">Afficher les fichiers non pris en charge</string>
+    <string name="pref_show_unsupported">Afficher les fichiers que Sponka ne peut pas ouvrir</string>
+    <string name="unsupported_file_title">Fichier non pris en charge</string>
+    <string name="unsupported_file_body">%1$s ne peut pas être ouvert dans Sponka.</string>
 </resources>

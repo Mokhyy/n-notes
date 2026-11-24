@@ -15,6 +15,7 @@ enum class ReaderKind(val label: String, vararg val extensions: String) {
     XML("XML", "xml"),
     ODT("ODT", "odt"),
     PPT("PPT", "ppt"),
+    TEX("TEX", "tex"),
     EPUB("EPUB", "epub"),
     FB2("FB2", "fb2"),
     MOBI("MOBI", "mobi", "prc", "azw", "azw3"),
@@ -32,6 +33,13 @@ enum class ReaderKind(val label: String, vararg val extensions: String) {
 
         /** Whether [name] is an e-book, which is kept as it is rather than turned into a note's text. */
         fun isBook(name: String): Boolean = ofName(name).let { it == EPUB || it == FB2 || it == MOBI }
+
+        /** Whether the app can do nothing with [name]: listed only when the user asks to see such files. */
+        fun isUnsupported(name: String): Boolean = !isListed(name)
+
+        /** The short type a file's tile shows: the reader kind's, else its own extension. */
+        fun badge(name: String): String? = ofName(name)?.label
+            ?: name.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it.length <= 5 && it != name }?.uppercase()
 
         /** Whether the explorer lists [name] as a file at all: an editable document or a readable one. */
         fun isListed(name: String): Boolean = DocumentKind.isDocument(name) || isReadable(name)

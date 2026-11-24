@@ -1548,7 +1548,7 @@ private fun ExplorerSection(
                 when {
                     selection.isNotEmpty() -> toggleSelect(e)
                     e.isDir -> openFolder(e)
-                    prefsNow.value.tapPreviews && !ReaderKind.isReadable(e.name) -> previewing = e
+                    prefsNow.value.tapPreviews && DocumentKind.isDocument(e.name) -> previewing = e
                     else -> callsNow.value.openFile(e.documentUri)
                 }
             },
@@ -2054,6 +2054,8 @@ private fun ExplorerSection(
                                 onEveryFolder = { every -> editor.applyHomePreferences(editor.preferences.copy(perFolderViews = !every)) },
                                 onHideDotItems = { editor.setHideDotItems(it) },
                                 onShowHidden = { editor.setShowHidden(it) },
+                                showUnsupported = prefs.showUnsupported,
+                                onShowUnsupported = { editor.setShowUnsupported(it) },
                                 onDismiss = { optionsOpen = false },
                             )
                         }

@@ -112,6 +112,6 @@ private fun TreeRow(e: BrowseEntry, depth: Int, open: Boolean, showExtensions: B
 private fun treeIcon(e: BrowseEntry): ImageVector = when {
     e.isDir -> XnotesIcons.folder
     DocumentKind.ofName(e.name) == DocumentKind.CANVAS -> XnotesIcons.canvas
-    ReaderKind.isReadable(e.name) -> XnotesIcons.lock
+    DocumentKind.ofName(e.name) == null -> XnotesIcons.lock
     else -> XnotesIcons.file
 }

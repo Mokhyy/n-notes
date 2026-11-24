@@ -212,10 +212,10 @@ enum class ImportKind {
     companion object {
         /** The document extensions the "Import file" action understands (for the picker + UI hint). */
         val IMPORT_EXTENSIONS = listOf("pdf", "png", "jpg", "jpeg", "webp", "gif", "bmp", "svg",
-            "txt", "md", "markdown", "csv", "rtf", "html", "htm", "xml", "epub", "fb2", "mobi", "azw", "azw3", "prc", "docx", "xlsx", "pptx", "ppt", "odt")
+            "tex", "txt", "md", "markdown", "csv", "rtf", "html", "htm", "xml", "epub", "fb2", "mobi", "azw", "azw3", "prc", "docx", "xlsx", "pptx", "ppt", "odt")
 
         private val IMAGE_EXT = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "heic", "heif")
-        private val TEXT_EXT = setOf("txt", "md", "markdown", "csv", "rtf", "html", "htm", "xml", "docx", "xlsx", "pptx", "ppt", "odt")
+        private val TEXT_EXT = setOf("tex", "txt", "md", "markdown", "csv", "rtf", "html", "htm", "xml", "docx", "xlsx", "pptx", "ppt", "odt")
 
         /** Classify a picked file by extension (then mime) into the importer that should handle it. */
         fun classify(name: String, mime: String?): ImportKind {
@@ -5056,7 +5056,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     /** The square tile for the document at [uri], whichever kind it is; [modified] is its file's, as listed. */
     suspend fun tileThumbnail(uri: String, name: String, modified: Long): ImageBitmap? =
-        if (com.xnotes.core.util.ReaderKind.isReadable(name)) {
+        if (!com.xnotes.core.util.DocumentKind.isDocument(name)) {
             readerThumbnail(uri, name)
         } else if (com.xnotes.core.util.DocumentKind.ofName(name) == com.xnotes.core.util.DocumentKind.CANVAS) {
             canvasTileThumbnail(uri)
@@ -5178,7 +5178,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
      * with them when the document changes.
      */
     suspend fun pageThumbnail(uri: String, name: String, modified: Long): ImageBitmap? {
-        if (com.xnotes.core.util.ReaderKind.isReadable(name)) return readerThumbnail(uri, name)
+        if (!com.xnotes.core.util.DocumentKind.isDocument(name)) return readerThumbnail(uri, name)
         val generation = thumbnailGeneration
         val key = pageThumbKey(thumbKey(uri, name, modified))
         synchronized(noteThumbs) { noteThumbs.get(key)?.let { return it } }
@@ -7855,6 +7855,15 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         relistAll()
     }
 
+    /** Flips listing files the app cannot open and re-lists every open folder. */
+    fun setShowUnsupported(show: Boolean) {
+        if (show == preferences.showUnsupported) return
+        applyHomePreferences(preferences.copy(showUnsupported = show))
+        relistAll()
+    }
+
+    private fun listedFile(name: String): Boolean = preferences.showUnsupported || com.xnotes.core.util.ReaderKind.isListed(name)
+
     /** Lists folders, documents and reader files under [parentDocId] within tree [treeUri]; IO, call off-thread. */
     fun browseChildren(treeUri: String, parentDocId: String): List<BrowseEntry> {
         val tree = android.net.Uri.parse(treeUri)
@@ -7881,7 +7890,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                         // The colour sidecar is captured (read below) but never listed, whatever the dot setting.
                         if (name == SIDECAR_DIR) { sidecarDocId = id; continue }
                         if (hiddenByDot(name)) continue
-                    } else if (!com.xnotes.core.util.ReaderKind.isListed(name) || hiddenByDot(name)) {
+                    } else if (!listedFile(name) || hiddenByDot(name)) {
                         continue
                     }
                     if (hiddenByUser("${tree.authority}|$id")) continue
@@ -8262,7 +8271,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                     val name = c.getString(0) ?: continue
                     val isDir = c.getString(1) == android.provider.DocumentsContract.Document.MIME_TYPE_DIR
                     if (hiddenByUser("${tree.authority}|${c.getString(2)}")) continue
-                    if (name != SIDECAR_DIR && !hiddenByDot(name) && (isDir || com.xnotes.core.util.ReaderKind.isListed(name))) n++
+                    if (name != SIDECAR_DIR && !hiddenByDot(name) && (isDir || listedFile(name))) n++
                 }
             }
         }
@@ -8696,6 +8705,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val key = documentKey(e.documentUri)
         val children = if (e.isDir && seen.add(key) && !stop()) {
             runCatching { browseChildren(treeUri, browseDocId(e.documentUri)) }.getOrDefault(emptyList())
+                .filter { it.isDir || !com.xnotes.core.util.ReaderKind.isUnsupported(it.name) } // nothing to print them with
                 .map { exportNode(treeUri, it, stop, seen) }
         } else {
             emptyList()

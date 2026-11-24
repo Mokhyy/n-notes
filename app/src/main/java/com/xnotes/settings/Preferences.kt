@@ -178,6 +178,8 @@ data class Preferences(
     val showExtensions: Boolean = false,
     /** Hides files and folders whose name starts with a dot (.obsidian, .git) from the explorer. */
     val hideDotItems: Boolean = true,
+    /** List files the app cannot open too; tapping one only says so. */
+    val showUnsupported: Boolean = false,
     /** Document keys of files and folders hidden on this device; kept out of settings sync. */
     val hiddenItems: Set<String> = emptySet(),
     /** Lists the [hiddenItems] anyway, dimmed, so they can be unhidden. */
@@ -316,6 +318,7 @@ data class Preferences(
         .put("show_folder_counts", showFolderCounts)
         .put("show_extensions", showExtensions)
         .put("hide_dot_items", hideDotItems)
+        .put("show_unsupported", showUnsupported)
         .put("hidden_items", org.json.JSONArray(hiddenItems.sorted()))
         .put("show_hidden", showHidden)
         .apply { readerDark?.let { put("reader_dark", it) } }
@@ -490,6 +493,7 @@ data class Preferences(
                 showFolderCounts = o.optBoolean("show_folder_counts", true),
                 showExtensions = o.optBoolean("show_extensions", false),
                 hideDotItems = o.optBoolean("hide_dot_items", true),
+                showUnsupported = o.optBoolean("show_unsupported", false),
                 hiddenItems = o.optJSONArray("hidden_items")?.let { a -> (0 until a.length()).mapNotNull { a.optString(it).ifEmpty { null } }.toSet() }.orEmpty(),
                 showHidden = o.optBoolean("show_hidden", false),
                 readerDark = if (o.has("reader_dark")) o.optBoolean("reader_dark") else null,

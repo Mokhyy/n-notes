@@ -390,6 +390,8 @@ internal fun ViewOptionsMenu(
     onEveryFolder: (Boolean) -> Unit,
     onHideDotItems: (Boolean) -> Unit,
     onShowHidden: (Boolean) -> Unit,
+    showUnsupported: Boolean,
+    onShowUnsupported: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val layout = view.layout
@@ -528,6 +530,7 @@ internal fun ViewOptionsMenu(
             { MenuSwitch(stringResource(R.string.view_every_folder), everyFolder, onChange = onEveryFolder) },
             { MenuSwitch(stringResource(R.string.view_hide_dot_items), hideDotItems, onChange = onHideDotItems) },
             { MenuSwitch(stringResource(R.string.view_show_hidden), showHidden, onChange = onShowHidden) },
+            { MenuSwitch(stringResource(R.string.view_show_unsupported), showUnsupported, onChange = onShowUnsupported) },
         ))
     }
 }

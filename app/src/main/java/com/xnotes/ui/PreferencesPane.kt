@@ -1260,6 +1260,7 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
     CheckRow(stringResource(R.string.pref_show_extensions), prefs.showExtensions) { updateHome(prefs.copy(showExtensions = it)) }
     CheckRow(stringResource(R.string.pref_hide_dot_items), prefs.hideDotItems) { editor.setHideDotItems(it) }
     CheckRow(stringResource(R.string.pref_show_hidden), prefs.showHidden) { editor.setShowHidden(it) }
+    CheckRow(stringResource(R.string.pref_show_unsupported), prefs.showUnsupported) { editor.setShowUnsupported(it) }
 }
 
 /** Pen, finger and gesture settings; shared by Preferences and onboarding. */

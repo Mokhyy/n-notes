@@ -22,6 +22,12 @@ class OfficeHtmlTest {
     }
 
     @Test
+    fun texSetsApartCommandsMathAndComments() {
+        val html = OfficeHtml.tex("\\section{A} 50\\% \$x\$ % note")
+        assertTrue(html, html.contains("<span class=\"x-t\">\\section</span>{A} 50<span class=\"x-t\">\\%</span> <span class=\"x-a\">$</span>x<span class=\"x-a\">$</span> <span class=\"x-c\">% note</span>"))
+    }
+
+    @Test
     fun xmlOnOneLineIsLaidOutATagALine() {
         assertEquals("<a>\n  <b>x</b>\n  <c/>\n</a>", OfficeHtml.indent("<a><b>x</b><c/></a>"))
     }

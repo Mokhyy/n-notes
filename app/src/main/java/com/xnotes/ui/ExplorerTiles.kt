@@ -182,7 +182,8 @@ internal fun entryKind(e: BrowseEntry): EntryKind = when {
     else -> when (DocumentKind.ofName(e.name)) {
         DocumentKind.CANVAS -> EntryKind.CANVAS
         DocumentKind.PDF -> EntryKind.PDF
-        else -> if (ReaderKind.isReadable(e.name)) EntryKind.FILE else EntryKind.NOTE
+        DocumentKind.NOTE -> EntryKind.NOTE
+        null -> EntryKind.FILE
     }
 }
 
@@ -207,7 +208,7 @@ internal fun kindLabel(k: EntryKind): String = when (k) {
 @Composable
 internal fun EntryThumb(editor: Editor, entry: BrowseEntry, shape: ThumbShape, modifier: Modifier = Modifier) {
     val whole = shape == ThumbShape.PAGE
-    ThumbImage(rememberThumb(editor, entry, whole), whole, modifier, ReaderKind.ofName(entry.name)?.label)
+    ThumbImage(rememberThumb(editor, entry, whole), whole, modifier, ReaderKind.badge(entry.name))
 }
 
 /** The top of [entry]'s first page as a square, or with [whole] the page entire; seeded from memory, null until loaded. */
@@ -266,7 +267,7 @@ internal fun ThumbBadges(b: ExplorerBody, e: BrowseEntry, inset: Dp = 8.dp) {
             TileBadge(kindIcon(kind), if (kind == EntryKind.PDF) "PDF" else stringResource(R.string.kind_canvas), Modifier.align(Alignment.BottomStart))
         }
         if (b.view.showKind && kind == EntryKind.FILE) {
-            TileBadge(kindIcon(kind), ReaderKind.ofName(e.name)?.label.orEmpty(), Modifier.align(Alignment.BottomStart))
+            TileBadge(kindIcon(kind), ReaderKind.badge(e.name).orEmpty(), Modifier.align(Alignment.BottomStart))
         }
         val pages = b.pages(e)
         if (b.view.showPages && pages > 1) TileBadge(XnotesIcons.pages, "$pages", Modifier.align(Alignment.BottomEnd))
@@ -343,7 +344,7 @@ internal fun convertLabel(e: BrowseEntry): Int? = if (e.isDir) null else when (D
 internal fun EntryMenuFor(b: ExplorerBody, e: BrowseEntry, expanded: Boolean, onDismiss: () -> Unit) {
     val m = b.host.menu
     // Reader files have no share/copy/export block: those flows name and render editable documents.
-    val readOnly = ReaderKind.isReadable(e.name)
+    val readOnly = DocumentKind.ofName(e.name) == null
     EntryMenu(
         expanded, onDismiss,
         onRename = { m.rename(e) }, onCopy = { m.copy(e) }, onCut = { m.cut(e) }, onDelete = { m.delete(e) },
@@ -360,7 +361,7 @@ internal fun EntryMenuFor(b: ExplorerBody, e: BrowseEntry, expanded: Boolean, on
         onNameColor = e.color?.let { c -> { m.nameColor(c) } },
         onMoveTo = { m.moveTo(e) },
         onPreview = if (e.isDir || readOnly) null else ({ m.preview(e) }),
-        onConvertToNote = if (readOnly) ({ m.convertToNote(e) }) else null,
+        onConvertToNote = if (ReaderKind.isReadable(e.name)) ({ m.convertToNote(e) }) else null,
         onImportInto = if (DocumentKind.ofName(e.name) == DocumentKind.NOTE) ({ m.importInto(e) }) else null,
         onSyncConflict = if (!e.isDir && SyncConflict.isCopy(e.name)) ({ m.syncConflict(e) }) else null,
         deleteLabel = b.deleteLabel,
@@ -630,7 +631,7 @@ internal fun GalleryItem(b: ExplorerBody, e: BrowseEntry, shelf: Dp) {
                 if (pages > 8) Box(Modifier.offset(8.dp, 0.dp).size(pageW, pageH).clip(sheet).background(palette.paper.toComposeColor()).border(1.dp, edge, sheet))
                 if (pages > 1) Box(Modifier.offset(4.dp, 4.dp).size(pageW, pageH).clip(sheet).background(palette.paper.toComposeColor()).border(1.dp, edge, sheet))
                 Box(Modifier.offset(0.dp, 8.dp).size(pageW, pageH).clip(sheet).border(if (selected) 2.dp else 1.dp, edge, sheet)) {
-                    ThumbImage(img, whole = true, Modifier.fillMaxSize(), ReaderKind.ofName(e.name)?.label)
+                    ThumbImage(img, whole = true, Modifier.fillMaxSize(), ReaderKind.badge(e.name))
                     if (selected) Box(Modifier.fillMaxSize().background(palette.selectionBackground.withAlpha(77).toComposeColor()))
                     if (selecting) CheckRing(selected, Modifier.align(Alignment.TopStart).padding(6.dp))
                     ExportRing(e, Modifier.align(Alignment.TopEnd).padding(6.dp))

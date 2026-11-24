@@ -19,6 +19,30 @@ object OfficeHtml {
         return "<pre class=\"text\">${ReaderHtml.esc(text)}</pre>"
     }
 
+    // --- TeX ---
+
+    private val texToken = Regex("(%[^\\n]*)|(\\\\(?:[a-zA-Z@]+\\*?|.))|(\\$\\$?)")
+
+    /** LaTeX source as written, its commands, maths delimiters and comments set apart. */
+    fun tex(source: String, labels: ReaderHtml.Labels = ReaderHtml.Labels()): String {
+        val text = source.removePrefix("\uFEFF")
+        if (text.isBlank()) return empty(labels)
+        val out = StringBuilder("<pre class=\"code tex\">")
+        var last = 0
+        for (m in texToken.findAll(text)) {
+            out.append(ReaderHtml.esc(text.substring(last, m.range.first)))
+            val cls = when {
+                m.groups[1] != null -> "x-c"
+                m.groups[2] != null -> "x-t"
+                else -> "x-a"
+            }
+            out.append("<span class=\"").append(cls).append("\">").append(ReaderHtml.esc(m.value)).append("</span>")
+            last = m.range.last + 1
+        }
+        out.append(ReaderHtml.esc(text.substring(last)))
+        return out.append("</pre>").toString()
+    }
+
     // --- XML ---
 
     /** The file as written, its tags, attributes and comments set apart; a file on one line is laid out a tag a line. */
