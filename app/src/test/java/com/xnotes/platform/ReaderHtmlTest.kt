@@ -124,6 +124,39 @@ class ReaderHtmlTest {
     }
 
     @Test
+    fun pptxWithASizeDrawsShapesWhereTheLayoutPlacesThem() {
+        val ns = "xmlns:p=\"p\" xmlns:a=\"a\" xmlns:r=\"r\""
+        val pres = """<p:presentation $ns><p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst><p:sldSz cx="12192000" cy="6858000"/></p:presentation>"""
+        val presRels = """<Relationships><Relationship Id="rId2" Type="t/slide" Target="slides/slide1.xml"/></Relationships>"""
+        val slide = """<p:sld $ns><p:cSld><p:bg><p:bgPr><a:solidFill><a:schemeClr val="accent1"><a:lumMod val="50000"/></a:schemeClr></a:solidFill></p:bgPr></p:bg><p:spTree>
+            <p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr><p:spPr/><p:txBody><a:p><a:pPr algn="ctr"/><a:r><a:rPr sz="2000"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:rPr><a:t>Hi</a:t></a:r></a:p></p:txBody></p:sp>
+            <p:grpSp><p:grpSpPr><a:xfrm><a:off x="1000" y="1000"/><a:ext cx="2000" cy="2000"/><a:chOff x="0" y="0"/><a:chExt cx="1000" cy="1000"/></a:xfrm></p:grpSpPr>
+              <p:sp><p:spPr><a:xfrm><a:off x="100" y="100"/><a:ext cx="500" cy="500"/></a:xfrm><a:prstGeom prst="ellipse"/><a:solidFill><a:srgbClr val="00FF00"/></a:solidFill></p:spPr></p:sp></p:grpSp>
+            </p:spTree></p:cSld></p:sld>"""
+        val slideRels = """<Relationships><Relationship Id="rId1" Type="x/slideLayout" Target="../slideLayouts/slideLayout1.xml"/></Relationships>"""
+        val layout = """<p:sldLayout $ns><p:cSld><p:spTree><p:sp><p:nvSpPr><p:nvPr><p:ph type="title"/></p:nvPr></p:nvSpPr>
+            <p:spPr><a:xfrm><a:off x="1219200" y="685800"/><a:ext cx="6096000" cy="1371600"/></a:xfrm></p:spPr></p:sp></p:spTree></p:cSld></p:sldLayout>"""
+        val layoutRels = """<Relationships><Relationship Id="rId1" Type="x/slideMaster" Target="../slideMasters/slideMaster1.xml"/></Relationships>"""
+        val master = """<p:sldMaster $ns><p:cSld><p:spTree/></p:cSld><p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1"/></p:sldMaster>"""
+        val masterRels = """<Relationships><Relationship Id="rId1" Type="x/theme" Target="../theme/theme1.xml"/></Relationships>"""
+        val theme = """<a:theme xmlns:a="a"><a:themeElements><a:clrScheme name="x"><a:dk1><a:srgbClr val="111111"/></a:dk1><a:lt1><a:srgbClr val="FFFFFF"/></a:lt1><a:accent1><a:srgbClr val="4080C0"/></a:accent1></a:clrScheme></a:themeElements></a:theme>"""
+        val html = ReaderHtml.pptx(
+            zip(
+                "ppt/presentation.xml" to pres, "ppt/_rels/presentation.xml.rels" to presRels,
+                "ppt/slides/slide1.xml" to slide, "ppt/slides/_rels/slide1.xml.rels" to slideRels,
+                "ppt/slideLayouts/slideLayout1.xml" to layout, "ppt/slideLayouts/_rels/slideLayout1.xml.rels" to layoutRels,
+                "ppt/slideMasters/slideMaster1.xml" to master, "ppt/slideMasters/_rels/slideMaster1.xml.rels" to masterRels,
+                "ppt/theme/theme1.xml" to theme,
+            ),
+            parser,
+        )
+        assertTrue(html, html.contains("aspect-ratio:12192000/6858000;background:#204060;color:#111111"))
+        assertTrue(html, html.contains("left:10.000%;top:10.000%;width:50.000%;height:20.000%;"))
+        assertTrue(html, html.contains("<p style=\"text-align:center;\"><span style=\"font-size:2.083cqw;color:#ff0000;\">Hi</span></p>"))
+        assertTrue(html, html.contains("left:0.010%;top:0.017%;width:0.008%;height:0.015%;font-size:1.875cqw;background:#00ff00;border-radius:50%;"))
+    }
+
+    @Test
     fun xlsxShowsSheetsWithSharedStringsNumbersAndDates() {
         val wb = """<workbook xmlns:r="r"><sheets><sheet name="Data" sheetId="1" r:id="rId1"/><sheet name="Empty" sheetId="2" r:id="rId2"/></sheets></workbook>"""
         val wbRels = """<Relationships><Relationship Id="rId1" Type="x/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="x/worksheet" Target="/xl/worksheets/sheet2.xml"/></Relationships>"""

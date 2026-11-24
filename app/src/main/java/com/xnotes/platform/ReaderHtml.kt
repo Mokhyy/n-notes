@@ -109,6 +109,13 @@ object ReaderHtml {
             .slide{border:1px solid ${c.border};border-radius:10px;padding:10px 18px 14px;margin:0 0 18px}
             .slide-no{font-size:12px;color:${c.muted};margin-bottom:4px}
             .slide h2:first-of-type{margin-top:.3em}
+            .deck-slide{position:relative;width:100%;container-type:inline-size;overflow:hidden;border-radius:4px;box-shadow:0 0 0 1px ${c.border};font-family:sans-serif;line-height:1.15}
+            .deck-slide .shape{position:absolute;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;padding:.6cqw 1cqw}
+            .deck-slide .shape p{margin:0}
+            .deck-slide .shape.pic{padding:0}
+            .deck-slide .shape img{width:100%;height:100%;object-fit:fill;max-width:none}
+            .deck-slide .shape table{display:table;font-size:inherit;margin:0;width:100%}
+            .deck-slide .shape th,.deck-slide .shape td{border-color:rgba(0,0,0,.25);padding:.3cqw .6cqw}
             .notes{border-top:1px dashed ${c.border};margin-top:12px;padding-top:6px;font-size:.88em;color:${c.muted}}
             .note{font-size:13px;color:${c.muted};margin:.6em 0}
             .math{display:inline-block;background:currentColor;-webkit-mask-size:100% 100%;-webkit-mask-repeat:no-repeat}
@@ -627,18 +634,22 @@ object ReaderHtml {
         val presentation = zip.read("ppt/presentation.xml") ?: throw IllegalArgumentException("not a PowerPoint file")
         val presRels = rels(newParser, zip.read("ppt/_rels/presentation.xml.rels"), "ppt")
         val order = ArrayList<String>()
+        var size: Pair<Long, Long>? = null
         walk(newParser, presentation, onStart = { p, name ->
             if (name == "sldId") p.relId()?.let { presRels[it] }?.let { order.add(it.target) }
+            if (name == "sldSz") size = (p.attr("cx")?.toLongOrNull() ?: 0L) to (p.attr("cy")?.toLongOrNull() ?: 0L)
         })
         if (order.isEmpty()) return "<p class=\"missing\">${esc(labels.empty)}</p>"
         val images = Images(zip, labels)
+        val deck = size?.takeIf { it.first > 0 && it.second > 0 }?.let { Deck(zip, newParser, it.first, it.second) }
         val out = StringBuilder()
         order.forEachIndexed { i, path ->
             val bytes = zip.read(path) ?: return@forEachIndexed
             val dir = path.substringBeforeLast('/', "")
             val slideRels = rels(newParser, zip.read("$dir/_rels/${path.substringAfterLast('/')}.rels"), dir)
             out.append("<section class=\"slide\"><div class=\"slide-no\">").append(esc(labels.slide(i + 1, order.size))).append("</div>")
-            out.append(slideBody(bytes, slideRels, images, newParser, notes = false))
+            // Drawn where the deck places it when its size is known; listed top to bottom otherwise.
+            out.append(deck?.let { runCatching { it.slide(bytes, slideRels, images) }.getOrNull() } ?: slideBody(bytes, slideRels, images, newParser, notes = false))
             slideRels.values.firstOrNull { it.type.endsWith("/notesSlide") }?.let { zip.read(it.target) }?.let { notes ->
                 val text = slideBody(notes, emptyMap(), images, newParser, notes = true)
                 if (text.isNotBlank()) out.append("<div class=\"notes\"><b>").append(esc(labels.notes)).append("</b>").append(text).append("</div>")
@@ -646,6 +657,298 @@ object ReaderHtml {
             out.append("</section>")
         }
         return out.toString()
+    }
+
+    /** A placeholder's or shape's box on the slide, in EMU. */
+    private class Frame(val x: Long, val y: Long, val cx: Long, val cy: Long)
+
+    /** A slide layout or master as far as the slides drawn on it use it: its placeholders' boxes, background, colours and text sizes. */
+    private class Part(
+        val frames: Map<String, Frame>,
+        val background: String?,
+        val colorMap: Map<String, String>,
+        val text: Map<String, Pair<Int?, String?>>,
+        val rels: Map<String, Rel>,
+    )
+
+    /** Reads a DrawingML colour (rgb, scheme or system, with luminance, tint and shade) as CSS hex. */
+    private class ColorRead(private val scheme: (String) -> String?) {
+        private var rgb: DoubleArray? = null
+
+        /** True when [name] was a colour element or one of its adjustments. */
+        fun start(p: XmlPullParser, name: String): Boolean {
+            val v = p.attr("val")
+            when (name) {
+                "srgbClr" -> rgb = v?.let(::parse)
+                "schemeClr" -> rgb = v?.let(scheme)?.let(::parse)
+                "sysClr" -> rgb = parse(p.attr("lastClr") ?: "000000")
+                "lumMod" -> rgb = rgb?.map { it * pct(v) }?.toDoubleArray()
+                "lumOff" -> rgb = rgb?.map { it + 255 * pct(v) }?.toDoubleArray()
+                "tint" -> rgb = rgb?.map { 255 - (255 - it) * pct(v) }?.toDoubleArray()
+                "shade" -> rgb = rgb?.map { it * pct(v) }?.toDoubleArray()
+                else -> return false
+            }
+            return true
+        }
+
+        fun end(name: String): String? {
+            if (name != "srgbClr" && name != "schemeClr" && name != "sysClr") return null
+            val c = rgb ?: return null
+            rgb = null
+            return "#" + c.joinToString("") { "%02x".format(it.toInt().coerceIn(0, 255)) }
+        }
+
+        private fun pct(v: String?) = (v?.toDoubleOrNull() ?: 100000.0) / 100000.0
+        private fun parse(hex: String) = hex.takeLast(6).padStart(6, '0').chunked(2).map { (it.toIntOrNull(16) ?: 0).toDouble() }.toDoubleArray()
+    }
+
+    /** One deck's slides drawn as the deck lays them out, on its own colours, whatever the reader's theme. */
+    private class Deck(private val zip: ZipRead, private val newParser: () -> XmlPullParser, private val width: Long, private val height: Long) {
+        private val parts = HashMap<String, Part>()
+        private val themes = HashMap<String, Map<String, String>>()
+        private val widthPt = width / 12700.0
+
+        private fun theme(path: String): Map<String, String> = themes.getOrPut(path) {
+            val out = HashMap<String, String>()
+            val bytes = zip.read(path) ?: return@getOrPut out
+            var slot: String? = null
+            var inScheme = false
+            walk(newParser, bytes, onStart = { p, name ->
+                when {
+                    name == "clrScheme" -> inScheme = true
+                    inScheme && slot == null -> slot = name
+                    inScheme && name == "srgbClr" -> slot?.let { s -> p.attr("val")?.let { out[s] = it } }
+                    inScheme && name == "sysClr" -> slot?.let { s -> out[s] = p.attr("lastClr") ?: "000000" }
+                }
+            }, onEnd = { name ->
+                if (name == "clrScheme") inScheme = false
+                if (name == slot) slot = null
+            })
+            out
+        }
+
+        /** The layout or master at [path], reading through to what it is drawn on in turn. */
+        private fun part(path: String): Part = parts.getOrPut(path) {
+            val bytes = zip.read(path) ?: return@getOrPut Part(emptyMap(), null, emptyMap(), emptyMap(), emptyMap())
+            val dir = path.substringBeforeLast('/', "")
+            val rels = rels(newParser, zip.read("$dir/_rels/${path.substringAfterLast('/')}.rels"), dir)
+            val under = rels.values.firstOrNull { it.type.endsWith("/slideMaster") }?.let { part(it.target) }
+            val themeColors = rels.values.firstOrNull { it.type.endsWith("/theme") }?.let { theme(it.target) }
+            val colorMap = HashMap(under?.colorMap.orEmpty())
+            themeColors?.let { colorMap.putAll(it) }
+            val frames = HashMap<String, Frame>()
+            val text = HashMap(under?.text.orEmpty())
+            var background: String? = null
+            val stack = ArrayList<String>()
+            val color = ColorRead { colorMap[it] }
+            var key: List<String> = emptyList()
+            var off: Pair<Long, Long>? = null
+            var style: String? = null
+            walk(newParser, bytes, onStart = { p, name ->
+                stack.add(name)
+                if (color.start(p, name)) return@walk
+                when (name) {
+                    "clrMap" -> for (k in listOf("bg1", "tx1", "bg2", "tx2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink")) {
+                        p.attr(k)?.let { to -> (themeColors?.get(to) ?: colorMap[to])?.let { colorMap[k] = it } }
+                    }
+                    "sp" -> { key = emptyList(); off = null }
+                    "ph" -> key = listOfNotNull(p.attr("idx")?.let { "idx:$it" }, "type:${p.attr("type") ?: "body"}")
+                    "off" -> if ("spPr" in stack) off = (p.attr("x")?.toLongOrNull() ?: 0) to (p.attr("y")?.toLongOrNull() ?: 0)
+                    "ext" -> if ("spPr" in stack) off?.let { (x, y) ->
+                        val f = Frame(x, y, p.attr("cx")?.toLongOrNull() ?: 0, p.attr("cy")?.toLongOrNull() ?: 0)
+                        for (k in key) frames.putIfAbsent(k, f)
+                    }
+                    "titleStyle" -> style = "title"
+                    "bodyStyle" -> style = "body"
+                    "otherStyle" -> style = "other"
+                    "defRPr" -> if (style != null && "lvl1pPr" in stack) {
+                        val s = style!!
+                        text[s] = (p.attr("sz")?.toIntOrNull() ?: text[s]?.first) to text[s]?.second
+                    }
+                }
+            }, onEnd = { name ->
+                color.end(name)?.let { c ->
+                    when {
+                        "bg" in stack -> background = c
+                        style != null && "defRPr" in stack && "lvl1pPr" in stack -> style?.let { s -> text[s] = text[s]?.first to c }
+                    }
+                }
+                if (name == "titleStyle" || name == "bodyStyle" || name == "otherStyle") style = null
+                stack.removeLastOrNull()
+            })
+            Part(frames, background ?: under?.background, colorMap, text, rels)
+        }
+
+        private class Block {
+            var frame: Frame? = null
+            var keys: List<String> = emptyList()
+            var kind = "other"
+            var fill: String? = null
+            var round: String? = null
+            var anchor: String? = null
+            var scale = 1.0
+            val html = StringBuilder()
+        }
+
+        private fun pct(v: Long, of: Long) = String.format(java.util.Locale.ROOT, "%.3f%%", v * 100.0 / of)
+
+        private fun size(hundredths: Int, scale: Double) = String.format(java.util.Locale.ROOT, "%.3fcqw", hundredths / 100.0 * scale / widthPt * 100)
+
+        fun slide(bytes: ByteArray, rels: Map<String, Rel>, images: Images): String {
+            val layout = rels.values.firstOrNull { it.type.endsWith("/slideLayout") }?.let { part(it.target) }
+            val master = layout?.rels?.values?.firstOrNull { it.type.endsWith("/slideMaster") }?.let { part(it.target) }
+            val colors = layout?.colorMap.orEmpty()
+            val color = ColorRead { colors[it] }
+            val blocks = ArrayList<Block>()
+            val stack = ArrayList<String>()
+            // Each group maps its children's space onto the slide: offset, child offset and both scales.
+            val groups = ArrayList<DoubleArray>()
+            var groupOff: Pair<Long, Long>? = null
+            var groupChild: Pair<Long, Long>? = null
+            var groupExt: Pair<Long, Long>? = null
+            var block: Block? = null
+            var blockDepth = 0
+            var background: String? = null
+            var off: Pair<Long, Long>? = null
+            var para: StringBuilder? = null
+            var paraAlign: String? = null
+            var paraBullet: Boolean? = null
+            var paraLevel = 0
+            var run: StringBuilder? = null
+            var runCss = StringBuilder()
+            var inText = false
+            var bold = false; var italic = false; var underline = false; var strike = false
+            var table: StringBuilder? = null
+            var cell: StringBuilder? = null
+            var skip = false
+
+            fun place(x: Long, y: Long, cx: Long, cy: Long): Frame {
+                var fx = x.toDouble(); var fy = y.toDouble(); var fw = cx.toDouble(); var fh = cy.toDouble()
+                for (g in groups.asReversed()) {
+                    fx = g[0] + (fx - g[2]) * g[4]; fy = g[1] + (fy - g[3]) * g[5]; fw *= g[4]; fh *= g[5]
+                }
+                return Frame(fx.toLong(), fy.toLong(), fw.toLong(), fh.toLong())
+            }
+
+            walk(newParser, bytes, onStart = { p, name ->
+                stack.add(name)
+                if (color.start(p, name)) return@walk
+                when (name) {
+                    "grpSp" -> { groupOff = null; groupChild = null; groupExt = null; groups.add(doubleArrayOf(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)) }
+                    "sp", "pic", "graphicFrame", "cxnSp" -> if (block == null) { block = Block(); blockDepth = stack.size; off = null; skip = false }
+                }
+                val b = block
+                if (b == null) {
+                    if ("grpSpPr" in stack) when (name) {
+                        "off" -> groupOff = (p.attr("x")?.toLongOrNull() ?: 0) to (p.attr("y")?.toLongOrNull() ?: 0)
+                        "ext" -> groupExt = (p.attr("cx")?.toLongOrNull() ?: 0) to (p.attr("cy")?.toLongOrNull() ?: 0)
+                        "chOff" -> groupChild = (p.attr("x")?.toLongOrNull() ?: 0) to (p.attr("y")?.toLongOrNull() ?: 0)
+                        "chExt" -> {
+                            val (ox, oy) = groupOff ?: (0L to 0L)
+                            val (ex, ey) = groupExt ?: (1L to 1L)
+                            val (cxo, cyo) = groupChild ?: (0L to 0L)
+                            val cw = (p.attr("cx")?.toLongOrNull() ?: ex).coerceAtLeast(1)
+                            val ch = (p.attr("cy")?.toLongOrNull() ?: ey).coerceAtLeast(1)
+                            groups[groups.lastIndex] = doubleArrayOf(ox.toDouble(), oy.toDouble(), cxo.toDouble(), cyo.toDouble(), ex.toDouble() / cw, ey.toDouble() / ch)
+                        }
+                    }
+                    return@walk
+                }
+                when (name) {
+                    "ph" -> {
+                        val type = p.attr("type")
+                        b.keys = listOfNotNull(p.attr("idx")?.let { "idx:$it" }, "type:${type ?: "body"}")
+                        b.kind = when (type) { "title", "ctrTitle" -> "title"; "dt", "ftr", "sldNum", "hdr", "sldImg" -> { skip = true; "other" }; else -> "body" }
+                    }
+                    "off" -> if (b.frame == null && ("spPr" in stack || "xfrm" in stack)) off = (p.attr("x")?.toLongOrNull() ?: 0) to (p.attr("y")?.toLongOrNull() ?: 0)
+                    "ext" -> if (b.frame == null) off?.let { (x, y) -> b.frame = place(x, y, p.attr("cx")?.toLongOrNull() ?: 0, p.attr("cy")?.toLongOrNull() ?: 0) }
+                    "prstGeom" -> b.round = when (p.attr("prst")) { "ellipse" -> "50%"; "roundRect" -> "8%"; else -> null }
+                    "bodyPr" -> b.anchor = p.attr("anchor")
+                    "normAutofit" -> p.attr("fontScale")?.toDoubleOrNull()?.let { b.scale = it / 100000.0 }
+                    "p" -> { para = StringBuilder(); paraAlign = null; paraBullet = null; paraLevel = 0 }
+                    "pPr" -> if (para != null) { paraLevel = p.attr("lvl")?.toIntOrNull() ?: 0; paraAlign = p.attr("algn") }
+                    "buNone" -> if (para != null) paraBullet = false
+                    "buChar", "buAutoNum" -> if (para != null) paraBullet = true
+                    "r", "fld" -> { bold = false; italic = false; underline = false; strike = false; runCss = StringBuilder(); run = StringBuilder() }
+                    "rPr" -> {
+                        bold = p.attr("b") == "1" || p.attr("b") == "true"
+                        italic = p.attr("i") == "1" || p.attr("i") == "true"
+                        underline = p.attr("u").let { it != null && it != "none" }
+                        strike = p.attr("strike").let { it != null && it != "noStrike" }
+                        p.attr("sz")?.toIntOrNull()?.let { runCss.append("font-size:").append(size(it, b.scale)).append(';') }
+                    }
+                    "t" -> inText = true
+                    "br" -> para?.append("<br>")
+                    "tbl" -> table = StringBuilder("<table>")
+                    "tr" -> table?.append("<tr>")
+                    "tc" -> if (table != null) cell = StringBuilder()
+                    "blip" -> p.attr("embed")?.let { rels[it] }?.let { b.html.append(images.tag(it.target)) }
+                }
+            }, onText = { t ->
+                if (inText) (run ?: para)?.append(styled(t, bold, italic, underline, strike, null))
+            }, onEnd = { name ->
+                color.end(name)?.let { c ->
+                    when {
+                        "bg" in stack -> background = c
+                        block != null && "rPr" in stack -> runCss.append("color:").append(c).append(';')
+                        block != null && "spPr" in stack && "ln" !in stack && stack.getOrNull(stack.size - 2) == "solidFill" -> block?.fill = c
+                    }
+                }
+                val b = block
+                if (b != null) when (name) {
+                    "t" -> inText = false
+                    "r", "fld" -> {
+                        run?.let { r -> if (r.isNotEmpty()) para?.append(if (runCss.isEmpty()) r else "<span style=\"$runCss\">$r</span>") }
+                        run = null
+                    }
+                    "p" -> para?.let { text ->
+                        val c = cell
+                        if (c != null) { if (c.isNotEmpty()) c.append("<br>"); c.append(text) }
+                        else {
+                            val bullet = paraBullet ?: (b.kind == "body")
+                            val css = StringBuilder()
+                            when (paraAlign) { "ctr" -> "center"; "r" -> "right"; "just", "dist" -> "justify"; else -> null }?.let { css.append("text-align:").append(it).append(';') }
+                            if (bullet && text.isNotBlank()) css.append("padding-left:").append(String.format(java.util.Locale.ROOT, "%.1fem", 1.1 + paraLevel * 1.2)).append(";text-indent:-1.1em;")
+                            b.html.append(if (css.isEmpty()) "<p>" else "<p style=\"$css\">")
+                            if (bullet && text.isNotBlank()) b.html.append("\u2022\u00a0")
+                            b.html.append(if (text.isBlank()) "&nbsp;" else text).append("</p>")
+                        }
+                        para = null
+                    }
+                    "tc" -> cell?.let { c -> table?.append("<td>")?.append(c)?.append("</td>"); cell = null }
+                    "tr" -> table?.append("</tr>")
+                    "tbl" -> table?.let { t -> b.html.append(t).append("</table>"); table = null }
+                }
+                if (b != null && stack.size == blockDepth) {
+                    if (!skip && (b.html.isNotEmpty() || b.fill != null)) blocks.add(b)
+                    block = null
+                }
+                if (name == "grpSp" && block == null) groups.removeLastOrNull()
+                stack.removeLastOrNull()
+            })
+
+            val bg = background ?: layout?.background ?: master?.background ?: "#ffffff"
+            val ink = colors["tx1"]?.let { "#" + it.takeLast(6) } ?: "#000000"
+            val out = StringBuilder("<div class=\"deck-slide\" style=\"aspect-ratio:$width/$height;background:$bg;color:$ink\">")
+            val loose = StringBuilder()
+            for (b in blocks) {
+                val frame = b.frame ?: b.keys.firstNotNullOfOrNull { layout?.frames?.get(it) } ?: b.keys.firstNotNullOfOrNull { master?.frames?.get(it) }
+                if (frame == null) { loose.append(b.html); continue }
+                val (sz, textColor) = layout?.text?.get(b.kind) ?: (null to null)
+                val defaultSize = sz ?: when (b.kind) { "title" -> 4400; "body" -> 2800; else -> 1800 }
+                val css = StringBuilder("left:${pct(frame.x, width)};top:${pct(frame.y, height)};width:${pct(frame.cx, width)};height:${pct(frame.cy, height)};")
+                css.append("font-size:").append(size(defaultSize, b.scale)).append(';')
+                textColor?.let { css.append("color:").append(it).append(';') }
+                b.fill?.let { css.append("background:").append(it).append(';') }
+                b.round?.let { css.append("border-radius:").append(it).append(';') }
+                css.append("justify-content:").append(when (b.anchor) { "ctr" -> "center"; "b" -> "flex-end"; else -> if (b.kind == "title") "center" else "flex-start" }).append(';')
+                val picture = b.html.startsWith("<img")
+                out.append(if (picture) "<div class=\"shape pic\" style=\"" else "<div class=\"shape\" style=\"").append(css).append("\">").append(b.html).append("</div>")
+            }
+            out.append("</div>")
+            if (loose.isNotEmpty()) out.append(loose)
+            return out.toString()
+        }
     }
 
     /** One slide's shapes as HTML, titles first then top-to-bottom; with [notes], only the speaker-notes body text. */
