@@ -940,9 +940,11 @@
     <string name="auto">Auto</string>
     <string name="margins_mm">Marges (mm)</string>
     <string name="markdown_shortcuts">Raccourcis Markdown</string>
+    <string name="math_shortcuts">Détecter les équations ($...$)</string>
     <string name="slash_commands">Commandes slash</string>
     <string name="translate_callouts">Traduire les titres des encadrés</string>
     <string name="equation">Équation</string>
+    <string name="equation_display">Équation centrée</string>
     <string name="insert_date">Date</string>
     <string name="insert_time">Heure</string>
     <string name="horizontal_line">Ligne horizontale</string>

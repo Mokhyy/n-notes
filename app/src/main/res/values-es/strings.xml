@@ -954,9 +954,11 @@
     <string name="auto">Auto</string>
     <string name="margins_mm">Márgenes (mm)</string>
     <string name="markdown_shortcuts">Atajos de Markdown</string>
+    <string name="math_shortcuts">Detectar ecuaciones ($...$)</string>
     <string name="slash_commands">Comandos de barra</string>
     <string name="translate_callouts">Traducir títulos de avisos</string>
     <string name="equation">Ecuación</string>
+    <string name="equation_display">Ecuación destacada</string>
     <string name="insert_date">Fecha</string>
     <string name="insert_time">Hora</string>
     <string name="horizontal_line">Línea horizontal</string>

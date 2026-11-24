@@ -94,14 +94,15 @@ object InputRules {
      * plain typing reaches here: a paste builds its paragraphs through
      * [MarkdownParser], and a code line takes markers literally.
      */
-    fun forTyped(flow: TextFlow, pos: FlowPos, typed: String): Rule? {
+    fun forTyped(flow: TextFlow, pos: FlowPos, typed: String, markdown: Boolean = true, math: Boolean = true): Rule? {
         if (typed.isEmpty() || '\n' in typed) return null
         val para = flow.paragraphs.getOrNull(pos.para) ?: return null
         if (para.codeLang != null) return null
         val text = para.plainText()
         if (pos.offset > text.length) return null
         val before = text.take(pos.offset)
-        if (!typed.endsWith(" ")) return emojiRule(para, before) ?: inlineRule(before)
+        if (!typed.endsWith(" ")) return if (markdown) emojiRule(para, before) ?: inlineRule(before, math) else if (math) mathRule(before) else null
+        if (!markdown) return null
         return (if (para.table != null) null else blockRule(para, before)) ?: autoLinkRule(para, before)
     }
 
@@ -175,8 +176,8 @@ object InputRules {
     private fun indentOf(leading: String): Int? =
         if (leading.isEmpty()) null else (leading.replace("\t", "  ").length / 2).coerceAtMost(Paragraph.MAX_INDENT)
 
-    private fun inlineRule(before: String): Rule? {
-        mathRule(before)?.let { return it }
+    private fun inlineRule(before: String, math: Boolean): Rule? {
+        if (math) mathRule(before)?.let { return it }
         linkRule(before)?.let { return it }
         if (before.endsWith("`")) {
             val close = before.length - 1

@@ -109,6 +109,7 @@ internal fun TextToolConfigPopup(editor: Editor, onDismiss: () -> Unit) {
         // App preferences, not document defaults: Reset and the new-note switch skip them.
         MenuCard(buildList<MenuGroup> {
             add { MenuSwitch(stringResource(R.string.markdown_shortcuts), editor.markdownInput) { editor.setMarkdownInputPref(it) } }
+            add { MenuSwitch(stringResource(R.string.math_shortcuts), editor.mathInput) { editor.setMathInputPref(it) } }
             add { MenuSwitch(stringResource(R.string.slash_commands), editor.slashCommands) { editor.setSlashCommandsPref(it) } }
             add { MenuSwitch(stringResource(R.string.translate_callouts), editor.translateCallouts) { editor.setTranslateCalloutsPref(it) } }
         })

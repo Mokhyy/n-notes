@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.FormatIndentDecrease
 import androidx.compose.material.icons.automirrored.filled.FormatIndentIncrease
 import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.FormatAlignCenter
 import androidx.compose.material.icons.filled.FormatAlignJustify
 import androidx.compose.material.icons.filled.FormatAlignLeft
@@ -137,6 +138,11 @@ fun TextFormatBar(editor: Editor) {
             if (!box) CodeBlockButton(editor, para?.codeLang, enabled = !inCell)
             BarIcon(Icons.Filled.Functions, stringResource(R.string.equation), active = style.math, enabled = editor.flowEditingActive) {
                 editor.flowToggleMath()
+            }
+            if (style.math) {
+                BarIcon(Icons.Filled.OpenInFull, stringResource(R.string.equation_display), active = style.mathDisplay, enabled = editor.flowEditingActive) {
+                    editor.flowToggleMathDisplay()
+                }
             }
             if (!box) {
                 BarIcon(Icons.Outlined.TableChart, stringResource(R.string.insert_table), enabled = editor.flowEditingActive && !inCell) {

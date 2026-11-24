@@ -47,6 +47,8 @@ data class Preferences(
     val oneFingerDrag: String = "pan",
     /** What a two-finger drag does: "zoom" (default, pan and pinch zoom) | "select" | "lasso" | "eraser". */
     val twoFingerDrag: String = "zoom",
+    /** Whether typing "$...$", "$$...$$", "\(...\)" or "\[...\]" turns it into an equation. */
+    val mathInput: Boolean = true,
     /** Panning allowed while zoom is locked: "single" (default) | "double" | "none". */
     val zoomLockPan: String = "single",
     /** Whether holding a freehand ink stroke still snaps it to a recognized shape. */
@@ -216,6 +218,7 @@ data class Preferences(
         .put("finger_draws", fingerDraws)
         .put("one_finger_drag", oneFingerDrag)
         .put("two_finger_drag", twoFingerDrag)
+        .put("math_input", mathInput)
         .put("zoom_lock_pan", zoomLockPan)
         .put("detect_shapes", detectShapes)
         .put("snap_rotation_90", snapRotation90)
@@ -402,6 +405,7 @@ data class Preferences(
                 fingerDraws = o.optBoolean("finger_draws", false),
                 oneFingerDrag = o.optString("one_finger_drag", "pan").let { if (it in fingerTools) it else "pan" },
                 twoFingerDrag = o.optString("two_finger_drag", "zoom").let { if (it in fingerTools) it else "zoom" },
+                mathInput = o.optBoolean("math_input", true),
                 zoomLockPan = zoomLockPan,
                 detectShapes = o.optBoolean("detect_shapes", true),
                 snapRotation90 = o.optBoolean("snap_rotation_90", false),

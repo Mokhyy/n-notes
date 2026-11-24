@@ -3387,6 +3387,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         controller.detectShapes = p.detectShapes
         controller.snapRotation90 = p.snapRotation90
         flowText.markdownInput = p.markdownInput
+        flowText.mathInput = p.mathInput
         flowText.slashCommands = p.slashCommands
         flowText.highlight = { toolbarInk() }
         controller.penButtonTool = if (p.penButtonTool == "none") null else (Tool.fromId(p.penButtonTool) ?: Tool.ERASER)
@@ -3432,6 +3433,19 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         for (editor in listOfNotNull(this, sibling)) {
             editor.markdownInput = on
             editor.flowText.markdownInput = on
+        }
+    }
+
+    /** Whether typed "$...$" turns into an equation; the text tool's config popup toggles it. */
+    var mathInput by mutableStateOf(settings.prefs.mathInput)
+        private set
+
+    fun setMathInputPref(on: Boolean) {
+        settings = settings.copy(prefs = settings.prefs.copy(mathInput = on))
+        settingsRepo.save(settings)
+        for (editor in listOfNotNull(this, sibling)) {
+            editor.mathInput = on
+            editor.flowText.mathInput = on
         }
     }
 
@@ -9063,6 +9077,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun renamePencilcaseItem(index: Int, name: String?) =
         setPencilcase(pencilcase.toMutableList().also { it[index] = it[index].copy(name = name) })
 
+    fun updatePencilcaseItem(index: Int, item: com.xnotes.core.tools.PencilcaseItem) =
+        setPencilcase(pencilcase.toMutableList().also { it[index] = item })
+
     fun movePencilcaseItem(from: Int, to: Int) = setPencilcase(pencilcase.toMutableList().apply { add(to, removeAt(from)) })
 
     private fun setPencilcase(list: List<com.xnotes.core.tools.PencilcaseItem>) {
@@ -9077,9 +9094,6 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             it, controller.configFor(it), shapeConfig, controller.inkColor,
             com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolLook, tableToolColor),
         ) }
-    fun updatePencilcaseItem(index: Int, item: com.xnotes.core.tools.PencilcaseItem) =
-        setPencilcase(pencilcase.toMutableList().also { it[index] = item })
-
 
     /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
     fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {
@@ -11218,6 +11232,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             editor.applySettings()
             editor.explorerView = next.explorerView
             editor.markdownInput = next.prefs.markdownInput
+            editor.mathInput = next.prefs.mathInput
             editor.slashCommands = next.prefs.slashCommands
             editor.translateCallouts = next.prefs.translateCallouts
             editor.infiniteOrNull?.let { c ->
@@ -11460,7 +11475,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     fun flowToggleMath() {
         if (!flowText.active) return
         val sel = flowText.selection.normalized()
-        if (mathKeyboardShown) {
+        // Open on a fresh selection, the button turns that into a formula rather than only closing the keyboard.
+        if (mathKeyboardShown && sel.collapsed) {
             setMathKeyboard(false)
             return
         }
@@ -11470,30 +11486,76 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             setMathKeyboard(true)
             return
         }
-        val on = !flowCaretStyle().math
+        val flow = liveFlow
+        val on = !allMath(flow, sel)
         flowText.flushBurst()
-        if (on && sel.start.para == sel.end.para) {
-            val plain = state.document.flow.paragraphs[sel.start.para].plainText().substring(sel.start.offset, sel.end.offset)
-            // Spaces around the selection stay outside the formula, as plain text.
-            val from = sel.start.offset + (plain.length - plain.trimStart().length)
-            val to = sel.end.offset - (plain.length - plain.trimEnd().length)
-            if (to > from) {
-                val range = FlowRange(FlowPos(sel.start.para, from), FlowPos(sel.start.para, to))
-                val ed = FlowEditor(state.document.flow)
+        if (on) {
+            // Each paragraph's part becomes one formula; spaces around it stay outside, as plain text.
+            val ed = FlowEditor(flow)
+            val cmds = ArrayList<com.xnotes.core.history.Command>()
+            var caret: FlowPos? = null
+            for (p in sel.end.para downTo sel.start.para) {
+                val text = flow.paragraphs[p].plainText()
+                val start = if (p == sel.start.para) sel.start.offset else 0
+                val end = if (p == sel.end.para) sel.end.offset else text.length
+                val plain = text.substring(start, end)
+                val from = start + (plain.length - plain.trimStart().length)
+                val to = end - (plain.length - plain.trimEnd().length)
+                if (to <= from) continue
+                val range = FlowRange(FlowPos(p, from), FlowPos(p, to))
                 val style = ed.styleAtRangeStart(range).copy(math = true)
-                val (cmd, caret) = ed.replaceRange(range, PlainMath.toLatex(plain.trim()), style)
+                val (cmd, after) = ed.replaceRange(range, PlainMath.toLatex(plain.trim()), style)
+                cmd?.let(cmds::add)
+                if (caret == null) caret = after
+            }
+            if (cmds.isNotEmpty()) {
                 flowText.mirrorStale = true
-                flowText.commitEdit(cmd, caret)
+                flowText.commitEdit(ed.combined(cmds), caret)
                 flowSelTick++
-                setMathKeyboard(true)
+                if (sel.start.para == sel.end.para) setMathKeyboard(true)
                 return
             }
         }
-        flowText.commitEdit(
-            FlowEditor(liveFlow).setCharStyle(sel) { it.copy(math = on) },
-            null,
-        )
+        // Off keeps the LaTeX source as plain text, which is the only way back that loses nothing.
+        flowText.commitEdit(FlowEditor(flow).setCharStyle(sel) { it.copy(math = on, mathDisplay = on && it.mathDisplay) }, null)
         flowSelTick++
+    }
+
+    /** Switches the formula under the caret, or the selected ones, between inline and display (a line of its own). */
+    fun flowToggleMathDisplay() {
+        if (!flowText.active) return
+        val flow = liveFlow
+        val sel = flowText.selection.normalized().let { if (it.collapsed) mathRunAt(flow, it.start) ?: return else it }
+        val display = !FlowEditor(flow).styleAtRangeStart(sel).mathDisplay
+        flowText.flushBurst()
+        flowText.commitEdit(FlowEditor(flow).setCharStyle(sel) { if (it.math) it.copy(mathDisplay = display) else it }, null)
+        flowSelTick++
+    }
+
+    private fun allMath(flow: com.xnotes.core.text.TextFlow, sel: FlowRange): Boolean {
+        for (p in sel.start.para..sel.end.para) {
+            val para = flow.paragraphs.getOrNull(p) ?: continue
+            val from = if (p == sel.start.para) sel.start.offset else 0
+            val to = if (p == sel.end.para) sel.end.offset else para.length
+            var at = 0
+            for (run in para.runs) {
+                val end = at + run.text.length
+                if (end > from && at < to && !run.style.math) return false
+                at = end
+            }
+        }
+        return true
+    }
+
+    private fun mathRunAt(flow: com.xnotes.core.text.TextFlow, pos: FlowPos): FlowRange? {
+        val para = flow.paragraphs.getOrNull(pos.para) ?: return null
+        var at = 0
+        for (run in para.runs) {
+            val end = at + run.text.length
+            if (run.style.math && pos.offset in at..end) return FlowRange(FlowPos(pos.para, at), FlowPos(pos.para, end))
+            at = end
+        }
+        return null
     }
 
     /** The maths keyboard stands in for the soft keyboard while a formula is typed into the flow. */

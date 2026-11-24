@@ -749,6 +749,19 @@ class InputRulesTest {
         return InputRules.forTyped(flow, caret, text.takeLast(1))
     }
 
+    @Test fun mathAndMarkdownSwitchApart() {
+        fun rule(text: String, markdown: Boolean, math: Boolean): InputRules.Rule? {
+            val flow = TextFlow()
+            val (_, caret) = FlowEditor(flow).replaceRange(FlowRange.caret(FlowPos.START), text)
+            return InputRules.forTyped(flow, caret, text.takeLast(1), markdown, math)
+        }
+        assertNotNull(rule("\$x\$", markdown = false, math = true))
+        assertNull(rule("\$x\$", markdown = true, math = false))
+        assertNotNull(rule("**b**", markdown = true, math = false))
+        assertNull(rule("**b**", markdown = false, math = true))
+        assertNull(rule("- ", markdown = false, math = true))
+    }
+
     @Test fun aBoxTakesListsHeadingsAndEmphasis() {
         for (typed in listOf("- ", "1. ", "[ ] ", "# ", "**b**")) {
             val rule = ruleFor(typed)

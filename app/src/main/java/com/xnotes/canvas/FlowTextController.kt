@@ -113,6 +113,9 @@ class FlowTextController(
     /** Whether typed markdown markers convert (the text tool's Markdown shortcuts toggle). */
     var markdownInput = true
 
+    /** Whether a typed "$...$" or "\(...\)" turns into an equation, apart from the other markdown shortcuts. */
+    var mathInput = true
+
     /** Whether "/" opens the command menu (the text tool's Slash commands toggle). */
     var slashCommands = true
 
@@ -507,7 +510,7 @@ class FlowTextController(
             burstExtras += surface.grow(caret.para)
             selection = FlowRange.caret(caret)
             onTyped()
-            if (markdownInput) InputRules.forTyped(flow, caret, text)?.takeIf { fits(it) }?.let { return applyRule(it, caret) }
+            if (markdownInput || mathInput) InputRules.forTyped(flow, caret, text, markdownInput, mathInput)?.takeIf { fits(it) }?.let { return applyRule(it, caret) }
             if (slash && text == "/") {
                 SlashCommands.escapeAt(flow, caret)?.let { return dropSlash(caret.para, it) }
             }

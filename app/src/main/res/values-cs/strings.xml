@@ -968,9 +968,11 @@
     <string name="auto">Automaticky</string>
     <string name="margins_mm">Okraje (mm)</string>
     <string name="markdown_shortcuts">Zkratky Markdownu</string>
+    <string name="math_shortcuts">Rozpoznávat rovnice ($...$)</string>
     <string name="slash_commands">Příkazy s lomítkem</string>
     <string name="translate_callouts">Překládat nadpisy upozornění</string>
     <string name="equation">Rovnice</string>
+    <string name="equation_display">Samostatná rovnice</string>
     <string name="insert_date">Datum</string>
     <string name="insert_time">Čas</string>
     <string name="horizontal_line">Vodorovná čára</string>
