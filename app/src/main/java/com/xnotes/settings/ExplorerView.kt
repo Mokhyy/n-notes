@@ -122,4 +122,4 @@ data class ExplorerView(
 data class RecentDoc(val uri: String, val name: String, val opened: Long)
 
 /** A note or canvas kept as a tab in the editor, in the order the tab strip shows them. */
-data class OpenTab(val uri: String, val name: String, val color: com.xnotes.core.model.Rgba? = null)
+data class OpenTab(val uri: String, val name: String, val color: com.xnotes.core.model.Rgba? = null, val reading: Boolean = false)

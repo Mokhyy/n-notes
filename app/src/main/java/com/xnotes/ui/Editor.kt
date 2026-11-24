@@ -797,7 +797,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     /**
      * While true the open note is only read: the toolbar gives way to the reading islands, every
-     * pointer pans, and only bookmarks change. It lasts until the note closes; every note opens editable.
+     * pointer pans, and only bookmarks change. Its tab remembers it, so the note reopens the way it was left.
      */
     var readOnly by mutableStateOf(false)
         private set
@@ -831,6 +831,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         expectBarSpace()
         controller.readOnly = on
         readOnly = on
+        shownUri?.let { uri -> tabIndex(uri).takeIf { it >= 0 }?.let { at -> setTabs(openTabs.toMutableList().also { it[at] = it[at].copy(reading = on) }) } }
         applyResolvedViewSettings()
         view.requestRender()
     }
@@ -847,7 +848,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         return true
     }
 
-    /** Every note opens editable, so closing or swapping one ends read-only, with nothing to keep in place. */
+    /** Closing or swapping a note ends read-only; its tab turns it back on when the note opens again. */
     private fun endReadOnly() {
         val was = readOnly
         controller.readOnly = false
@@ -4443,6 +4444,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             noteOpen = true // push the editor on top of backstage (only on a successful open)
             opened = true
             rememberOpened(uri, name)
+            if (openTabs.getOrNull(tabIndex(uri))?.reading == true && !readOnly) toggleReadOnly()
             if (unsaved) {
                 state.document.dirty = true
                 refreshContent() // which starts the save, for a note that autosaves
