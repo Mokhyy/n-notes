@@ -5303,6 +5303,23 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     val sidebarPins: List<com.xnotes.settings.PinnedFolder>
         get() = browseRoot?.let { root -> pinnedFolders.filter { isUnderTree(it.uri, root) } }.orEmpty()
 
+    /** Explorer colour of each pinned folder, by pin uri. */
+    var pinColors by mutableStateOf<Map<String, Rgba>>(emptyMap())
+        private set
+
+    /** Re-reads [pinColors] from each pin's parent sidecar, one read per parent. IO. */
+    fun loadPinColors() {
+        val root = browseRoot ?: run { pinColors = emptyMap(); return }
+        val tree = android.net.Uri.parse(root)
+        val colors = HashMap<String, Map<String, Rgba>>()
+        pinColors = sidebarPins.mapNotNull { pin ->
+            val parent = parentDocIdOf(pin.uri) ?: return@mapNotNull null
+            val name = queryDisplayName(android.net.Uri.parse(pin.uri)) ?: pin.name
+            val color = colors.getOrPut(parent) { findChildDocId(tree, parent, SIDECAR_DIR, dir = true)?.let { readSidecarColors(tree, it) }.orEmpty() }[name]
+            color?.let { pin.uri to it }
+        }.toMap()
+    }
+
     fun isPinned(uri: String): Boolean {
         val key = documentKey(uri)
         return pinnedFolders.any { documentKey(it.uri) == key }
@@ -7826,7 +7843,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             ?: return@runCatching true // nothing stored, nothing to clear
         val map = readSidecarColors(tree, sidecarId).toMutableMap()
         for ((name, c) in changes) if (c == null) map.remove(name) else map[name] = c
-        writeSidecarColors(tree, sidecarId, map)
+        writeSidecarColors(tree, sidecarId, map).also { loadPinColors() }
     }.getOrDefault(false)
 
     /** Doc id of [parentDocId]'s hidden sidecar dir, made on demand when [create]; null when absent or on failure. */

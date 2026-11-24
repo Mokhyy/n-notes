@@ -781,7 +781,7 @@ internal fun HomeShelves(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Icon(XnotesIcons.folder, null, tint = palette.textDim.toComposeColor(), modifier = Modifier.size(20.dp))
+                        Icon(XnotesIcons.folder, null, tint = b.editor.pinColors[pin.uri]?.let { codeTint(it, palette) } ?: palette.textDim.toComposeColor(), modifier = Modifier.size(20.dp))
                         Text(pin.name, color = palette.text.toComposeColor(), fontSize = 14.sp, maxLines = 1)
                     }
                 }

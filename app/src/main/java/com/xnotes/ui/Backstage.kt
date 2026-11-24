@@ -360,6 +360,7 @@ private fun BackstageContent(
             editor.loadNotePins()
         }
     }
+    LaunchedEffect(editor.browseRoot, editor.noteOpen, editor.sidebarPins) { withContext(Dispatchers.IO) { editor.loadPinColors() } }
     val colors = editor.colorNames.entries.sortedBy { it.value.lowercase() }.map { it.key to it.value }
     val activeColor = if (view == BackstageView.HOME) explorerColor else null
     val recentActive = view == BackstageView.HOME && explorerRecent
@@ -376,7 +377,7 @@ private fun BackstageContent(
     val showRecent = prefs.sidebarRecent && editor.browseRoot != null
     val showHiddenNav = prefs.sidebarHidden && editor.browseRoot != null && prefs.hiddenItems.isNotEmpty()
     val showTemplatesNav = prefs.sidebarTemplates && editor.browseRoot != null
-    val nav = remember(view, shownColors, activeColor, pins, activePin, trashCount, showRecent, recentActive, showHiddenNav, hiddenActive, showTemplatesNav, templatesActive, compact, prefs) {
+    val nav = remember(view, shownColors, activeColor, pins, editor.pinColors, activePin, trashCount, showRecent, recentActive, showHiddenNav, hiddenActive, showTemplatesNav, templatesActive, compact, prefs) {
         SidebarNav(
             view = view,
             homeSelected = view == BackstageView.HOME && activePin < 0 && activeColor == null && !recentActive && !hiddenActive && !templatesActive,
@@ -389,6 +390,7 @@ private fun BackstageContent(
             colors = shownColors,
             activeColor = activeColor,
             pins = pins,
+            pinColors = editor.pinColors,
             activePin = activePin,
             trashCount = trashCount,
             onHome = { selectView(BackstageView.HOME); explorerNav = ExplorerNav(null) },
@@ -534,6 +536,7 @@ private class SidebarNav(
     val colors: List<Pair<Rgba, String>>,
     val activeColor: Rgba?,
     val pins: List<PinnedFolder>,
+    val pinColors: Map<String, Rgba>,
     /** Index into [pins] of the folder the explorer is showing, or -1. */
     val activePin: Int,
     /** How many items wait in Trash, or -1 to leave Trash out of the sidebar. */
@@ -595,7 +598,7 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
                 Command(XnotesIcons.pin, stringResource(R.string.pinned), folded = !pinsOpen) { pinsOpen = !pinsOpen }
                 if (pinsOpen) nav.pins.forEachIndexed { i, pin ->
                     key(pin.uri) {
-                        PinnedCommand(pin.name, selected = i == nav.activePin, onClick = { nav.onOpenPin(pin) }, onUnpin = { nav.onUnpin(pin) })
+                        PinnedCommand(pin.name, nav.pinColors[pin.uri], selected = i == nav.activePin, onClick = { nav.onOpenPin(pin) }, onUnpin = { nav.onUnpin(pin) })
                     }
                 }
             }
@@ -656,7 +659,7 @@ private fun BackstageRail(modifier: Modifier, nav: SidebarNav, onExpand: () -> U
                 key(pin.uri) {
                     var menuOpen by remember { mutableStateOf(false) }
                     Box {
-                        RailItem(XnotesIcons.folder, pin.name, selected = i == nav.activePin, labelled = true, onLongClick = { menuOpen = true }) { nav.onOpenPin(pin) }
+                        RailItem(XnotesIcons.folder, pin.name, selected = i == nav.activePin, labelled = true, color = nav.pinColors[pin.uri], onLongClick = { menuOpen = true }) { nav.onOpenPin(pin) }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             MenuItem(stringResource(R.string.unpin_from_sidebar), XnotesIcons.pin, onClick = { menuOpen = false; nav.onUnpin(pin) })
                         }
@@ -797,7 +800,7 @@ private fun Command(
 /** One rail destination: an icon in a pill that fills when selected. Only [labelled] ones show their name beneath; the rest name themselves in a tip. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RailItem(icon: ImageVector, label: String, selected: Boolean = false, labelled: Boolean = false, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+private fun RailItem(icon: ImageVector, label: String, selected: Boolean = false, labelled: Boolean = false, color: Rgba? = null, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     val palette = LocalPalette.current
     val pill = MaterialTheme.shapes.large
     val item = @Composable {
@@ -810,7 +813,7 @@ private fun RailItem(icon: ImageVector, label: String, selected: Boolean = false
                     .background(if (selected) palette.selectionBackground.toComposeColor() else Color.Transparent),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(icon, if (labelled) null else label, tint = (if (selected) palette.selectionForeground else palette.accent).toComposeColor(), modifier = Modifier.size(20.dp))
+                Icon(icon, if (labelled) null else label, tint = color?.let { codeTint(it, palette) } ?: (if (selected) palette.selectionForeground else palette.accent).toComposeColor(), modifier = Modifier.size(20.dp))
             }
             if (labelled) {
                 Spacer(Modifier.height(4.dp))
@@ -897,7 +900,7 @@ internal fun ColorNameDialog(editor: Editor, color: Rgba, onDone: () -> Unit) {
 /** A pinned folder in the sidebar; long-press offers to unpin it. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun PinnedCommand(label: String, selected: Boolean, onClick: () -> Unit, onUnpin: () -> Unit) {
+private fun PinnedCommand(label: String, color: Rgba?, selected: Boolean, onClick: () -> Unit, onUnpin: () -> Unit) {
     val palette = LocalPalette.current
     var menuOpen by remember { mutableStateOf(false) }
     Box {
@@ -908,7 +911,7 @@ private fun PinnedCommand(label: String, selected: Boolean, onClick: () -> Unit,
                 .padding(sidebarRowPadding(start = 28.dp)),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(XnotesIcons.folder, null, tint = (if (selected) palette.selectionForeground else palette.accent).toComposeColor(), modifier = Modifier.size(20.dp))
+            Icon(XnotesIcons.folder, null, tint = color?.let { codeTint(it, palette) } ?: (if (selected) palette.selectionForeground else palette.accent).toComposeColor(), modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(14.dp))
             Text(
                 label,
