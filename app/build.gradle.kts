@@ -25,9 +25,9 @@ android {
         applicationId = "com.neddy.nnotes"
         minSdk = 26
         targetSdk = 36
-        versionCode = 125
+        versionCode = 126
         // <upstream xnotes version>-<n-notes fork version>
-        versionName = "0.9.11-1.14.0"
+        versionName = "0.9.11-1.15.0"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
