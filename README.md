@@ -6,7 +6,7 @@
 
 Your new notebook, infinite canvas, e-reader, and sketchbook - *built into a single natural, modular and expandable thinking space*. Take what you need and let the rest stay out of your way.
 
-Created using [xnotes](https://github.com/shardulvs/xnotes-android) - free and open, forever.
+Created from [xnotes](https://github.com/shardulvs/xnotes-android) - free and open, forever.
 
 App icon by [@failure-404](https://github.com/failure-404).
 
