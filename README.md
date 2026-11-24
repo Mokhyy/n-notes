@@ -1,62 +1,92 @@
-<p align="center"><img src="docs/banner.png" height="96" alt="Sponka" /></p>
+<div align="center">
 
-<p align="center">
-  A handwriting-first notebook for Android, built for pen and stylus. A customized fork of xnotes.<br />
-  Formerly n-notes, renamed n-notes -> sponka because the fork has grown far enough from xnotes to get its own name and icon. App icon by <a href="https://github.com/failure-404">@failure-404</a>.
+<img src="docs/banner.png" height="96" alt="sponka" />
+
+### **Created from xnotes, ready for so much more.**
+
+Your new notebook, infinite canvas, e-reader, and sketchbook - *built into a single natural, modular and expandable thinking space*. Take what you need and let the rest stay out of your way.
+
+Created using [xnotes](https://github.com/shardulvs/xnotes-android) - free and open, forever.
+
+App icon by [@failure-404](https://github.com/failure-404).
+
+<p>
+<a href="https://github.com/NeDDy3z/Sponka/releases/latest"><img src="https://img.shields.io/github/v/release/NeDDy3z/Sponka?style=flat-square&label=release&color=blue" alt="Release" /></a>
+<a href="https://github.com/NeDDy3z/Sponka/releases"><img src="https://img.shields.io/github/downloads/NeDDy3z/Sponka/total?style=flat-square&label=downloads&color=2ea44f" alt="Downloads" /></a>
+<a href="https://github.com/NeDDy3z/Sponka/commits"><img src="https://img.shields.io/github/last-commit/NeDDy3z/Sponka?style=flat-square&color=555555" alt="Last Commit" /></a>
+<img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+" />
+<a href="https://www.google.com/search?q=LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange?style=flat-square" alt="License: MIT" /></a>
 </p>
 
-<p align="center">
-  <a href="https://github.com/NeDDy3z/Sponka/releases/latest"><img src="https://img.shields.io/github/v/release/NeDDy3z/Sponka?style=flat-square&label=release&color=blue" alt="Release" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange?style=flat-square" alt="License" /></a>
-  <img src="https://img.shields.io/badge/Android-8.0%2B-3ddc84?style=flat-square&logo=android&logoColor=white" alt="Android 8.0+" />
+<p>
+<a href="#install">Install</a> |
+<a href="ADDITIONS.md">Additions (50+)</a> |
+<a href="#roadmap">Roadmap</a> |
+<a href="#build-it-yourself">Build</a> |
+<a href="#reporting-issues">Issues</a>
 </p>
 
----
+</div>
 
-## Why this fork
+## Why **sponka**?
 
-Xnotes is a great app, and I'm grateful that the developer puts so much work into it and shares it openly. However, in my day to day use I noticed a few missing features and some details that bothered me. Above all, I really wanted some kind of cloud sync, so I made this fork. I do my best to keep it in sync with the original repository, and I almost always prefer the original developer's changes over mine, since they are much better implemented.
+[xnotes](https://github.com/shardulvs/xnotes-android) is a thoughtfully built app and we're grateful to Shardul Vikram Singh for creating and sharing it openly. **sponka** (formerly `n-notes`) started as a personal fork to add day-to-day essentials like cloud sync and file change management, and has since grown into its own project.
 
-[Long term support question](https://github.com/NeDDy3z/Sponka/issues/13)
+* **50+ additions** on top of upstream xnotes — see the full list in [**ADDITIONS.md**](ADDITIONS.md).
 
-## Additions to the original xnotes
+* **In sync & backwards-compatible** with upstream xnotes whenever possible.
 
-sponka adds more then 50+ features on top of xnotes, while 10+ (2026.11.01) of them were later implemented in xnotes as well. See the full list in [ADDITIONS.md](ADDITIONS.md).
+* **Free & open-source** - committed to [long-term support](https://github.com/NeDDy3z/Sponka/discussions/128) with no accounts, ads, or lock-in... EVER.
 
-## Versioning
+* **Coming to all platforms** (soon), so you can be productive on all your devices (*using the sync features*).
 
-Releases are named `{xnotes version}-{sponka version}`, for example `0.9.7-0.48`: the upstream xnotes release the build is based on, then the fork revision, bumped on every published build.
+## Roadmap
+
+Our roadmap lives outside this README so it stays up to date automatically as work progresses:
+
+<p>
+<a href="https://github.com/NeDDy3z/Sponka/projects"><img src="https://img.shields.io/badge/GitHub%20Projects-Roadmap%20Board-1f6feb?style=flat-square&logo=github" alt="Roadmap Board" /></a>
+<a href="https://github.com/NeDDy3z/Sponka/issues?q=is%3Aopen+label%3Aroadmap"><img src="https://img.shields.io/github/issues/NeDDy3z/Sponka/roadmap?style=flat-square&label=planned%20items&color=8957e5" alt="Planned Items" /></a>
+<a href="https://github.com/NeDDy3z/Sponka/milestones"><img src="https://img.shields.io/github/milestones/progress-percent/NeDDy3z/Sponka/1?style=flat-square&label=next%20milestone&color=2ea44f" alt="Next Milestone" /></a>
+</p>
 
 ## Install
 
-| Channel | |
-|---|---|
-| [GitHub Releases](https://github.com/NeDDy3z/Sponka/releases/latest) | Signed APK |
+| Channel | Format | Notes | 
+| ----- | ----- | ----- | 
+| [GitHub Releases](https://github.com/NeDDy3z/Sponka/releases/latest) | Signed APK | Direct download | 
+| [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/NeDDy3z/Sponka) | Signed APK | Auto-updates from GitHub Releases | 
+
+More channels are coming.
+
+
+### Versioning
+
+Releases follow `{xnotes version}-{sponka version}` (for example, `0.9.10-1.12.1`): the upstream xnotes base version followed by sponka's build revision.
 
 ### Build it yourself
 
 Requires **JDK 17** (the project pins Java 17):
 
-```bash
-git clone https://github.com/NeDDy3z/Sponka.git
-cd n-notes
-JAVA_HOME=/path/to/jdk-17 ./gradlew assembleDebug
 ```
+git clone https://github.com/NeDDy3z/Sponka.git
+cd Sponka
+JAVA_HOME=/path/to/jdk-17 ./gradlew assembleDebug
 
-Output: `app/build/outputs/apk/debug/app-debug.apk`
+```
 
 ## Reporting issues
 
-When reporting bugs, issues or ideas, please split them into multiple smaller issues instead of one big one. That way they're easier for me to track and I won't miss any bug or requested feature.
+Please open a separate [issue](https://github.com/NeDDy3z/Sponka/issues/new/choose) for each bug or idea instead of bundling them together - it helps us track and resolve everything more efficiently.
 
 ## Disclaimer
 
-I use LLMs during development mainly for research, code review and translations. Any and every change an LLM makes, I manually review/test before it goes into a release.
+The sponka team uses LLMs as a tool - primarily for research, code review, and translations. Every AI-assisted change is manually reviewed and tested before release, because AI should assist human work under supervision, never replace it.
 
-Translations are fully LLM-generated and get fixed over time based on user reports. If you spot a translation issue, please report it [here](https://github.com/NeDDy3z/Sponka/issues/new?title=Incorrect%20Translation&labels=translation&assignees=NeDDy3z&body=Language:%0ALocation:%0AIncorrect:%0AFix:).
+Translations are currently fully LLM-generated (due to lack of translators) and will improve over time based on user reports. If you spot a translation issue or wish to contribute, please report it [here](https://github.com/NeDDy3z/Sponka/issues/new?title=Incorrect+Translation&labels=translation&assignees=NeDDy3z&body=Language%3A%0ALocation%3A%0AIncorrect%3A%0AFix%3A).
 
 ## License
 
 Released under the MIT License, the same as upstream. See [LICENSE](LICENSE).
 
-sponka (formerly n-notes) is a fork of [xnotes](https://github.com/shardulvs/xnotes-android) by Shardul Vikram Singh.
+sponka (formerly n-notes) is built on [xnotes](https://github.com/shardulvs/xnotes-android) by Shardul Vikram Singh.
