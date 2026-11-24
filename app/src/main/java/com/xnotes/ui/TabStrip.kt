@@ -111,7 +111,7 @@ internal fun TabStrip(
                 }
             }
         }
-        TabCounter(tabs, shown, onScreen, primary != null, onSelect, onClose, onMoveFirst, onSplit, onColor, onCloseOthers)
+        TabCounter(tabs, shown, onScreen, primary != null, onSelect, onClose, onMoveFirst, onSplit, onCloseSplit.takeIf { secondary != null }, onColor, onCloseOthers)
     }
 }
 
@@ -249,6 +249,7 @@ private fun TabCounter(
     onClose: (OpenTab) -> Unit,
     onMoveFirst: (OpenTab) -> Unit,
     onSplit: (OpenTab) -> Unit,
+    onCloseSplit: (() -> Unit)?,
     onColor: (OpenTab, com.xnotes.core.model.Rgba?) -> Unit,
     onCloseOthers: () -> Unit,
 ) {
@@ -301,6 +302,7 @@ private fun TabCounter(
                 }
                 else -> {
                     MenuItem(stringResource(R.string.close_all_tabs), XnotesIcons.close) { open = false; onCloseOthers() }
+                    if (onCloseSplit != null) MenuItem(stringResource(R.string.close_split), XnotesIcons.split) { open = false; onCloseSplit() }
                     MenuDivider()
                     tabs.forEachIndexed { i, t ->
                         DropdownMenuItem(
