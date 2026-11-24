@@ -2221,6 +2221,7 @@ private fun SplitDivider(
     val palette = LocalPalette.current
     // A long press offers what else the seam can do: trade the panes' sides.
     var menu by remember { mutableStateOf(false) }
+    var pressAt by remember { mutableStateOf(androidx.compose.ui.unit.IntOffset.Zero) }
     val swapNow = rememberUpdatedState(onSwap)
     // Read inside the long-lived drag gesture, which does not restart as the ratio moves.
     val ratioNow = rememberUpdatedState(ratio)
@@ -2243,7 +2244,12 @@ private fun SplitDivider(
             .pointerInput(Unit) {
                 detectTapGestures(
                     onDoubleTap = { onRatioNow.value(0.5f) },
-                    onLongPress = { if (swapNow.value != null) menu = true },
+                    onLongPress = { at ->
+                        if (swapNow.value != null) {
+                            pressAt = androidx.compose.ui.unit.IntOffset(at.x.toInt(), at.y.toInt())
+                            menu = true
+                        }
+                    },
                 )
             },
         contentAlignment = Alignment.Center,
@@ -2261,10 +2267,13 @@ private fun SplitDivider(
                 .clip(RoundedCornerShape(DIVIDER_LINE / 2))
                 .background(palette.accent.toComposeColor()),
         )
-        com.xnotes.ui.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            com.xnotes.ui.MenuItem(stringResource(R.string.swap_sides), if (sideBySide) com.xnotes.ui.icons.XnotesIcons.flipHorizontal else com.xnotes.ui.icons.XnotesIcons.flipVertical) {
-                menu = false
-                swapNow.value?.invoke()
+        // The menu opens where the line was held, not at the end of the line.
+        Box(Modifier.align(Alignment.TopStart).offset { pressAt }) {
+            com.xnotes.ui.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                com.xnotes.ui.MenuItem(stringResource(R.string.swap_sides), if (sideBySide) com.xnotes.ui.icons.XnotesIcons.flipHorizontal else com.xnotes.ui.icons.XnotesIcons.flipVertical) {
+                    menu = false
+                    swapNow.value?.invoke()
+                }
             }
         }
     }
