@@ -560,10 +560,18 @@ private fun BackstageSidebar(modifier: Modifier, editor: Editor, nav: SidebarNav
             Spacer(Modifier.width(8.dp))
             Text("Sponka", color = palette.text.toComposeColor(), fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.clickable { nav.onSelectView(BackstageView.ABOUT) })
             Spacer(Modifier.weight(1f))
-            // Inside a Preferences category it steps back out to Home's own items instead of collapsing.
-            val label = stringResource(if (prefsNav != null) R.string.back else R.string.collapse_sidebar)
+            // Inside a Preferences category it steps back out to Home's own items, and from any other view
+            // back to the library; only on Home itself does it collapse.
+            val away = nav.view != BackstageView.HOME
+            val label = stringResource(if (prefsNav != null || away) R.string.back else R.string.collapse_sidebar)
             Tooltip(label) {
-                IconButton(onClick = { prefsNav?.onBack?.invoke() ?: onCollapse() }) {
+                IconButton(onClick = {
+                    when {
+                        prefsNav != null -> prefsNav.onBack()
+                        away -> nav.onSelectView(BackstageView.HOME)
+                        else -> onCollapse()
+                    }
+                }) {
                     Icon(XnotesIcons.prev, label, tint = palette.text.toComposeColor(), modifier = Modifier.size(22.dp))
                 }
             }
