@@ -5479,7 +5479,11 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     var shownUri by mutableStateOf<String?>(null)
         private set
 
-    private fun setTabs(list: List<com.xnotes.settings.OpenTab>) {
+    private fun setTabs(tabs: List<com.xnotes.settings.OpenTab>) {
+        // A split tab whose second half closed or moved away is a tab on its own again.
+        val list = tabs.mapIndexed { i, t ->
+            if (t.pair != null && tabs.getOrNull(i + 1)?.let { documentKey(it.uri) == documentKey(t.pair) } != true) t.copy(pair = null) else t
+        }
         if (list == openTabs) return
         sharedTabs.value = list
         settings = settings.copy(openTabs = list)
@@ -5496,9 +5500,55 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         setTabs(openTabs.filterNot { documentKey(it.uri) == key })
     }
 
-    fun moveTabFirst(uri: String) {
+    fun moveTabFirst(uri: String) = moveTab(uri, 0)
+
+    /** Move the tab of [uri], with the other half of its split tab, to [to] in the list without them. */
+    fun moveTab(uri: String, to: Int) {
+        val tabs = openTabs.toMutableList()
+        var at = tabIndex(uri)
+        if (at < 0) return
+        if (at > 0 && tabs[at - 1].pair != null) at--
+        val moved = List(if (tabs[at].pair != null) 2 else 1) { tabs.removeAt(at) }
+        var dest = to.coerceIn(0, tabs.size)
+        if (dest > 0 && tabs[dest - 1].pair != null) dest-- // never between a split tab's halves
+        tabs.addAll(dest, moved)
+        setTabs(tabs)
+    }
+
+    /** The split tab [uri] is half of, as its first and second pane's uris and its divider; null for a tab on its own. */
+    fun tabPair(uri: String): Triple<String, String, Float>? {
+        val tabs = openTabs
         val at = tabIndex(uri)
-        if (at > 0) setTabs(openTabs.toMutableList().also { it.add(0, it.removeAt(at)) })
+        val lead = tabs.getOrNull(at)?.takeIf { it.pair != null } ?: tabs.getOrNull(at - 1)?.takeIf { at > 0 && it.pair != null } ?: return null
+        return Triple(lead.uri, tabs[tabs.indexOf(lead) + 1].uri, lead.ratio)
+    }
+
+    /** Keep [first] and [second] as one split tab, [second] moved right after [first]. */
+    fun pairTabs(first: String, second: String, ratio: Float) {
+        if (documentKey(first) == documentKey(second)) return
+        val tabs = unpaired(unpaired(openTabs, first), second).toMutableList()
+        val b = tabs.indexOfFirst { documentKey(it.uri) == documentKey(second) }
+        if (b < 0) return
+        val partner = tabs.removeAt(b)
+        val a = tabs.indexOfFirst { documentKey(it.uri) == documentKey(first) }
+        if (a < 0) return
+        tabs[a] = tabs[a].copy(pair = partner.uri, ratio = ratio)
+        tabs.add(a + 1, partner)
+        setTabs(tabs)
+    }
+
+    /** Split the split tab [uri] is half of back into two tabs. */
+    fun unpairTab(uri: String) = setTabs(unpaired(openTabs, uri))
+
+    /** Remember [ratio] as the divider of the split tab [uri] leads. */
+    fun setPairRatio(uri: String, ratio: Float) {
+        val at = tabIndex(uri)
+        if (openTabs.getOrNull(at)?.pair != null) setTabs(openTabs.toMutableList().also { it[at] = it[at].copy(ratio = ratio) })
+    }
+
+    private fun unpaired(tabs: List<com.xnotes.settings.OpenTab>, uri: String): List<com.xnotes.settings.OpenTab> {
+        val key = documentKey(uri)
+        return tabs.map { t -> if (t.pair != null && (documentKey(t.uri) == key || documentKey(t.pair) == key)) t.copy(pair = null) else t }
     }
 
     fun colorTab(uri: String, color: Rgba?) {
@@ -6553,7 +6603,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         }
         autosaveScope.launch {
             setRecents(recentDocs.map { r -> follow(r.uri)?.let { r.copy(uri = it) } ?: r })
-            setTabs(openTabs.map { t -> follow(t.uri)?.let { t.copy(uri = it, name = if (newName != null && documentKey(t.uri) == from) newName else t.name) } ?: t })
+            setTabs(
+                openTabs.map { t ->
+                    val moved = follow(t.uri)?.let { t.copy(uri = it, name = if (newName != null && documentKey(t.uri) == from) newName else t.name) } ?: t
+                    moved.copy(pair = t.pair?.let { follow(it) ?: it })
+                },
+            )
             shownUri = shownUri?.let { follow(it) ?: it }
             val movedViews = folderViews.mapKeys { (k, _) -> com.xnotes.core.util.DocKeys.moved(k, from, to) ?: k }
             if (movedViews != folderViews) {

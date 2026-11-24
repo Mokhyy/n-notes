@@ -187,7 +187,7 @@ data class Settings(
             .put("explorer_view", explorerView.toJson())
             .put("folder_views", JSONObject().apply { folderViews.forEach { (k, v) -> put(k, v.toJson()) } })
             .put("recent_docs", JSONArray().apply { recentDocs.forEach { put(JSONObject().put("uri", it.uri).put("name", it.name).put("opened", it.opened)) } })
-            .put("open_tabs", JSONArray().apply { openTabs.forEach { t -> put(JSONObject().put("uri", t.uri).put("name", t.name).apply { t.color?.let { put("color", rgbaArr(it)) }; if (t.reading) put("reading", true) }) } })
+            .put("open_tabs", JSONArray().apply { openTabs.forEach { t -> put(JSONObject().put("uri", t.uri).put("name", t.name).apply { t.color?.let { put("color", rgbaArr(it)) }; if (t.reading) put("reading", true); t.pair?.let { put("pair", it).put("ratio", t.ratio.toDouble()) } }) } })
             .apply { lastFolder?.let { put("last_folder", it) } }
             .put("render_scale", renderScale)
             .apply { if (!newNoteStyle.isEmpty) put("new_note_style", pageStyleJson(newNoteStyle)) }
@@ -364,7 +364,10 @@ data class Settings(
             return (0 until a.length()).mapNotNull { i ->
                 val o = a.optJSONObject(i) ?: return@mapNotNull null
                 val uri = o.optString("uri", "").ifEmpty { return@mapNotNull null }
-                OpenTab(uri, o.optString("name", ""), rgba(o.optJSONArray("color")), o.optBoolean("reading", false))
+                OpenTab(
+                    uri, o.optString("name", ""), rgba(o.optJSONArray("color")), o.optBoolean("reading", false),
+                    o.optString("pair", "").ifEmpty { null }, o.optDouble("ratio", 0.5).toFloat(),
+                )
             }
         }
 

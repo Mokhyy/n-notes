@@ -814,6 +814,12 @@ private fun EditorScreen(
         }
     }
 
+    /** Close [pane]; in a split that also ends its split tab, as the split was closed on purpose. */
+    fun closePane(pane: Editor) = guarded(pane) {
+        if (editor.inSplit) pane.shownUri?.let(editor::unpairTab)
+        pane.goHome()
+    }
+
     /** Run [action] once every open pane has settled its unsaved changes, prompting one at a time. */
     fun guardedAll(action: () -> Unit) {
         val panes = editor.openPanes
@@ -917,6 +923,7 @@ private fun EditorScreen(
             openInto(editor, firstUri)
             openInto(second, secondUri)
             // A file that would not open leaves no half-built pane behind; the other stays as it is.
+            if (second.noteOpen) editor.shownUri?.let { first -> second.shownUri?.let { editor.pairTabs(first, it, editor.splitRatio) } }
             if (!second.noteOpen) {
                 editor.abandonSecondary()
                 editor.message = context.getString(R.string.err_open_second)
@@ -1314,7 +1321,7 @@ private fun EditorScreen(
                 BackHandler(enabled = focused.flowEditingActive) { focused.flowText.endSession() }
                 // Otherwise Back closes that pane (guarded for unsaved edits); the other one stays.
                 BackHandler(enabled = focused.editingField == null && !focused.flowEditingActive && !backDisabled) {
-                    guarded(focused) { focused.goHome() }
+                    closePane(focused)
                 }
                 // Read-only is left before the note is.
                 BackHandler(enabled = focused.readOnly) { focused.toggleReadOnly() }
@@ -1327,7 +1334,7 @@ private fun EditorScreen(
                     backstageView = com.xnotes.ui.BackstageView.HOME
                     guardedAll { editor.goHomeAll() }
                 },
-                onClosePane = { pane -> guarded(pane) { pane.goHome() } },
+                onClosePane = { pane -> closePane(pane) },
                 onInsertImage = { pane, at ->
                     pendingInsert = PendingInsert(pane, at)
                     insertImageLauncher.launch(arrayOf("image/*"))
@@ -1431,15 +1438,42 @@ private fun EditorScreen(
             LaunchedEffect(readerSplit.size, besideFits) {
                 if (readerSplit.size == 1 && !besideFits) readerStack.add(readerSplit.removeAt(0))
             }
-            // Tabs act on the focused pane; a tab already on screen in the other pane just takes the focus.
             fun shownIn(uri: String) = editor.openPanes.firstOrNull { p -> p.shownUri?.let { p.isSameDocument(it, uri) } == true }
+            /** Bring back the split tab [pair] as it was left, with the pane of [uri] focused. */
+            fun showPair(pair: Triple<String, String, Float>, uri: String, after: () -> Unit) {
+                val (first, second, ratio) = pair
+                val focus = if (editor.isSameDocument(uri, second)) com.xnotes.ui.Pane.SECONDARY else com.xnotes.ui.Pane.PRIMARY
+                val firstShown = editor.noteOpen && editor.shownUri?.let { editor.isSameDocument(it, first) } == true
+                val secondShown = editor.secondary?.takeIf { it.noteOpen }?.shownUri?.let { editor.isSameDocument(it, second) } == true
+                if (firstShown && secondShown) { editor.focusPane(focus); after(); return }
+                guardedAll {
+                    readerSplit.clear()
+                    editor.splitRatio = ratio
+                    scope.launch {
+                        if (!firstShown) openInto(editor, first)
+                        if (!editor.noteOpen) return@launch
+                        val pane = editor.secondaryPane()
+                        if (!secondShown) openInto(pane, second)
+                        if (pane.noteOpen) editor.focusPane(focus)
+                        else { editor.abandonSecondary(); editor.message = context.getString(R.string.err_open_second) }
+                        after()
+                    }
+                }
+            }
+            // A split tab opens as a split; any other tab opens on its own, the split waiting under its tab.
             fun switchTab(uri: String, after: () -> Unit = {}) {
+                editor.tabPair(uri)?.let { showPair(it, uri, after); return }
                 shownIn(uri)?.let { editor.focusPane(it.pane); after(); return }
+                editor.secondary?.takeIf { it.noteOpen }?.let { second ->
+                    guardedAll { second.goHome(); scope.launch { openInto(editor, uri); after() } }
+                    return
+                }
                 val pane = editor.active
                 guarded(pane) { scope.launch { openInto(pane, uri); after() } }
             }
             fun closeTab(uri: String) {
                 val pane = editor.active
+                editor.unpairTab(uri)
                 // In a split, closing a tab on screen closes its pane; the other pane stays.
                 if (editor.openPanes.size > 1) shownIn(uri)?.let { p -> guarded(p) { p.goHome(); editor.closeTab(uri) }; return }
                 if (pane.shownUri?.let { editor.isSameDocument(it, uri) } != true) { editor.closeTab(uri); return }
@@ -1457,10 +1491,19 @@ private fun EditorScreen(
                 guarded(second) {
                     scope.launch {
                         openInto(second, uri)
-                        if (second.noteOpen) editor.focusPane(com.xnotes.ui.Pane.SECONDARY)
-                        else { editor.abandonSecondary(); editor.message = context.getString(R.string.err_open_second) }
+                        if (second.noteOpen) {
+                            editor.focusPane(com.xnotes.ui.Pane.SECONDARY)
+                            editor.shownUri?.let { first -> second.shownUri?.let { editor.pairTabs(first, it, editor.splitRatio) } }
+                        } else { editor.abandonSecondary(); editor.message = context.getString(R.string.err_open_second) }
                     }
                 }
+            }
+            // The divider of a split tab on screen is kept with it, once it settles.
+            val shownPair = editor.shownUri?.takeIf { editor.inSplit }?.let(editor::tabPair)
+            LaunchedEffect(shownPair?.first, editor.splitRatio) {
+                if (shownPair == null) return@LaunchedEffect
+                kotlinx.coroutines.delay(400)
+                editor.setPairRatio(shownPair.first, editor.splitRatio)
             }
             val tabStrip: @Composable () -> Unit = {
                 val tabs = editor.openTabs
@@ -1469,15 +1512,19 @@ private fun EditorScreen(
                 if (tabs.size >= 2 && pane.noteOpen) {
                     com.xnotes.ui.TabStrip(
                         tabs = tabs,
-                        primary = editor.shownUri.takeIf { editor.noteOpen },
-                        secondary = second?.shownUri,
-                        focusedSecondary = second != null && pane === second,
+                        shown = pane.shownUri,
+                        onScreen = editor.openPanes.mapNotNull { it.shownUri },
                         same = editor::isSameDocument,
                         onSelect = { switchTab(it.uri) },
                         onClose = { closeTab(it.uri) },
+                        onMove = { t, to -> editor.moveTab(t.uri, to) },
                         onMoveFirst = { editor.moveTabFirst(it.uri) },
                         onSplit = { splitTab(it.uri) },
-                        onCloseSplit = { second?.let { p -> guarded(p) { p.goHome() } } },
+                        onUnsplit = { lead ->
+                            if (second != null && editor.tabPair(lead.uri)?.second?.let { shownIn(it) } === second) closePane(second)
+                            else editor.unpairTab(lead.uri)
+                        },
+                        onCloseSplit = second?.let { p -> { closePane(p) } },
                         onColor = { t, c -> editor.colorTab(t.uri, c) },
                         onCloseOthers = { editor.keepOnlyTabs(editor.openPanes.mapNotNull { it.shownUri }) },
                     )
