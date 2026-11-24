@@ -10,6 +10,9 @@ enum class ReaderKind(val label: String, vararg val extensions: String) {
     PPTX("PPTX", "pptx"),
     XLSX("XLSX", "xlsx"),
     CSV("CSV", "csv"),
+    EPUB("EPUB", "epub"),
+    FB2("FB2", "fb2"),
+    MOBI("MOBI", "mobi", "prc", "azw", "azw3"),
     IMAGE("IMG", "png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"),
     ;
 
@@ -21,6 +24,9 @@ enum class ReaderKind(val label: String, vararg val extensions: String) {
         }
 
         fun isReadable(name: String): Boolean = ofName(name) != null
+
+        /** Whether [name] is an e-book, which is kept as it is rather than turned into a note's text. */
+        fun isBook(name: String): Boolean = ofName(name).let { it == EPUB || it == FB2 || it == MOBI }
 
         /** Whether the explorer lists [name] as a file at all: an editable document or a readable one. */
         fun isListed(name: String): Boolean = DocumentKind.isDocument(name) || isReadable(name)

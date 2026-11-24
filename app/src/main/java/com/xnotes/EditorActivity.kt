@@ -503,7 +503,8 @@ private fun EditorScreen(
         "text/csv", "text/comma-separated-values", "application/csv",
         "text/html", "text/rtf", "application/rtf",
         // ebook / office
-        "application/epub+zip",
+        "application/epub+zip", "application/x-fictionbook+xml", "application/x-fictionbook",
+        "application/x-mobipocket-ebook", "application/vnd.amazon.ebook", "application/vnd.amazon.mobi8-ebook",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )

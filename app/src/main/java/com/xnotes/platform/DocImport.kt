@@ -26,7 +26,11 @@ object DocImport {
                 ext == "html" || ext == "htm" || mime == "text/html" -> listOf(htmlToText(file.readText()))
                 ext == "docx" -> fromDocx(file)
                 ext == "xlsx" -> fromXlsx(file)
-                ext == "epub" -> fromEpub(file)
+                ext == "epub" -> listOf(bookText(ZipFile(file).use { zip ->
+                    BookHtml.epub({ path -> zip.getEntry(path)?.let { e -> zip.getInputStream(e).use { it.readBytes() } } })
+                }))
+                ext == "fb2" -> listOf(bookText(BookHtml.fb2(file.readBytes(), { android.util.Xml.newPullParser() })))
+                ext in setOf("mobi", "prc", "azw", "azw3") -> listOf(bookText(BookHtml.mobi(file.readBytes())))
                 else -> plain(file) // best effort: treat unknown as text
             }
         }.getOrElse { runCatching { plain(file) }.getOrDefault(emptyList()) }
@@ -48,6 +52,9 @@ object DocImport {
     }
 
     private fun plain(file: File): List<String> = file.readText().split("\n")
+
+    /** A book's text: its pictures would come through as placeholder characters. */
+    private fun bookText(html: String): String = htmlToText(html.replace(Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE), ""))
 
     private fun htmlToText(html: String): String =
         Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY).toString().trim()
@@ -184,22 +191,6 @@ object DocImport {
             e = parser.next()
         }
         return out
-    }
-
-    /** EPUB: the (x)html documents, in filename order, each run through the HTML parser. */
-    private fun fromEpub(file: File): List<String> {
-        ZipFile(file).use { zip ->
-            val docs = zip.entries().toList()
-                .filter { !it.isDirectory && it.name.substringAfterLast('.', "").lowercase() in setOf("xhtml", "html", "htm") }
-                .sortedBy { it.name }
-            val paras = ArrayList<String>()
-            for (entry in docs) {
-                val html = zip.getInputStream(entry).reader(Charsets.UTF_8).readText()
-                val text = htmlToText(html)
-                if (text.isNotBlank()) { paras.addAll(text.split("\n")); paras.add("") }
-            }
-            return paras
-        }
     }
 
     /** Strip a namespace prefix ("w:t" -> "t"). */

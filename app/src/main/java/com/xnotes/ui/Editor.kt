@@ -204,12 +204,15 @@ data class BrowseEntry(
  * from txt/csv/rtf/html/docx/xlsx/epub), or an existing `.xnote`/`.xcanvas` opened as-is.
  */
 enum class ImportKind {
-    PDF, IMAGE, TEXT, OPEN;
+    PDF, IMAGE, TEXT, OPEN,
+
+    /** An e-book, copied in as it is and read in the reader. */
+    BOOK;
 
     companion object {
         /** The document extensions the "Import file" action understands (for the picker + UI hint). */
         val IMPORT_EXTENSIONS = listOf("pdf", "png", "jpg", "jpeg", "webp", "gif", "bmp", "svg",
-            "txt", "md", "markdown", "csv", "rtf", "html", "htm", "epub", "docx", "xlsx")
+            "txt", "md", "markdown", "csv", "rtf", "html", "htm", "epub", "fb2", "mobi", "azw", "azw3", "prc", "docx", "xlsx")
 
         private val IMAGE_EXT = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "heic", "heif")
         private val TEXT_EXT = setOf("txt", "md", "markdown", "csv", "rtf", "html", "htm", "epub", "docx", "xlsx")
@@ -220,6 +223,7 @@ enum class ImportKind {
             return when {
                 ext == "xnote" || ext == "xcanvas" -> OPEN
                 ext == "pdf" || mime == "application/pdf" -> PDF
+                com.xnotes.core.util.ReaderKind.isBook(name) -> BOOK
                 ext in IMAGE_EXT || mime?.startsWith("image/") == true -> IMAGE
                 ext in TEXT_EXT || mime?.startsWith("text/") == true -> TEXT
                 else -> TEXT // best effort for unknown types
@@ -5981,7 +5985,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 try { com.xnotes.platform.PdfImporter.import(source, state.document.dpi) } finally { source.close() }
             }
             ImportKind.IMAGE -> imageDocument(keep(imageDir, "." + sourceName.substringAfterLast('.', "img")))
-            ImportKind.TEXT -> textDocument(staged, sourceName, mime)
+            ImportKind.TEXT, ImportKind.BOOK -> textDocument(staged, sourceName, mime)
             ImportKind.OPEN -> runCatching { java.io.FileInputStream(staged).use { codec.read(it, pdfDir, imageDir) } }.getOrNull()
         }
     }
@@ -6304,7 +6308,20 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             ImportKind.IMAGE -> createImageNoteFile(treeUri, parentDocId, rawName, staged)
             ImportKind.TEXT -> createTextNoteFile(treeUri, parentDocId, rawName, staged, item.sourceName, item.mime)
             ImportKind.OPEN -> createNoteFileFromFile(treeUri, parentDocId, rawName, staged)
+            ImportKind.BOOK -> createFileCopy(treeUri, parentDocId, rawName, staged, item.sourceName.substringAfterLast('.', "").lowercase())
         }
+
+    /** Copies [file] under [parentDocId] as it is, named [rawName] with the [ext] it came with; returns its URI, or null. IO. */
+    private fun createFileCopy(treeUri: String, parentDocId: String, rawName: String, file: java.io.File, ext: String): String? {
+        val taken = browseChildren(treeUri, parentDocId).map { it.name.lowercase() }.toSet()
+        val base = rawName.trim().removeSuffix(".$ext").ifEmpty { file.nameWithoutExtension }
+        var name = "$base.$ext"
+        var n = 1
+        while (name.lowercase() in taken) name = "${base}_${n++}.$ext"
+        return createNoteFile(treeUri, parentDocId, name) { out ->
+            java.io.FileInputStream(file).use { copyStream(it, out) { importCancelled.get() } }
+        }
+    }
 
     /** Commits the pending import off the main thread while driving the "Importing…" dialog via
      *  [importing]. Returns the new note's URI, or null on failure/cancel. On cancel [pendingImport]

@@ -302,6 +302,9 @@ private fun readerHtmlBody(context: Context, editor: Editor, file: ReaderFile, l
         ReaderKind.DOCX -> ReaderContent.Html(withZip(context, uri) { ReaderHtml.docx(it, ::newParser, labels) }, wide = false)
         ReaderKind.PPTX -> ReaderContent.Html(withZip(context, uri) { ReaderHtml.pptx(it, ::newParser, labels) }, wide = false)
         ReaderKind.XLSX -> ReaderContent.Html(withZip(context, uri) { ReaderHtml.xlsx(it, ::newParser, labels) }, wide = true)
+        ReaderKind.EPUB -> ReaderContent.Html(withZip(context, uri) { com.xnotes.platform.BookHtml.epub(it, labels) }, wide = false)
+        ReaderKind.FB2 -> ReaderContent.Html(com.xnotes.platform.BookHtml.fb2(readBytes(context, uri), ::newParser, labels), wide = false)
+        ReaderKind.MOBI -> ReaderContent.Html(com.xnotes.platform.BookHtml.mobi(readBytes(context, uri), labels), wide = false)
         null -> null
     }
 }
