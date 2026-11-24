@@ -9077,6 +9077,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             it, controller.configFor(it), shapeConfig, controller.inkColor,
             com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolLook, tableToolColor),
         ) }
+    fun updatePencilcaseItem(index: Int, item: com.xnotes.core.tools.PencilcaseItem) =
+        setPencilcase(pencilcase.toMutableList().also { it[index] = item })
+
 
     /** Arm [item]'s tool with its saved setup and ink; the ink goes through its swatch when one matches. */
     fun armPencilcase(item: com.xnotes.core.tools.PencilcaseItem) {

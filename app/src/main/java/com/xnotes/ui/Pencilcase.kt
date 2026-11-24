@@ -45,6 +45,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -61,6 +63,8 @@ import com.xnotes.core.shapes.ConnectorPresets
 import com.xnotes.core.shapes.ShapePresets
 import com.xnotes.core.tools.PencilcaseItem
 import com.xnotes.core.tools.Tool
+import com.xnotes.core.tools.ToolConfig
+import com.xnotes.core.tools.ToolConversions
 import com.xnotes.ui.icons.XnotesIcons
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.toComposeColor
@@ -76,6 +80,8 @@ fun BoxScope.Pencilcase(
     onRemove: (PencilcaseItem) -> Unit,
     onMove: (from: Int, to: Int) -> Unit,
     onRename: (index: Int, name: String?) -> Unit,
+    popupHost: ToolPopupHost,
+    onEdit: (index: Int, item: PencilcaseItem) -> Unit,
     canPick: (PencilcaseItem) -> Boolean = { true },
 ) {
     val palette = LocalPalette.current
@@ -92,8 +98,12 @@ fun BoxScope.Pencilcase(
     var handleBounds by remember { mutableStateOf(Rect.Zero) }
     var mode by remember { mutableStateOf(Mode.USE) }
     var renaming by remember { mutableStateOf<Int?>(null) }
+    var editing by remember { mutableStateOf<Int?>(null) }
+    // Where it was left is kept on this device only, as fractions of the room it moves in.
+    val placeStore = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("pencilcase", android.content.Context.MODE_PRIVATE)
+    var placed by remember { mutableStateOf(false) }
     val current = when {
-        (mode == Mode.REMOVE || mode == Mode.RENAME) && items.isEmpty() -> Mode.USE
+        (mode == Mode.REMOVE || mode == Mode.RENAME || mode == Mode.EDIT) && items.isEmpty() -> Mode.USE
         mode == Mode.REORDER && items.size < 2 -> Mode.USE
         else -> mode
     }
@@ -149,6 +159,16 @@ fun BoxScope.Pencilcase(
     fun settle() {
         moving = false
         offset = landing()
+        placeStore.edit().putFloat("x", offset.x / area.width.coerceAtLeast(1)).putFloat("y", offset.y / area.height.coerceAtLeast(1))
+            .putString("dock", dock.name).apply()
+    }
+
+    LaunchedEffect(area, size) {
+        if (placed || area == IntSize.Zero || size == IntSize.Zero) return@LaunchedEffect
+        placed = true
+        dock = runCatching { Dock.valueOf(placeStore.getString("dock", null) ?: "NONE") }.getOrDefault(Dock.NONE)
+        vertical = dock != Dock.NONE
+        offset = Offset(placeStore.getFloat("x", 0f) * area.width, placeStore.getFloat("y", 0f) * area.height)
     }
 
     /** Where the dragged item lands in the list without it. */
@@ -255,19 +275,26 @@ fun BoxScope.Pencilcase(
                             ),
                     ) {
                         Tooltip(label, side = tipSide) {
-                            CaseButton(
-                                pencilcaseIcon(item),
+                            val dimmed = current == Mode.USE && !canPick(item)
+                            ItemButton(
+                                item,
                                 if (current == Mode.REMOVE) stringResource(R.string.pencilcase_remove, label) else label,
                                 tint = when {
-                                    current == Mode.USE && !canPick(item) -> palette.border
+                                    dimmed || current == Mode.EDIT && item.tool !in EDITABLE -> palette.border
                                     item.tool == Tool.ERASER -> palette.text
                                     else -> item.shownColor
                                 }.toComposeColor(),
-                                enabled = current != Mode.REORDER && (current != Mode.USE || canPick(item)),
+                                enabled = when (current) {
+                                    Mode.REORDER -> false
+                                    Mode.USE -> canPick(item)
+                                    Mode.EDIT -> item.tool in EDITABLE
+                                    else -> true
+                                },
                             ) {
                                 when (current) {
                                     Mode.REMOVE -> onRemove(item)
                                     Mode.RENAME -> renaming = i
+                                    Mode.EDIT -> editing = i
                                     else -> onPick(item)
                                 }
                             }
@@ -316,6 +343,9 @@ fun BoxScope.Pencilcase(
                 CaseButton(XnotesIcons.plus, stringResource(R.string.pencilcase_save), tint(canSave), enabled = canSave) { trayOpen = false; onSave() }
                 CaseButton(XnotesIcons.sort, stringResource(R.string.pencilcase_reorder), tint(items.size > 1), enabled = items.size > 1, rotation = 90f) {
                     trayOpen = false; mode = Mode.REORDER
+                }
+                CaseButton(XnotesIcons.sliders, stringResource(R.string.pencilcase_edit_items), tint(items.any { it.tool in EDITABLE }), enabled = items.any { it.tool in EDITABLE }) {
+                    trayOpen = false; mode = Mode.EDIT
                 }
                 CaseButton(XnotesIcons.rename, stringResource(R.string.pencilcase_rename_items), tint(items.isNotEmpty()), enabled = items.isNotEmpty()) {
                     trayOpen = false; mode = Mode.RENAME
@@ -369,6 +399,18 @@ fun BoxScope.Pencilcase(
                 removeLabel = stringResource(R.string.reset),
             )
         }
+        editing?.let { e ->
+            val item = items.getOrNull(e) ?: return@let
+            val host = remember(e, popupHost) { ItemPopupHost(popupHost, item) { onEdit(e, it) } }
+            val close = { editing = null }
+            Box(Modifier.align(Alignment.TopStart).offset { (bounds[e]?.bottomLeft?.minus(origin) ?: Offset.Zero).round() }) {
+                when (item.tool) {
+                    Tool.TAPE -> TapeConfigPopup(host, close)
+                    Tool.ERASER -> EraserConfigPopup(host, close)
+                    else -> ToolConfigPopup(host, item.tool, onDismiss = close)
+                }
+            }
+        }
         grabbed?.let { g ->
             val item = items.getOrNull(g) ?: return@let
             Box(Modifier.align(Alignment.TopStart).offset { (finger - grab - origin).round() }) {
@@ -380,7 +422,23 @@ fun BoxScope.Pencilcase(
 
 private enum class Dock { NONE, LEFT, RIGHT }
 
-private enum class Mode { USE, REMOVE, REORDER, RENAME }
+private enum class Mode { USE, REMOVE, REORDER, RENAME, EDIT }
+
+/** Saved tools whose setup the usual tool popup can edit in place. */
+private val EDITABLE: Set<Tool> = (Tool.PENS + listOf(Tool.HIGHLIGHTER, Tool.ERASER, Tool.TAPE)).toSet()
+
+/** The editor's popup host, with the tool's setup read from and written to one saved item instead. */
+private class ItemPopupHost(base: ToolPopupHost, private var item: PencilcaseItem, private val save: (PencilcaseItem) -> Unit) : ToolPopupHost by base {
+    override fun toolConfig(tool: Tool): ToolConfig = item.config.copy(colorOverride = item.shownColor)
+
+    // "Default" keeps the saved colour; one saved with its own tool colour keeps it there, so arming it leaves the ink alone.
+    override fun updateToolConfig(tool: Tool, config: ToolConfig) {
+        val color = config.colorOverride ?: item.shownColor
+        item = if (item.config.colorOverride != null) item.copy(config = config.copy(colorOverride = color))
+        else item.copy(config = config.copy(colorOverride = null), color = color)
+        save(item)
+    }
+}
 
 @Composable
 private fun Rule(vertical: Boolean) {
@@ -416,6 +474,37 @@ private fun CaseButton(
         tint = tint,
         modifier = Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(enabled = enabled, onClick = onClick).padding(8.dp).size(18.dp).rotate(rotation),
     )
+}
+
+/** A saved tool: its icon in its colour, a dot sized by a pen's width, and a light backdrop when the colour blends into the bar. */
+@Composable
+private fun ItemButton(item: PencilcaseItem, description: String, tint: Color, enabled: Boolean, onClick: () -> Unit) {
+    val palette = LocalPalette.current
+    val bar = MenuDefaults.containerColor.luminance()
+    val lum = tint.luminance()
+    val blends = (maxOf(lum, bar) + 0.05f) / (minOf(lum, bar) + 0.05f) < 1.6f
+    Box(Modifier.clip(MaterialTheme.shapes.extraSmall).clickable(enabled = enabled, onClick = onClick).padding(8.dp)) {
+        Icon(
+            pencilcaseIcon(item),
+            contentDescription = description,
+            tint = tint,
+            modifier = Modifier
+                .then(if (blends) Modifier.background(palette.text.toComposeColor().copy(alpha = 0.3f), CircleShape) else Modifier)
+                .size(18.dp),
+        )
+        if (item.tool.isStroke) {
+            val range = ToolConversions.widthRange(item.tool)
+            val f = ((item.config.baseWidth - range.start) / (range.endInclusive - range.start)).coerceIn(0.0, 1.0).toFloat()
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(4.dp, 4.dp)
+                    .size(3.dp + 6.dp * f)
+                    .then(if (blends) Modifier.border(1.dp, palette.textDim.toComposeColor(), CircleShape) else Modifier)
+                    .background(tint, CircleShape),
+            )
+        }
+    }
 }
 
 @Composable

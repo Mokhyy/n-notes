@@ -55,6 +55,7 @@
     <string name="pencilcase_reorder">Reordenar herramientas</string>
     <string name="pencilcase_move">Mover el estuche</string>
     <string name="pencilcase_rename_items">Renombrar herramientas</string>
+    <string name="pencilcase_edit_items">Editar herramientas</string>
     <string name="pencilcase_rename">Renombrar herramienta</string>
     <string name="edge_all">Todos</string>
     <string name="edge_left">Izquierda</string>

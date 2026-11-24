@@ -55,6 +55,7 @@
     <string name="pencilcase_reorder">重新排序工具</string>
     <string name="pencilcase_move">移动笔袋</string>
     <string name="pencilcase_rename_items">重命名工具</string>
+    <string name="pencilcase_edit_items">编辑工具</string>
     <string name="pencilcase_rename">重命名工具</string>
     <string name="edge_all">全部</string>
     <string name="edge_left">左侧</string>

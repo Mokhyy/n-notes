@@ -93,6 +93,7 @@
     <string name="pencilcase_reorder">Reorder tools</string>
     <string name="pencilcase_move">Move pencilcase</string>
     <string name="pencilcase_rename_items">Rename tools</string>
+    <string name="pencilcase_edit_items">Edit tools</string>
     <string name="pencilcase_rename">Rename tool</string>
     <string name="edge_all">All</string>
     <string name="edge_left">Left</string>
