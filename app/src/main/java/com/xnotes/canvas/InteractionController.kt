@@ -293,6 +293,16 @@ class InteractionController(
     /** Tool the stylus side button activates while held, or null to ignore the button. */
     var penButtonTool: Tool? = Tool.ERASER
 
+    /** What a finger drives while finger-draw is off: PAN, or a tool such as LASSO, SELECT or ERASER. */
+    var fingerTool: Tool = Tool.PAN
+
+    /** Tool a two-finger drag drives instead of the pinch zoom, or null to pinch. */
+    var twoFingerTool: Tool? = null
+
+    /** Where the tracked finger was when a second one landed, until the drag passes tap range and starts [twoFingerTool]. */
+    private var twoFingerPendingAt: Pt? = null
+    private var twoFingerActive = false
+
     /** The side button, latched as on the infinite canvas; read only at touch-down, so a press
      *  after the pen is already down does not activate the mapped tool. */
     private val stylusButtons = StylusButtonLatch()
@@ -765,6 +775,8 @@ class InteractionController(
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 touchTakenBack = false
+                twoFingerPendingAt = null
+                twoFingerActive = false
                 tapDown(e)
                 handleDown(e)
                 downView = state.snapshotView()
@@ -931,7 +943,7 @@ class InteractionController(
             toolType == MotionEvent.TOOL_TYPE_FINGER && !fingerDraws && tool == Tool.SCREENSHOT &&
                 fingerHitsCapture(content) -> Tool.SCREENSHOT
             // A finger otherwise pans instead of drawing/selecting/shaping/erasing (text stays usable by finger).
-            toolType == MotionEvent.TOOL_TYPE_FINGER && !fingerDraws && tool.fingerPansWhenOff -> Tool.PAN
+            toolType == MotionEvent.TOOL_TYPE_FINGER && !fingerDraws && tool.fingerPansWhenOff -> fingerTool
             else -> tool
         }
         val isFinger = toolType == MotionEvent.TOOL_TYPE_FINGER
@@ -1150,11 +1162,40 @@ class InteractionController(
         // A finger erase (finger-draw on) yields to a two-finger pinch: commit what was erased so
         // far as one undo step, then start the zoom. A stylus-eraser erase keeps ignoring incidental
         // finger/palm contact, so a resting hand never starts a zoom mid-erase.
+        if (twoFingerActive) return
         if (mode == PointerMode.ERASE) {
             if (erasingWithFinger && e.pointerCount >= 2) { endErase(); beginPinch(e) }
             return
         }
-        if (e.pointerCount >= 2) beginPinch(e)
+        if (e.pointerCount >= 2) {
+            beginPinch(e)
+            // The tool waits for the drag to leave tap range, so a two-finger tap leaves no mark.
+            twoFingerPendingAt = if (twoFingerTool != null && !readOnly && e.pointerCount == 2) {
+                val i = e.findPointerIndex(drawingPointerId).coerceAtLeast(0)
+                Pt(e.getX(i).toDouble(), e.getY(i).toDouble())
+            } else null
+        }
+    }
+
+    /** A two-finger drag left tap range: the tracked finger drives [twoFingerTool] from here instead of the pinch. */
+    private fun beginTwoFingerTool(vx: Double, vy: Double) {
+        twoFingerPendingAt = null
+        twoFingerActive = true
+        mode = PointerMode.IDLE
+        lockedPressAt = null
+        dismissPressAt = null
+        val content = state.viewportToContent(Pt(vx, vy))
+        when (twoFingerTool) {
+            Tool.ERASER -> {
+                clearSelection()
+                erasingWithFinger = false
+                beginErase(vx, vy)
+            }
+            Tool.SELECT -> beginSelect(content)
+            Tool.LASSO -> beginLasso(content)
+            else -> Unit
+        }
+        cancelLongPress()
     }
 
     private fun handleMove(e: MotionEvent) {
@@ -1163,6 +1204,10 @@ class InteractionController(
         val vy = e.getY(idx).toDouble()
         val content = state.viewportToContent(Pt(vx, vy))
         maybeCancelLongPress(Pt(vx, vy))
+        twoFingerPendingAt?.let { at ->
+            if (Pt(vx, vy).distanceTo(at) > MultiFingerTap.TAP_SLOP) beginTwoFingerTool(vx, vy)
+            return
+        }
         when (mode) {
             PointerMode.DRAW -> extendDraw(e)
             PointerMode.PAN -> extendPan(vx, vy)
@@ -1203,6 +1248,13 @@ class InteractionController(
     }
 
     private fun handlePointerUp(e: MotionEvent) {
+        twoFingerPendingAt = null
+        if (twoFingerActive) {
+            // Either finger lifting ends the two-finger tool; the one left on the glass does nothing more.
+            handleUp(e)
+            mode = PointerMode.IDLE
+            return
+        }
         if (mode == PointerMode.RULER_TRANSFORM) {
             // One finger lifted: fall back to a single-finger move with whichever finger remains.
             val up = e.actionIndex

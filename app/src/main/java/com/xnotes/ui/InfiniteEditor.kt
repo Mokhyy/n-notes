@@ -2305,8 +2305,12 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         zoomLockPan: String,
         detectShapes: Boolean,
         snapRotation90: Boolean = false,
+        fingerTool: Tool = Tool.PAN,
+        twoFingerTool: Tool? = null,
     ) {
         interaction.fingerDraws = fingerDraws
+        interaction.fingerTool = fingerTool
+        interaction.twoFingerTool = twoFingerTool
         interaction.penButtonTool = penButtonTool
         interaction.zoomLockPan = zoomLockPan
         this.detectShapes = detectShapes

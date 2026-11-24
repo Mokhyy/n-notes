@@ -1266,7 +1266,14 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun InputControls(prefs: Preferences, update: (Preferences) -> Unit) {
-    CheckRow(stringResource(R.string.pref_finger_draws), prefs.fingerDraws) { update(prefs.copy(fingerDraws = it)) }
+    val tools = listOf("select" to stringResource(R.string.tool_select), "lasso" to stringResource(R.string.tool_lasso), "eraser" to stringResource(R.string.tool_eraser))
+    FieldLabel(stringResource(R.string.pref_one_finger_drag))
+    OptionDropdown(
+        listOf("draw" to stringResource(R.string.finger_current_tool), "pan" to stringResource(R.string.tool_pan)) + tools,
+        if (prefs.fingerDraws) "draw" else prefs.oneFingerDrag,
+    ) { update(if (it == "draw") prefs.copy(fingerDraws = true) else prefs.copy(fingerDraws = false, oneFingerDrag = it)) }
+    FieldLabel(stringResource(R.string.pref_two_finger_drag))
+    OptionDropdown(listOf("zoom" to stringResource(R.string.finger_pan_zoom)) + tools, prefs.twoFingerDrag) { update(prefs.copy(twoFingerDrag = it)) }
     FieldLabel(stringResource(R.string.pref_zoom_lock_pan))
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),

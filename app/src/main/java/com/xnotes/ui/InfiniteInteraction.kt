@@ -7,6 +7,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import com.xnotes.canvas.HandleId
 import com.xnotes.canvas.InteractionController
+import com.xnotes.canvas.MultiFingerTap
 import com.xnotes.canvas.ResizeMath
 import com.xnotes.canvas.SelectionMath
 import com.xnotes.canvas.StylusButtonLatch
@@ -167,6 +168,16 @@ class InfiniteInteraction(
 
     /** Tool the stylus side button arms while it is held; null leaves the button alone. */
     var penButtonTool: Tool? = Tool.ERASER
+
+    /** What a finger drives while finger-draw is off: PAN, or a tool such as LASSO, SELECT or ERASER. */
+    var fingerTool: Tool = Tool.PAN
+
+    /** Tool a two-finger drag drives instead of the pinch zoom, or null to pinch. */
+    var twoFingerTool: Tool? = null
+
+    /** Where the first finger was when a second one landed, until the drag passes tap range and starts [twoFingerTool]. */
+    private var twoFingerPendingAt: Pt? = null
+    private var twoFingerActive = false
 
     /** Zoom lock: a pinch pans without changing the zoom, mirroring the paged canvas. */
     var zoomLocked: Boolean = false
@@ -334,6 +345,8 @@ class InfiniteInteraction(
         when (e.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 touchTakenBack = false
+                twoFingerPendingAt = null
+                twoFingerActive = false
                 tapCandidate = true
                 tapDownAt = Pt(e.x.toDouble(), e.y.toDouble())
                 tapDownTime = e.eventTime
@@ -522,7 +535,7 @@ class InfiniteInteraction(
             onSelection && drawing -> Tool.SELECT
             toolType == MotionEvent.TOOL_TYPE_FINGER && !fingerDraws && tool.fingerPansWhenOff &&
                 onSelection -> Tool.SELECT
-            toolType == MotionEvent.TOOL_TYPE_FINGER && !fingerDraws && tool.fingerPansWhenOff -> Tool.PAN
+            toolType == MotionEvent.TOOL_TYPE_FINGER && !fingerDraws && tool.fingerPansWhenOff -> fingerTool
             else -> tool
         }
         // A press that lands off the selection with anything but the selection tools dismisses it,
@@ -640,6 +653,7 @@ class InfiniteInteraction(
 
     private fun handlePointerDown(e: MotionEvent) {
         cancelLongPress() // a second finger is a pinch, never a held press
+        if (twoFingerActive) return
         // A stylus stroke ignores an incidental palm or second finger; a finger stroke yields to a
         // pinch, since two fingers can only mean a zoom.
         if (mode == CanvasPointerMode.DRAW && drawingIsStylus) return
@@ -651,6 +665,22 @@ class InfiniteInteraction(
             // A finger erase yields to a pinch: commit what it already removed rather than lose it.
             if (mode == CanvasPointerMode.ERASE) endErase()
             beginPinch(e)
+            // The tool waits for the drag to leave tap range, so a two-finger tap leaves no mark.
+            twoFingerPendingAt = if (twoFingerTool != null && e.pointerCount == 2) Pt(e.getX(0).toDouble(), e.getY(0).toDouble()) else null
+        }
+    }
+
+    /** A two-finger drag left tap range: the first finger drives [twoFingerTool] from here instead of the pinch. */
+    private fun beginTwoFingerTool(vx: Double, vy: Double) {
+        twoFingerPendingAt = null
+        twoFingerActive = true
+        mode = CanvasPointerMode.IDLE
+        dismissPressAt = null
+        when (twoFingerTool) {
+            Tool.ERASER -> { clearSelection(); beginErase(vx, vy) }
+            Tool.SELECT -> beginSelect(vx, vy)
+            Tool.LASSO -> beginLasso(vx, vy)
+            else -> Unit
         }
     }
 
@@ -659,6 +689,12 @@ class InfiniteInteraction(
         if (longPressRunnable != null) {
             val moved = Pt(e.getX(0).toDouble(), e.getY(0).toDouble()).distanceTo(longPressAt)
             if (moved > InteractionController.LONG_PRESS_SLOP) cancelLongPress()
+        }
+        twoFingerPendingAt?.let { at ->
+            val vx = e.getX(0).toDouble()
+            val vy = e.getY(0).toDouble()
+            if (Pt(vx, vy).distanceTo(at) > MultiFingerTap.TAP_SLOP) beginTwoFingerTool(vx, vy)
+            return
         }
         when (mode) {
             CanvasPointerMode.PAN -> extendPan(e.getX(0).toDouble(), e.getY(0).toDouble())
@@ -682,6 +718,12 @@ class InfiniteInteraction(
     }
 
     private fun handlePointerUp(e: MotionEvent) {
+        twoFingerPendingAt = null
+        if (twoFingerActive) {
+            // Either finger lifting ends the two-finger tool; the one left on the glass does nothing more.
+            handleUp(e)
+            return
+        }
         if (mode != CanvasPointerMode.PINCH) return
         // Dropping to one finger continues as a pan from wherever that finger is, so a pinch that
         // relaxes into a drag does not jump.

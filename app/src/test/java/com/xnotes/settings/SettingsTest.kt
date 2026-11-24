@@ -509,6 +509,15 @@ class SettingsTest {
         assertEquals("none", Preferences.fromJson(o).twoFingerTap)
     }
 
+    @Test fun fingerDragsRoundTripAndFallBack() {
+        val back = Preferences.fromJson(Preferences(oneFingerDrag = "lasso", twoFingerDrag = "eraser").toJson())
+        assertEquals("lasso", back.oneFingerDrag)
+        assertEquals("eraser", back.twoFingerDrag)
+        val bad = Preferences.fromJson(JSONObject().put("one_finger_drag", "pen").put("two_finger_drag", "explode"))
+        assertEquals("pan", bad.oneFingerDrag)
+        assertEquals("zoom", bad.twoFingerDrag)
+    }
+
     @Test fun startFullscreenNullByDefaultAndUnwritten() {
         assertNull(Preferences.fromJson(JSONObject()).startFullscreen)
         assertFalse(Preferences().toJson().has("start_fullscreen"))

@@ -43,6 +43,10 @@ data class Preferences(
     val customPageHeightMm: Double = 297.0,
     /** Whether a finger draws (true) or pans (false, default). The stylus always draws. */
     val fingerDraws: Boolean = false,
+    /** What a finger drag does while [fingerDraws] is off: "pan" (default) | "select" | "lasso" | "eraser". */
+    val oneFingerDrag: String = "pan",
+    /** What a two-finger drag does: "zoom" (default, pan and pinch zoom) | "select" | "lasso" | "eraser". */
+    val twoFingerDrag: String = "zoom",
     /** Panning allowed while zoom is locked: "single" (default) | "double" | "none". */
     val zoomLockPan: String = "single",
     /** Whether holding a freehand ink stroke still snaps it to a recognized shape. */
@@ -210,6 +214,8 @@ data class Preferences(
         .put("custom_page_width_mm", customPageWidthMm)
         .put("custom_page_height_mm", customPageHeightMm)
         .put("finger_draws", fingerDraws)
+        .put("one_finger_drag", oneFingerDrag)
+        .put("two_finger_drag", twoFingerDrag)
         .put("zoom_lock_pan", zoomLockPan)
         .put("detect_shapes", detectShapes)
         .put("snap_rotation_90", snapRotation90)
@@ -346,6 +352,7 @@ data class Preferences(
             val template = o.optString("default_template", "color").let { if (it == "pdf") "pdf" else "color" }
             val zoomLockPan = o.optString("zoom_lock_pan", "single").let { if (it == "double" || it == "none") it else "single" }
             val tapActions = setOf("none", "undo", "redo", "toggle_pan", "toggle_eraser", "toggle_lasso", "toggle_previous")
+            val fingerTools = setOf("select", "lasso", "eraser")
             fun tapAction(key: String) = o.optString(key, "none").let { if (it in tapActions) it else "none" }
             val legacySeed = Rgba.fromHex(o.optString("material_seed"))
             val legacyDual = o.optBoolean("material_dual_tone", false)
@@ -393,6 +400,8 @@ data class Preferences(
                 customPageHeightMm = o.optDouble("custom_page_height_mm", 297.0)
                     .coerceIn(PageSize.CUSTOM_MIN_MM, PageSize.CUSTOM_MAX_MM),
                 fingerDraws = o.optBoolean("finger_draws", false),
+                oneFingerDrag = o.optString("one_finger_drag", "pan").let { if (it in fingerTools) it else "pan" },
+                twoFingerDrag = o.optString("two_finger_drag", "zoom").let { if (it in fingerTools) it else "zoom" },
                 zoomLockPan = zoomLockPan,
                 detectShapes = o.optBoolean("detect_shapes", true),
                 snapRotation90 = o.optBoolean("snap_rotation_90", false),

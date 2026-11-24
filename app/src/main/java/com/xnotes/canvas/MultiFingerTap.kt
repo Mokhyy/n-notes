@@ -54,7 +54,7 @@ class MultiFingerTap {
         downY[e.getPointerId(index)] = e.getY(index)
     }
 
-    private companion object {
+    internal companion object {
         /** Max gesture duration (ms) still counted as a tap. */
         const val TAP_TIMEOUT_MS = 500L
 

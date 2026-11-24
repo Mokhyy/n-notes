@@ -425,7 +425,10 @@
     <string name="pref_accent_colour">Barva zvýraznění</string>
     <string name="pref_start_fullscreen">Spouštět na celou obrazovku</string>
     <string name="pref_input">Vstup</string>
-    <string name="pref_finger_draws">Kreslit prstem (vypnuto = prst posouvá)</string>
+    <string name="pref_one_finger_drag">Tah jedním prstem</string>
+    <string name="pref_two_finger_drag">Tah dvěma prsty</string>
+    <string name="finger_current_tool">Aktuální nástroj (kreslit)</string>
+    <string name="finger_pan_zoom">Posun a přiblížení</string>
     <string name="pref_zoom_lock_pan">Posouvání při zamčené lupě</string>
     <string name="pan_single">Posun jedním prstem</string>
     <string name="pan_two">Posun dvěma prsty</string>

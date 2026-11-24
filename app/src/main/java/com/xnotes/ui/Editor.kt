@@ -1171,7 +1171,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val canvas = infinite
         canvas.replaceDocument(doc)
         canvas.applyPalette(palette)
-        canvas.applyInputPrefs(settings.prefs.fingerDraws, controller.penButtonTool, settings.prefs.zoomLockPan, settings.prefs.detectShapes, settings.prefs.snapRotation90)
+        canvas.applyInputPrefs(settings.prefs.fingerDraws, controller.penButtonTool, settings.prefs.zoomLockPan, settings.prefs.detectShapes, settings.prefs.snapRotation90, controller.fingerTool, controller.twoFingerTool)
         canvas.applyZoomRange(settings.prefs.canvasMinZoomPercent, settings.prefs.canvasMaxZoomPercent)
         canvas.hiddenShapes = { settings.prefs.hiddenShapes }
         canvas.shapeOrder = { settings.prefs.shapeOrder }
@@ -3370,6 +3370,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             p.zoomLockPan,
             p.detectShapes,
             p.snapRotation90,
+            Tool.fromId(p.oneFingerDrag) ?: Tool.PAN,
+            Tool.fromId(p.twoFingerDrag),
         )
         infiniteOrNull?.applyZoomRange(p.canvasMinZoomPercent, p.canvasMaxZoomPercent)
         // Both surfaces' pads: the switch is about the device, not about one of them.
@@ -3379,6 +3381,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         useViewDefaultsFor(dark = resolvedAppearance(p) != "light")
         useThumbnailTheme()
         controller.fingerDraws = p.fingerDraws
+        controller.fingerTool = Tool.fromId(p.oneFingerDrag) ?: Tool.PAN
+        controller.twoFingerTool = Tool.fromId(p.twoFingerDrag)
         controller.zoomLockPan = p.zoomLockPan
         controller.detectShapes = p.detectShapes
         controller.snapRotation90 = p.snapRotation90

@@ -425,7 +425,10 @@
     <string name="pref_accent_colour">Couleur d\'accentuation</string>
     <string name="pref_start_fullscreen">Démarrer en plein écran</string>
     <string name="pref_input">Saisie</string>
-    <string name="pref_finger_draws">Dessiner avec le doigt (désactivé = le doigt fait défiler)</string>
+    <string name="pref_one_finger_drag">Glisser à un doigt</string>
+    <string name="pref_two_finger_drag">Glisser à deux doigts</string>
+    <string name="finger_current_tool">Outil actuel (dessiner)</string>
+    <string name="finger_pan_zoom">Défiler et zoomer</string>
     <string name="pref_zoom_lock_pan">Défilement lorsque le zoom est verrouillé</string>
     <string name="pan_single">Défilement à un doigt</string>
     <string name="pan_two">Défilement à deux doigts</string>

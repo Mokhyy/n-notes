@@ -482,7 +482,10 @@
     <string name="pref_accent_colour">Accent colour</string>
     <string name="pref_start_fullscreen">Start in fullscreen</string>
     <string name="pref_input">Input</string>
-    <string name="pref_finger_draws">Draw with finger (off = finger pans)</string>
+    <string name="pref_one_finger_drag">One-finger drag</string>
+    <string name="pref_two_finger_drag">Two-finger drag</string>
+    <string name="finger_current_tool">Current tool (draw)</string>
+    <string name="finger_pan_zoom">Pan and zoom</string>
     <string name="pref_zoom_lock_pan">Panning while zoom is locked</string>
     <string name="pan_single">Single-finger pan</string>
     <string name="pan_two">Two-finger pan</string>

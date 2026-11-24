@@ -425,7 +425,10 @@
     <string name="pref_accent_colour">Color de énfasis</string>
     <string name="pref_start_fullscreen">Iniciar en pantalla completa</string>
     <string name="pref_input">Entrada</string>
-    <string name="pref_finger_draws">Dibujar con el dedo (desactivado = el dedo desplaza)</string>
+    <string name="pref_one_finger_drag">Arrastrar con un dedo</string>
+    <string name="pref_two_finger_drag">Arrastrar con dos dedos</string>
+    <string name="finger_current_tool">Herramienta actual (dibujar)</string>
+    <string name="finger_pan_zoom">Desplazar y ampliar</string>
     <string name="pref_zoom_lock_pan">Desplazamiento con el zoom bloqueado</string>
     <string name="pan_single">Desplazar con un dedo</string>
     <string name="pan_two">Desplazar con dos dedos</string>

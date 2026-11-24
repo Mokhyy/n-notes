@@ -362,7 +362,10 @@
     <string name="pref_accent_colour">强调色</string>
     <string name="pref_start_fullscreen">启动时全屏</string>
     <string name="pref_input">输入</string>
-    <string name="pref_finger_draws">用手指绘制（关闭时手指用于平移）</string>
+    <string name="pref_one_finger_drag">单指拖动</string>
+    <string name="pref_two_finger_drag">双指拖动</string>
+    <string name="finger_current_tool">当前工具（绘制）</string>
+    <string name="finger_pan_zoom">平移和缩放</string>
     <string name="pref_zoom_lock_pan">锁定缩放时的平移方式</string>
     <string name="pan_single">单指平移</string>
     <string name="pan_two">双指平移</string>
