@@ -287,19 +287,19 @@ internal const val COMPACT_WIDTH_DP = 600
 /** Open/close animation duration for the sidebar drawer/pane and its scrim. */
 private const val SIDEBAR_ANIM_MS = 150
 
-private val SIDEBAR_WIDTH = 264.dp
+internal val SIDEBAR_WIDTH = 264.dp
 private val RAIL_WIDTH = 80.dp
 internal val PANE_GUTTER = 16.dp
-private val DRAWER_WIDTH = 296.dp
+internal val DRAWER_WIDTH = 296.dp
 
 /** The sidebar's sheet floats this far off the screen's edges, as the floating toolbar does. */
-private val SHEET_MARGIN = 8.dp
+internal val SHEET_MARGIN = 8.dp
 
 /** Sidebar rows sit this far inside the sheet, their corners curving about the sheet's. */
 private val ROW_INSET = 8.dp
 
 /** [Preferences.sidebarFloating]: the sidebar on a floating sheet with pill rows, else flush with square rows. */
-private val LocalFloatingSidebar = staticCompositionLocalOf { false }
+internal val LocalFloatingSidebar = staticCompositionLocalOf { false }
 
 /**
  * The home-first layout: the explorer (or Preferences) fills the screen beside the sidebar. Wide
@@ -447,15 +447,8 @@ private fun BackstageContent(
                 enter = slideInHorizontally(animationSpec = tween(SIDEBAR_ANIM_MS), initialOffsetX = { -it }),
                 exit = if (animateClose) slideOutHorizontally(animationSpec = tween(SIDEBAR_ANIM_MS), targetOffsetX = { -it }) else ExitTransition.None,
             ) {
-                // Flush with the screen's edge, so only its open side is rounded.
-                val shape = MaterialTheme.shapes.large.copy(topStart = CornerSize(0.dp), bottomStart = CornerSize(0.dp))
-                val surface = if (prefs.sidebarFloating) {
-                    Modifier.background(palette.menuBg.toComposeColor(), shape).clip(shape).padding(vertical = SHEET_MARGIN)
-                } else {
-                    Modifier.background(palette.panel.toComposeColor())
-                }
                 CompositionLocalProvider(LocalFloatingSidebar provides prefs.sidebarFloating) {
-                    BackstageSidebar(Modifier.width(DRAWER_WIDTH).swipeToClose(prefs, dismissDrawer).then(surface), editor, nav, onCollapse = dismissDrawer)
+                    BackstageSidebar(Modifier.width(DRAWER_WIDTH).swipeToClose(prefs, dismissDrawer).drawerSheet(prefs.sidebarFloating), editor, nav, onCollapse = dismissDrawer)
                 }
             }
         }
@@ -496,10 +489,7 @@ private fun BackstageContent(
                         val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
                         layout(w, placeable.height) { placeable.place(0, 0) }
                     }
-                    .then(
-                        if (floating) Modifier.padding(start = SHEET_MARGIN, top = SHEET_MARGIN, bottom = SHEET_MARGIN).floatingBar()
-                        else Modifier.background(palette.panel.toComposeColor()).clipToBounds(),
-                    ),
+                    .sidebarSheet(floating),
             ) { measurables, constraints ->
                 val shown = measurables[if (railed) 0 else 1].measure(Constraints(maxHeight = constraints.maxHeight, minHeight = constraints.maxHeight))
                 // Fully folded, the panel is left unplaced so keyboard focus can't land on buttons nobody can see.
@@ -740,9 +730,24 @@ private fun BackstageMain(
 
 // --- left rail ---
 
+/** The phone drawer's surface: flush with the screen's edge, so only its open side is rounded when floating. */
+@Composable
+internal fun Modifier.drawerSheet(floating: Boolean): Modifier {
+    val palette = LocalPalette.current
+    if (!floating) return background(palette.panel.toComposeColor())
+    val shape = MaterialTheme.shapes.large.copy(topStart = CornerSize(0.dp), bottomStart = CornerSize(0.dp))
+    return background(palette.menuBg.toComposeColor(), shape).clip(shape).padding(vertical = SHEET_MARGIN)
+}
+
+/** The wide sidebar's surface: a floating sheet off the screen's edges, or a flush panel. */
+@Composable
+internal fun Modifier.sidebarSheet(floating: Boolean): Modifier =
+    if (floating) padding(start = SHEET_MARGIN, top = SHEET_MARGIN, bottom = SHEET_MARGIN).floatingBar()
+    else background(LocalPalette.current.panel.toComposeColor()).clipToBounds()
+
 /** A sidebar row's pill, inset in the sheet on the usual 48dp pitch and filled when [selected]; the caller adds its click and content padding. */
 @Composable
-private fun Modifier.sidebarRow(selected: Boolean): Modifier {
+internal fun Modifier.sidebarRow(selected: Boolean): Modifier {
     val fill = if (selected) Modifier.background(LocalPalette.current.selectionBackground.toComposeColor()) else Modifier
     if (!LocalFloatingSidebar.current) return fillMaxWidth().height(48.dp).then(fill)
     val shape = MaterialTheme.shapes.large.nested(ROW_INSET, LocalDensity.current)
@@ -755,7 +760,7 @@ private fun Modifier.sidebarRow(selected: Boolean): Modifier {
 
 /** Content padding inside a sidebar row, wider on the text side; a flush row adds the pill's inset so its text stays put. */
 @Composable
-private fun sidebarRowPadding(start: Dp = 12.dp): PaddingValues =
+internal fun sidebarRowPadding(start: Dp = 12.dp): PaddingValues =
     if (LocalFloatingSidebar.current) PaddingValues(start = start, end = 16.dp) else PaddingValues(start = start + ROW_INSET, end = 16.dp + ROW_INSET)
 
 /** A sidebar row; [folded] adds a chevron for a group that unfolds in place. */

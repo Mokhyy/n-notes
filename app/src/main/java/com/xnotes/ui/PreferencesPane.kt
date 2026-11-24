@@ -285,7 +285,7 @@ fun PreferencesPane(
             search.sections.entries.filter { it.value <= line }.maxByOrNull { it.value }?.key
         }
     }
-    val sectionsPanel = @Composable {
+    val sectionsPanel = @Composable { CompositionLocalProvider(LocalFloatingSidebar provides prefs.sidebarFloating) {
         if (categorized) {
             val titles = PrefCategory.entries.map { stringResource(it.title) }
             PrefSectionsPanel(titles, category?.let { titles[it.ordinal] }, PrefCategory.entries.map { it.icon }) { title ->
@@ -301,7 +301,7 @@ fun PreferencesPane(
                 if (compact) sectionsOpen = false
             }
         }
-    }
+    } }
     val searchBar = @Composable { modifier: Modifier ->
         val hits = search.hits()
         FindBar(
@@ -317,7 +317,7 @@ fun PreferencesPane(
     }
     Row(Modifier.fillMaxSize()) {
     if (ownSidebar && !hosted) {
-        Column(Modifier.width(224.dp).fillMaxHeight().background(palette.panel.toComposeColor())) {
+        Column(Modifier.width(SIDEBAR_WIDTH).fillMaxHeight().sidebarSheet(prefs.sidebarFloating)) {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { if (categorized) category = null else onBackToHome() }.padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -673,7 +673,7 @@ fun PreferencesPane(
                 },
             ) {
                 Box(Modifier.fillMaxSize().background(palette.materialColors.scrim.withAlpha(82).toComposeColor()).clickable { sectionsOpen = false })
-                sectionsPanel()
+                Box(Modifier.width(DRAWER_WIDTH).fillMaxHeight().drawerSheet(prefs.sidebarFloating)) { sectionsPanel() }
             }
         }
         }
@@ -1561,23 +1561,15 @@ class PrefsNav(
 @Composable
 private fun PrefSectionsPanel(titles: List<String>, current: String?, icons: List<ImageVector> = emptyList(), onPick: (String) -> Unit) {
     val palette = LocalPalette.current
-    Column(
-        Modifier
-            .width(224.dp)
-            .fillMaxHeight()
-            .background(palette.panel.toComposeColor())
-            .verticalScroll(rememberScrollState())
-            .padding(vertical = 4.dp),
-    ) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
         for ((i, title) in titles.withIndex()) {
             val selected = title == current
             val color = (if (selected) palette.selectionForeground else palette.text).toComposeColor()
             Row(
                 Modifier
-                    .fillMaxWidth()
-                    .then(if (selected) Modifier.background(palette.selectionBackground.toComposeColor()) else Modifier)
+                    .sidebarRow(selected)
                     .clickable { onPick(title) }
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                    .padding(sidebarRowPadding()),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -1587,7 +1579,7 @@ private fun PrefSectionsPanel(titles: List<String>, current: String?, icons: Lis
                     color = color,
                     fontSize = 15.sp,
                     fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
