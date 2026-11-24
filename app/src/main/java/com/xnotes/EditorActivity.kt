@@ -909,7 +909,31 @@ private fun EditorScreen(
         }
     }
 
+    /** Bring back the split tab [pair] as it was left, with the pane of [uri] focused. */
+    fun showPair(pair: Triple<String, String, Float>, uri: String, after: () -> Unit) {
+        val (first, second, ratio) = pair
+        val focus = if (editor.isSameDocument(uri, second)) com.xnotes.ui.Pane.SECONDARY else com.xnotes.ui.Pane.PRIMARY
+        val firstShown = editor.noteOpen && editor.shownUri?.let { editor.isSameDocument(it, first) } == true
+        val secondShown = editor.secondary?.takeIf { it.noteOpen }?.shownUri?.let { editor.isSameDocument(it, second) } == true
+        if (firstShown && secondShown) { editor.focusPane(focus); after(); return }
+        guardedAll {
+            readerSplit.clear()
+            editor.splitRatio = ratio
+            scope.launch {
+                if (!firstShown) openInto(editor, first)
+                if (!editor.noteOpen) return@launch
+                val pane = editor.secondaryPane()
+                if (!secondShown) openInto(pane, second)
+                if (pane.noteOpen) editor.focusPane(focus)
+                else { editor.abandonSecondary(); editor.message = context.getString(R.string.err_open_second) }
+                after()
+            }
+        }
+    }
+
+    /** Open [uriStr] in the first pane; one that is half of a split tab opens with its split. */
     fun openTreeFile(uriStr: String) {
+        editor.tabPair(uriStr)?.let { showPair(it, uriStr) {}; return }
         scope.launch { openInto(editor, uriStr) }
     }
 
@@ -1439,27 +1463,6 @@ private fun EditorScreen(
                 if (readerSplit.size == 1 && !besideFits) readerStack.add(readerSplit.removeAt(0))
             }
             fun shownIn(uri: String) = editor.openPanes.firstOrNull { p -> p.shownUri?.let { p.isSameDocument(it, uri) } == true }
-            /** Bring back the split tab [pair] as it was left, with the pane of [uri] focused. */
-            fun showPair(pair: Triple<String, String, Float>, uri: String, after: () -> Unit) {
-                val (first, second, ratio) = pair
-                val focus = if (editor.isSameDocument(uri, second)) com.xnotes.ui.Pane.SECONDARY else com.xnotes.ui.Pane.PRIMARY
-                val firstShown = editor.noteOpen && editor.shownUri?.let { editor.isSameDocument(it, first) } == true
-                val secondShown = editor.secondary?.takeIf { it.noteOpen }?.shownUri?.let { editor.isSameDocument(it, second) } == true
-                if (firstShown && secondShown) { editor.focusPane(focus); after(); return }
-                guardedAll {
-                    readerSplit.clear()
-                    editor.splitRatio = ratio
-                    scope.launch {
-                        if (!firstShown) openInto(editor, first)
-                        if (!editor.noteOpen) return@launch
-                        val pane = editor.secondaryPane()
-                        if (!secondShown) openInto(pane, second)
-                        if (pane.noteOpen) editor.focusPane(focus)
-                        else { editor.abandonSecondary(); editor.message = context.getString(R.string.err_open_second) }
-                        after()
-                    }
-                }
-            }
             // A split tab opens as a split; any other tab opens on its own, the split waiting under its tab.
             fun switchTab(uri: String, after: () -> Unit = {}) {
                 editor.tabPair(uri)?.let { showPair(it, uri, after); return }
@@ -1995,8 +1998,8 @@ private fun EditorPane(
                 },
         ) {
             val onClose = if (closable) ({ actions.onClosePane(editor) }) else null
-            // In a split, a hairline over the toolbar marks the pane the pen and the keyboard are in.
-            if (closable) {
+            // In a split, a hairline over the toolbar marks the pane the pen and the keyboard are in; a split tab marks it itself.
+            if (closable && app.shownUri?.let(app::tabPair) == null) {
                 Box(
                     Modifier
                         .fillMaxWidth()

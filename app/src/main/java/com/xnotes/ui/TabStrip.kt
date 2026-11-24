@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,8 +38,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -123,28 +126,27 @@ internal fun TabStrip(
             val widthPx = with(LocalDensity.current) { width.roundToPx() }
             LaunchedEffect(lead, slots.size) { if (lead >= 0) scroll.animateScrollTo((lead * widthPx - widthPx).coerceAtLeast(0)) }
             // shortcut: the strip does not scroll while a tab is carried to its edge; add it if long strips need it.
-            Row(Modifier.fillMaxHeight().horizontalScroll(scroll).padding(start = 6.dp), verticalAlignment = Alignment.Bottom) {
+            // As wide as the strip, so a tab carried past the last one is not cut off where they end.
+            Row(Modifier.fillMaxSize().horizontalScroll(scroll).padding(start = 6.dp), verticalAlignment = Alignment.Bottom) {
                 val caret = order.caret(slots.size)
                 slots.forEachIndexed { s, range ->
                     if (caret == s) DropLine(vertical = false, Modifier.align(Alignment.CenterVertically))
-                    // A hairline parts two dim tabs; none is drawn against the shown one, which has its own edge.
-                    val parted = s > 0 && s != lead && s - 1 != lead
                     ReorderItem(order, s, tabs[range.first].uri, slots.size, below, { from, to -> onMove(tabs[slots[from].first], landing(slots, from, to)) }) {
                         if (range.count() == 2) {
                             val focused = when (active) { range.first -> 0; range.last -> 1; else -> -1 }
-                            SplitTab(tabs[range.first], tabs[range.last], focused, parted, below, Modifier.width(width * SPLIT_WIDTH), onSelect) {
+                            SplitTab(tabs[range.first], tabs[range.last], focused, below, Modifier.width(width * SPLIT_WIDTH), onSelect) {
                                 onUnsplit(tabs[range.first])
                             }
                         } else {
                             val tab = tabs[range.first]
-                            Tab(tab, range.first == active, parted, below, Modifier.width(width), { onSelect(tab) }, { onClose(tab) })
+                            Tab(tab, range.first == active, below, Modifier.width(width), { onSelect(tab) }, { onClose(tab) })
                         }
                     }
                 }
                 if (caret == slots.size) DropLine(vertical = false, Modifier.align(Alignment.CenterVertically))
             }
         }
-        TabCounter(tabs, slots, active, visible, shown != null, onSelect, onClose, onMove, onMoveFirst, onSplit, onCloseSplit, onColor, onCloseOthers)
+        TabCounter(tabs, slots, active, visible, shown != null, onSelect, onClose, onMove, onMoveFirst, onSplit, onUnsplit, onCloseSplit, onColor, onCloseOthers)
     }
 }
 
@@ -234,7 +236,6 @@ private val tabShape @Composable get() = MaterialTheme.shapes.small.copy(bottomS
 private fun Tab(
     tab: OpenTab,
     shown: Boolean,
-    parted: Boolean,
     below: Color,
     modifier: Modifier,
     onSelect: () -> Unit,
@@ -242,13 +243,11 @@ private fun Tab(
 ) {
     val palette = LocalPalette.current
     Box(modifier.height(STRIP_HEIGHT - 6.dp)) {
-        if (parted) {
-            Box(Modifier.align(Alignment.CenterStart).width(1.dp).height(16.dp).background(palette.border.toComposeColor()))
-        }
         Row(
             Modifier
                 .fillMaxHeight()
                 .padding(horizontal = if (shown) 0.dp else 3.dp, vertical = if (shown) 0.dp else 3.dp)
+                .tabOutline(shown, below)
                 .clip(if (shown) tabShape else MaterialTheme.shapes.small)
                 .background(if (shown) below else Color.Transparent)
                 .clickable(role = Role.Tab, onClick = onSelect)
@@ -283,6 +282,18 @@ private fun Tab(
     }
 }
 
+/** A thin outline that tells the tabs apart; the shown tab's is open at the bottom, where it runs into the surface below. */
+@Composable
+private fun Modifier.tabOutline(shown: Boolean, below: Color): Modifier {
+    val line = LocalPalette.current.border.toComposeColor()
+    if (!shown) return border(1.dp, line, MaterialTheme.shapes.small)
+    return drawWithContent {
+        drawContent()
+        val w = 1.dp.toPx()
+        drawRect(below, Offset(w, size.height - w), Size(size.width - 2 * w, w))
+    }.border(1.dp, line, tabShape)
+}
+
 /** A tab's colour code, run along its top edge as a tab group's is. */
 @Composable
 private fun ColorEdge(color: com.xnotes.core.model.Rgba, modifier: Modifier, inset: Dp, top: Dp) {
@@ -305,7 +316,6 @@ private fun SplitTab(
     first: OpenTab,
     second: OpenTab,
     focused: Int,
-    parted: Boolean,
     below: Color,
     modifier: Modifier,
     onSelect: (OpenTab) -> Unit,
@@ -315,13 +325,11 @@ private fun SplitTab(
     val dim = palette.textDim.toComposeColor()
     val shown = focused >= 0
     Box(modifier.height(STRIP_HEIGHT - 6.dp)) {
-        if (parted) {
-            Box(Modifier.align(Alignment.CenterStart).width(1.dp).height(16.dp).background(palette.border.toComposeColor()))
-        }
         Row(
             Modifier
                 .fillMaxHeight()
                 .padding(horizontal = if (shown) 0.dp else 3.dp, vertical = if (shown) 0.dp else 3.dp)
+                .tabOutline(shown, below)
                 .clip(if (shown) tabShape else MaterialTheme.shapes.small)
                 .background(if (shown) below else Color.Transparent)
                 .padding(end = 4.dp),
@@ -358,6 +366,9 @@ private fun SplitTab(
     }
 }
 
+private fun splitName(first: OpenTab, second: OpenTab) =
+    DocumentKind.stripSuffix(first.name) + " | " + DocumentKind.stripSuffix(second.name)
+
 private fun kindIcon(name: String): ImageVector = when (DocumentKind.ofName(name)) {
     DocumentKind.CANVAS -> XnotesIcons.canvas
     DocumentKind.PDF -> XnotesIcons.pdfFile
@@ -377,6 +388,7 @@ private fun TabCounter(
     onMove: (OpenTab, Int) -> Unit,
     onMoveFirst: (OpenTab) -> Unit,
     onSplit: (OpenTab) -> Unit,
+    onUnsplit: (OpenTab) -> Unit,
     onCloseSplit: (() -> Unit)?,
     onColor: (OpenTab, com.xnotes.core.model.Rgba?) -> Unit,
     onCloseOthers: () -> Unit,
@@ -422,8 +434,20 @@ private fun TabCounter(
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             val tab = acting?.let { uri -> tabs.firstOrNull { it.uri == uri } }
+            // A split tab is acted on as one: its colour goes to both halves.
+            val partner = tab?.let { t -> slots.firstOrNull { it.count() == 2 && it.first == tabs.indexOf(t) }?.let { tabs[it.last] } }
             when {
-                tab != null && colours -> ColorCodeMenuContent({ colours = false }) { c -> open = false; onColor(tab, c) }
+                tab != null && colours -> ColorCodeMenuContent({ colours = false }) { c ->
+                    open = false
+                    onColor(tab, c)
+                    partner?.let { onColor(it, c) }
+                }
+                tab != null && partner != null -> {
+                    MenuBack(splitName(tab, partner)) { acting = null }
+                    MenuItem(stringResource(R.string.move_to_first), XnotesIcons.arrowUp, enabled = tabs.firstOrNull() != tab) { open = false; onMoveFirst(tab) }
+                    MenuItem(stringResource(R.string.colour_code), XnotesIcons.palette, more = true) { colours = true }
+                    MenuItem(stringResource(R.string.unsplit_tab), XnotesIcons.split) { open = false; onUnsplit(tab) }
+                }
                 tab != null -> {
                     MenuBack(DocumentKind.stripSuffix(tab.name)) { acting = null }
                     MenuItem(stringResource(R.string.move_to_first), XnotesIcons.arrowUp, enabled = slots.firstOrNull()?.contains(tabs.indexOf(tab)) != true) { open = false; onMoveFirst(tab) }
@@ -440,17 +464,16 @@ private fun TabCounter(
                     val menuBg = palette.menuBg.toComposeColor()
                     slots.forEachIndexed { s, range ->
                         if (caret == s) DropLine(vertical = true)
-                        // A split tab's two rows move as one.
                         ReorderItem(order, s, tabs[range.first].uri, slots.size, menuBg, { from, to -> onMove(tabs[slots[from].first], landing(slots, from, to)) }) {
-                            Column {
-                                for (i in range) {
-                                    val t = tabs[i]
-                                    DropdownMenuItem(
-                                        text = { Text(DocumentKind.stripSuffix(t.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            // A split tab is one row, under the split screen's own icon.
+                            val t = tabs[range.first]
+                            val split = range.count() == 2
+                            DropdownMenuItem(
+                                        text = { Text(if (split) splitName(t, tabs[range.last]) else DocumentKind.stripSuffix(t.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                         onClick = { open = false; onSelect(t) },
-                                        selected = i == shown || i in onScreen,
+                                        selected = range.any { it == shown || it in onScreen },
                                         leadingIcon = {
-                                            Icon(kindIcon(t.name), contentDescription = null, tint = t.color?.toComposeColor() ?: androidx.compose.material3.LocalContentColor.current, modifier = Modifier.size(18.dp))
+                                            Icon(if (split) XnotesIcons.split else kindIcon(t.name), contentDescription = null, tint = t.color?.toComposeColor() ?: androidx.compose.material3.LocalContentColor.current, modifier = Modifier.size(18.dp))
                                         },
                                         trailingIcon = {
                                             Box(
@@ -460,9 +483,7 @@ private fun TabCounter(
                                                 Icon(XnotesIcons.more, contentDescription = stringResource(R.string.tab_options), modifier = Modifier.size(18.dp))
                                             }
                                         },
-                                    )
-                                }
-                            }
+                            )
                         }
                     }
                     if (caret == slots.size) DropLine(vertical = true)

@@ -1611,4 +1611,5 @@
     <string name="unsupported_file_body">%1$s no se puede abrir en Sponka.</string>
     <string name="open_in_split">Abrir en pantalla dividida</string>
     <string name="close_split">Cerrar pantalla dividida</string>
+    <string name="unsplit_tab">Separar</string>
 </resources>

@@ -1634,4 +1634,5 @@
     <string name="unsupported_file_body">Soubor %1$s nelze ve Sponce otevřít.</string>
     <string name="open_in_split">Otevřít v rozdělené obrazovce</string>
     <string name="close_split">Zavřít rozdělenou obrazovku</string>
+    <string name="unsplit_tab">Zrušit rozdělení</string>
 </resources>
