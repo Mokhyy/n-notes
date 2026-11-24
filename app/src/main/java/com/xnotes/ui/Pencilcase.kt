@@ -195,6 +195,8 @@ fun BoxScope.Pencilcase(
             Modifier
                 .align(Alignment.TopStart)
                 .offset { shown().round() }
+                // Unseen until its saved place is read, so it never shows at the top left first.
+                .alpha(if (placed) 1f else 0f)
                 .onSizeChanged { size = it }
                 .pointerInput(current == Mode.REORDER) {
                     if (current == Mode.REORDER) return@pointerInput // a long press there picks up an item instead
