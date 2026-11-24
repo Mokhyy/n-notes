@@ -212,10 +212,10 @@ enum class ImportKind {
     companion object {
         /** The document extensions the "Import file" action understands (for the picker + UI hint). */
         val IMPORT_EXTENSIONS = listOf("pdf", "png", "jpg", "jpeg", "webp", "gif", "bmp", "svg",
-            "txt", "md", "markdown", "csv", "rtf", "html", "htm", "epub", "fb2", "mobi", "azw", "azw3", "prc", "docx", "xlsx")
+            "txt", "md", "markdown", "csv", "rtf", "html", "htm", "xml", "epub", "fb2", "mobi", "azw", "azw3", "prc", "docx", "xlsx", "pptx", "ppt", "odt")
 
         private val IMAGE_EXT = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp", "svg", "heic", "heif")
-        private val TEXT_EXT = setOf("txt", "md", "markdown", "csv", "rtf", "html", "htm", "epub", "docx", "xlsx")
+        private val TEXT_EXT = setOf("txt", "md", "markdown", "csv", "rtf", "html", "htm", "xml", "docx", "xlsx", "pptx", "ppt", "odt")
 
         /** Classify a picked file by extension (then mime) into the importer that should handle it. */
         fun classify(name: String, mime: String?): ImportKind {

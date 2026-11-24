@@ -501,12 +501,14 @@ private fun EditorScreen(
         // plain text / markdown / csv / html / rtf
         "text/plain", "text/markdown", "text/x-markdown",
         "text/csv", "text/comma-separated-values", "application/csv",
-        "text/html", "text/rtf", "application/rtf",
+        "text/html", "text/rtf", "application/rtf", "text/xml", "application/xml",
         // ebook / office
         "application/epub+zip", "application/x-fictionbook+xml", "application/x-fictionbook",
         "application/x-mobipocket-ebook", "application/vnd.amazon.ebook", "application/vnd.amazon.mobi8-ebook",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/vnd.ms-powerpoint",
+        "application/vnd.oasis.opendocument.text",
     )
     // A PDF "Save as" destination. The note is already rendered into [pendingExportTemp]
     // (off-thread, behind the progress dialog), so the picker just chooses where to copy it —

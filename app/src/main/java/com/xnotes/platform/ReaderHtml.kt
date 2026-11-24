@@ -110,6 +110,13 @@ object ReaderHtml {
             .note{font-size:13px;color:${c.muted};margin:.6em 0}
             .math{display:inline-block;background:currentColor;-webkit-mask-size:100% 100%;-webkit-mask-repeat:no-repeat}
             .math-block{text-align:center;margin:.8em 0;overflow-x:auto}
+            pre.text{white-space:pre-wrap;background:none;padding:0;font-family:inherit;font-size:1em;line-height:1.6}
+            pre.code{white-space:pre-wrap;word-break:break-word;font-size:14px}
+            .x-t{color:${c.accent}}
+            .x-a{color:${c.text};opacity:.8}
+            .x-v{color:${c.muted}}
+            .x-c{color:${c.muted};font-style:italic}
+            .poem{margin:.8em 0 .8em 1.5em}
         """.trimIndent()
         return "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" +
             "<style>$css\n$extraCss</style></head><body>$body</body></html>"

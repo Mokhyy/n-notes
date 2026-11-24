@@ -22,14 +22,15 @@ object DocImport {
             when {
                 ext == "txt" || mime == "text/plain" -> plain(file)
                 ext == "csv" || mime == "text/csv" -> plain(file)
-                ext == "rtf" || mime == "application/rtf" || mime == "text/rtf" -> fromRtf(file.readText())
+                ext == "rtf" || mime == "application/rtf" || mime == "text/rtf" -> listOf(htmlToText(OfficeHtml.rtf(file.readText())))
+                ext == "odt" -> listOf(bookText(withZip(file) { OfficeHtml.odt(it, ::parser) }))
+                ext == "pptx" -> listOf(bookText(withZip(file) { ReaderHtml.pptx(it, ::parser) }))
+                ext == "ppt" -> listOf(htmlToText(OfficeHtml.ppt(file.readBytes())))
                 ext == "html" || ext == "htm" || mime == "text/html" -> listOf(htmlToText(file.readText()))
                 ext == "docx" -> fromDocx(file)
                 ext == "xlsx" -> fromXlsx(file)
-                ext == "epub" -> listOf(bookText(ZipFile(file).use { zip ->
-                    BookHtml.epub({ path -> zip.getEntry(path)?.let { e -> zip.getInputStream(e).use { it.readBytes() } } })
-                }))
-                ext == "fb2" -> listOf(bookText(BookHtml.fb2(file.readBytes(), { android.util.Xml.newPullParser() })))
+                ext == "epub" -> listOf(bookText(withZip(file) { BookHtml.epub(it) }))
+                ext == "fb2" -> listOf(bookText(BookHtml.fb2(file.readBytes(), ::parser)))
                 ext in setOf("mobi", "prc", "azw", "azw3") -> listOf(bookText(BookHtml.mobi(file.readBytes())))
                 else -> plain(file) // best effort: treat unknown as text
             }
@@ -53,50 +54,19 @@ object DocImport {
 
     private fun plain(file: File): List<String> = file.readText().split("\n")
 
-    /** A book's text: its pictures would come through as placeholder characters. */
+    /** A book's or deck's text: its pictures would come through as placeholder characters. */
     private fun bookText(html: String): String = htmlToText(html.replace(Regex("<img\\b[^>]*>", RegexOption.IGNORE_CASE), ""))
 
     private fun htmlToText(html: String): String =
         Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY).toString().trim()
 
-    /** Minimal RTF to text: drop groups/control words, honour \par and \tab, unescape \'xx. */
-    private fun fromRtf(rtf: String): List<String> {
-        val sb = StringBuilder()
-        var i = 0
-        while (i < rtf.length) {
-            val c = rtf[i]
-            when (c) {
-                '\\' -> {
-                    // control word or symbol
-                    if (i + 1 < rtf.length && (rtf[i + 1] == '\'')) {
-                        // hex escape \'xx
-                        val hex = rtf.substring(i + 2, minOf(i + 4, rtf.length))
-                        hex.toIntOrNull(16)?.let { sb.append(it.toChar()) }
-                        i += 4
-                    } else {
-                        var j = i + 1
-                        while (j < rtf.length && rtf[j].isLetter()) j++
-                        val word = rtf.substring(i + 1, j)
-                        // optional numeric parameter
-                        var k = j
-                        if (k < rtf.length && (rtf[k] == '-' || rtf[k].isDigit())) {
-                            if (rtf[k] == '-') k++
-                            while (k < rtf.length && rtf[k].isDigit()) k++
-                        }
-                        if (k < rtf.length && rtf[k] == ' ') k++ // a space delimiter is consumed
-                        when (word) {
-                            "par", "line" -> sb.append('\n')
-                            "tab" -> sb.append('\t')
-                        }
-                        i = k
-                    }
-                }
-                '{', '}' -> i++
-                else -> { sb.append(c); i++ }
-            }
-        }
-        return sb.toString().split("\n")
+    private fun <T> withZip(file: File, block: (ReaderHtml.ZipRead) -> T): T = ZipFile(file).use { zip ->
+        block(ReaderHtml.ZipRead { path -> zip.getEntry(path)?.let { e -> zip.getInputStream(e).use { it.readBytes() } } })
     }
+
+    /** Office XML is matched on its prefixed names, as the reader reads it. */
+    private fun parser(): org.xmlpull.v1.XmlPullParser =
+        android.util.Xml.newPullParser().apply { setFeature(org.xmlpull.v1.XmlPullParser.FEATURE_PROCESS_NAMESPACES, false) }
 
     /** DOCX: word/document.xml, each <w:p> a paragraph, text from its <w:t> runs. */
     private fun fromDocx(file: File): List<String> {
