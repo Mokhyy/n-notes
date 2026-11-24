@@ -8984,7 +8984,14 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     override val hostActiveColorIndex: Int get() = activeColorIndex
     override val hostRecentColors: List<Rgba> get() = recentColors
     override val hostHasPdf: Boolean get() = hasPdf
-    override val hostPaperColor: Rgba get() = currentPage?.let { state.paperColor(it) } ?: state.palette.paper
+    override val hostPaperColor: Rgba
+        get() {
+            val page = currentPage ?: return state.palette.paper
+            val paper = state.paperColor(page)
+            // A PDF page shows its paper through the View menu's filter, an invert turning white dark.
+            val filter = if (page.pdfPage != null) pdfPageFilter().pageMatrix else null
+            return filter?.let { com.xnotes.canvas.PdfColorFilter.apply(it, paper) } ?: paper
+        }
     override val hostZoom: Double get() = state.zoom
     override val hostIsPaged: Boolean get() = true
 

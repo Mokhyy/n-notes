@@ -3,6 +3,11 @@ package com.xnotes.ui
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -36,6 +44,7 @@ import com.xnotes.core.stroke.Sample
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolConfig
 import com.xnotes.platform.AndroidRasterSurface
+import com.xnotes.ui.icons.XnotesIcons
 import com.xnotes.ui.theme.LocalPalette
 import com.xnotes.ui.theme.toComposeColor
 import kotlin.math.PI
@@ -50,12 +59,19 @@ import kotlin.math.sin
 /**
  * The stroke [tool] draws with [config] as it stands: one canned pen gesture through the real
  * engine and painter, on the paper in view and at the size the nib leaves on screen now. Tape is
- * laid over a line of stand-in words instead.
+ * laid over a line of stand-in words instead. The corner button swaps the paper for a light or a
+ * dark one, for ink that is meant for the other kind of page.
  */
 @Composable
 internal fun StrokePreview(tool: Tool, config: ToolConfig, host: ToolPopupHost, modifier: Modifier = Modifier) {
     val density = LocalDensity.current.density
-    val paper = remember { host.hostPaperColor }
+    val inView = remember { host.hostPaperColor }
+    var swapped by remember { mutableStateOf(false) }
+    val paper = when {
+        !swapped -> inView
+        inView.luminance() > 0.5 -> DARK_PAPER
+        else -> LIGHT_PAPER
+    }
     val zoom = remember { host.hostZoom }
     var size by remember { mutableStateOf(IntSize.Zero) }
     val shape = MaterialTheme.shapes.small
@@ -74,8 +90,24 @@ internal fun StrokePreview(tool: Tool, config: ToolConfig, host: ToolPopupHost, 
             }
             Image(image, stringResource(R.string.stroke_preview), Modifier.fillMaxSize())
         }
+        val mark = if (paper.luminance() > 0.5) Color.Black else Color.White
+        Box(
+            Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(mark.copy(alpha = 0.08f))
+                .clickable(role = Role.Switch) { swapped = !swapped },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(XnotesIcons.contrast, stringResource(R.string.preview_background), tint = mark.copy(alpha = 0.6f), modifier = Modifier.size(14.dp))
+        }
     }
 }
+
+private val LIGHT_PAPER = Rgba(255, 255, 255)
+private val DARK_PAPER = Rgba(32, 32, 32)
 
 /** The gesture the preview draws: a wave pressed lightly at its ends and slowed into each of its bends. */
 private object StrokeSample {

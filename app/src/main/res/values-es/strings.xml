@@ -1604,4 +1604,5 @@
     <string name="move_to_first">Mover al principio</string>
     <string name="all_tabs">Todas las pestañas</string>
     <string name="tab_options">Opciones de pestaña</string>
+    <string name="preview_background">Cambiar fondo de la vista previa</string>
 </resources>
