@@ -1421,7 +1421,39 @@ private fun EditorScreen(
             LaunchedEffect(readerSplit.size, besideFits) {
                 if (readerSplit.size == 1 && !besideFits) readerStack.add(readerSplit.removeAt(0))
             }
-            SplitHost(editor, actions, readerSplit) { file, modifier ->
+            // Tabs act on the focused pane; a tab already on screen in the other pane just takes the focus.
+            fun shownIn(uri: String) = editor.openPanes.firstOrNull { p -> p.shownUri?.let { p.isSameDocument(it, uri) } == true }
+            fun switchTab(uri: String, after: () -> Unit = {}) {
+                shownIn(uri)?.let { editor.focusPane(it.pane); after(); return }
+                val pane = editor.active
+                guarded(pane) { scope.launch { openInto(pane, uri); after() } }
+            }
+            fun closeTab(uri: String) {
+                val pane = editor.active
+                if (pane.shownUri?.let { editor.isSameDocument(it, uri) } != true) { editor.closeTab(uri); return }
+                val tabs = editor.openTabs
+                val at = tabs.indexOfFirst { editor.isSameDocument(it.uri, uri) }
+                val next = tabs.getOrNull(at + 1) ?: tabs.getOrNull(at - 1)
+                if (next == null) guarded(pane) { pane.goHome(); editor.closeTab(uri) }
+                else switchTab(next.uri) { editor.closeTab(uri) }
+            }
+            val tabStrip: @Composable () -> Unit = {
+                val tabs = editor.openTabs
+                val pane = editor.active
+                if (tabs.size >= 2 && pane.noteOpen) {
+                    com.xnotes.ui.TabStrip(
+                        tabs = tabs,
+                        current = pane.shownUri,
+                        same = editor::isSameDocument,
+                        onSelect = { switchTab(it.uri) },
+                        onClose = { closeTab(it.uri) },
+                        onMoveFirst = { editor.moveTabFirst(it.uri) },
+                        onColor = { t, c -> editor.colorTab(t.uri, c) },
+                        onCloseOthers = { editor.keepOnlyTab(pane.shownUri) },
+                    )
+                }
+            }
+            SplitHost(editor, actions, readerSplit, tabStrip) { file, modifier ->
                 Box(modifier) {
                     androidx.compose.runtime.key(file.uri) {
                         com.xnotes.ui.ReaderScreen(editor = editor, file = file, onClose = { readerSplit.remove(file) }, onWikiLink = ::followWikiLink)
@@ -1738,6 +1770,7 @@ private fun SplitHost(
     editor: Editor,
     actions: PaneActions,
     readers: List<com.xnotes.ui.ReaderFile>,
+    tabStrip: @Composable () -> Unit,
     reader: @Composable (com.xnotes.ui.ReaderFile, Modifier) -> Unit,
 ) {
     val second = editor.secondary
@@ -1756,70 +1789,73 @@ private fun SplitHost(
     val sideBySide = LocalConfiguration.current.orientation ==
         android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val ratio = editor.splitRatio.coerceIn(MIN_PANE_RATIO, 1f - MIN_PANE_RATIO)
-    BoxWithConstraints(Modifier.fillMaxSize().then(SwallowTouches).imePadding()) {
-        val fullW = maxWidth
-        val fullH = maxHeight
-        val full = if (sideBySide) fullW else fullH
-        // The panes meet along the split axis and take all of it; the divider is not a gap between
-        // them but a handle floating over the seam, so there is no strip of its own colour to show
-        // beside the toolbars. Across the axis both run full.
-        val firstExtent = if (split) full * ratio else full
-        val secondExtent = if (split) full - firstExtent else full
+    Column(Modifier.fillMaxSize().then(SwallowTouches)) {
+        if (readerPair == null) tabStrip()
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+            val fullW = maxWidth
+            val fullH = maxHeight
+            val full = if (sideBySide) fullW else fullH
+            // The panes meet along the split axis and take all of it; the divider is not a gap between
+            // them but a handle floating over the seam, so there is no strip of its own colour to show
+            // beside the toolbars. Across the axis both run full.
+            val firstExtent = if (split) full * ratio else full
+            val secondExtent = if (split) full - firstExtent else full
 
-        /** Sizes a pane to [extent] along the split axis and the whole window across it. */
-        fun paneSize(extent: Dp) = Modifier.size(
-            if (sideBySide) extent else fullW,
-            if (sideBySide) fullH else extent,
-        )
+            /** Sizes a pane to [extent] along the split axis and the whole window across it. */
+            fun paneSize(extent: Dp) = Modifier.size(
+                if (sideBySide) extent else fullW,
+                if (sideBySide) fullH else extent,
+            )
 
-        /** Offsets a pane [along] the split axis from the top-left of the editor area. */
-        fun paneOffset(along: Dp) = Modifier.offset(
-            x = if (sideBySide) along else 0.dp,
-            y = if (sideBySide) 0.dp else along,
-        )
+            /** Offsets a pane [along] the split axis from the top-left of the editor area. */
+            fun paneOffset(along: Dp) = Modifier.offset(
+                x = if (sideBySide) along else 0.dp,
+                y = if (sideBySide) 0.dp else along,
+            )
 
-        if (editor.noteOpen) {
-            EditorPane(
-                editor = editor,
-                app = editor,
-                actions = actions,
-                closable = split,
-                modifier = paneSize(firstExtent),
-            )
-        }
-        if (second?.noteOpen == true) {
-            EditorPane(
-                editor = second,
-                app = editor,
-                actions = actions,
-                closable = split,
-                modifier = paneOffset(if (split) firstExtent else 0.dp).then(paneSize(secondExtent)),
-            )
-        }
-        if (besideReader != null) reader(besideReader, paneOffset(firstExtent).then(paneSize(secondExtent)))
-        // Composed last so it sits over both panes and catches the drag before either of them.
-        if (split) {
-            SplitDivider(
-                sideBySide = sideBySide,
-                extentPx = with(LocalDensity.current) { full.toPx() },
-                ratio = editor.splitRatio,
-                onRatio = { editor.splitRatio = it },
-                modifier = paneOffset((firstExtent - DIVIDER / 2).coerceAtLeast(0.dp))
-                    .then(paneSize(DIVIDER)),
-            )
-        }
-        if (readerPair != null) {
-            val pairFirst = full * readerPairRatio.coerceIn(MIN_PANE_RATIO, 1f - MIN_PANE_RATIO)
-            Box(Modifier.fillMaxSize().then(SwallowTouches)) {
-                reader(readerPair[0], paneSize(pairFirst))
-                reader(readerPair[1], paneOffset(pairFirst).then(paneSize(full - pairFirst)))
+            if (editor.noteOpen) {
+                EditorPane(
+                    editor = editor,
+                    app = editor,
+                    actions = actions,
+                    closable = split,
+                    modifier = paneSize(firstExtent),
+                )
+            }
+            if (second?.noteOpen == true) {
+                EditorPane(
+                    editor = second,
+                    app = editor,
+                    actions = actions,
+                    closable = split,
+                    modifier = paneOffset(if (split) firstExtent else 0.dp).then(paneSize(secondExtent)),
+                )
+            }
+            if (besideReader != null) reader(besideReader, paneOffset(firstExtent).then(paneSize(secondExtent)))
+            // Composed last so it sits over both panes and catches the drag before either of them.
+            if (split) {
                 SplitDivider(
                     sideBySide = sideBySide,
                     extentPx = with(LocalDensity.current) { full.toPx() },
-                    ratio = readerPairRatio,
-                    onRatio = { readerPairRatio = it },
-                    modifier = paneOffset((pairFirst - DIVIDER / 2).coerceAtLeast(0.dp)).then(paneSize(DIVIDER)),
+                    ratio = editor.splitRatio,
+                    onRatio = { editor.splitRatio = it },
+                    modifier = paneOffset((firstExtent - DIVIDER / 2).coerceAtLeast(0.dp))
+                        .then(paneSize(DIVIDER)),
                 )
+            }
+            if (readerPair != null) {
+                val pairFirst = full * readerPairRatio.coerceIn(MIN_PANE_RATIO, 1f - MIN_PANE_RATIO)
+                Box(Modifier.fillMaxSize().then(SwallowTouches)) {
+                    reader(readerPair[0], paneSize(pairFirst))
+                    reader(readerPair[1], paneOffset(pairFirst).then(paneSize(full - pairFirst)))
+                    SplitDivider(
+                        sideBySide = sideBySide,
+                        extentPx = with(LocalDensity.current) { full.toPx() },
+                        ratio = readerPairRatio,
+                        onRatio = { readerPairRatio = it },
+                        modifier = paneOffset((pairFirst - DIVIDER / 2).coerceAtLeast(0.dp)).then(paneSize(DIVIDER)),
+                    )
+                }
             }
         }
     }

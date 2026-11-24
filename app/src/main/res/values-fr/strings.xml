@@ -1577,4 +1577,9 @@
     <string name="math_llm_offline_none">Aucun</string>
     <string name="math_llm_offline_hint">Sans réseau, Convertir en maths utilise ce modèle téléchargé.</string>
     <string name="math_wip">En cours de développement : cette fonction est encore en chantier et vous pourriez rencontrer des problèmes.</string>
+    <string name="close_tab">Fermer l\'onglet</string>
+    <string name="close_all_tabs">Fermer tous les onglets</string>
+    <string name="move_to_first">Placer en premier</string>
+    <string name="all_tabs">Tous les onglets</string>
+    <string name="tab_options">Options de l\'onglet</string>
 </resources>

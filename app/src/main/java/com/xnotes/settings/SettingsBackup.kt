@@ -25,7 +25,7 @@ object SettingsBackup {
 
     /** Settings about this device or its folders: the notes folder, pins, recents, per-folder views, window state. */
     private val DEVICE_SETTINGS = setOf(
-        "browse_root", "sidebar_visible", "backstage_rail", "pinned_folders", "folder_views", "recent_docs",
+        "browse_root", "sidebar_visible", "backstage_rail", "pinned_folders", "folder_views", "recent_docs", "open_tabs",
         "last_folder", "render_scale", "finger_draw_auto_checked",
     )
 

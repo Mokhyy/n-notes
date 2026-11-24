@@ -97,6 +97,8 @@ data class Settings(
     val folderViews: Map<String, ExplorerView> = emptyMap(),
     /** Notes and canvases opened on this device, newest first. */
     val recentDocs: List<RecentDoc> = emptyList(),
+    /** Notes and canvases kept open as tabs on this device. */
+    val openTabs: List<OpenTab> = emptyList(),
     /** The explorer folder last shown, so Home can open there again. */
     val lastFolder: String? = null,
     val renderScale: Double = 1.0,
@@ -185,6 +187,7 @@ data class Settings(
             .put("explorer_view", explorerView.toJson())
             .put("folder_views", JSONObject().apply { folderViews.forEach { (k, v) -> put(k, v.toJson()) } })
             .put("recent_docs", JSONArray().apply { recentDocs.forEach { put(JSONObject().put("uri", it.uri).put("name", it.name).put("opened", it.opened)) } })
+            .put("open_tabs", JSONArray().apply { openTabs.forEach { t -> put(JSONObject().put("uri", t.uri).put("name", t.name).apply { t.color?.let { put("color", rgbaArr(it)) } }) } })
             .apply { lastFolder?.let { put("last_folder", it) } }
             .put("render_scale", renderScale)
             .apply { if (!newNoteStyle.isEmpty) put("new_note_style", pageStyleJson(newNoteStyle)) }
@@ -258,6 +261,7 @@ data class Settings(
                 ),
                 folderViews = o.optJSONObject("folder_views")?.let { v -> v.keys().asSequence().associateWith { ExplorerView.fromJson(v.optJSONObject(it)) } }.orEmpty(),
                 recentDocs = recentDocs(o.optJSONArray("recent_docs")),
+                openTabs = openTabs(o.optJSONArray("open_tabs")),
                 lastFolder = o.optString("last_folder", "").ifEmpty { null },
                 renderScale = o.optDouble("render_scale", 1.0),
                 newNoteStyle = pageStyle(o.optJSONObject("new_note_style")),
@@ -352,6 +356,15 @@ data class Settings(
                 val o = a.optJSONObject(i) ?: return@mapNotNull null
                 val uri = o.optString("uri", "").ifEmpty { return@mapNotNull null }
                 RecentDoc(uri, o.optString("name", ""), o.optLong("opened", 0L))
+            }
+        }
+
+        private fun openTabs(a: JSONArray?): List<OpenTab> {
+            if (a == null) return emptyList()
+            return (0 until a.length()).mapNotNull { i ->
+                val o = a.optJSONObject(i) ?: return@mapNotNull null
+                val uri = o.optString("uri", "").ifEmpty { return@mapNotNull null }
+                OpenTab(uri, o.optString("name", ""), rgba(o.optJSONArray("color")))
             }
         }
 

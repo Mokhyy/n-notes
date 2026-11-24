@@ -38,6 +38,11 @@ class SettingsTest {
         assertTrue(Settings.fromJson(Settings(onboardingDone = true).toJson()).onboardingDone)
     }
 
+    @Test fun openTabsRoundTrip() {
+        val tabs = listOf(OpenTab("content://a", "A.xnote"), OpenTab("content://b", "B.xcanvas", Rgba(200, 40, 40, 255)))
+        assertEquals(tabs, Settings.fromJson(Settings(openTabs = tabs).toJson()).openTabs)
+    }
+
     @Test fun viewDefaultsRoundTrip() {
         val original = Settings(
             viewDefaultsLight = com.xnotes.canvas.ViewSettings(

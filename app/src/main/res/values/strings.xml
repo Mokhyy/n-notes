@@ -1659,4 +1659,9 @@
     <string name="math_llm_offline_none">None</string>
     <string name="math_llm_offline_hint">With no network, Convert to math uses this downloaded model instead.</string>
     <string name="math_wip">Work in progress: this feature is still being developed and you may run into issues.</string>
+    <string name="close_tab">Close tab</string>
+    <string name="close_all_tabs">Close all tabs</string>
+    <string name="move_to_first">Move to first</string>
+    <string name="all_tabs">All tabs</string>
+    <string name="tab_options">Tab options</string>
 </resources>

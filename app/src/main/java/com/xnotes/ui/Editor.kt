@@ -368,6 +368,9 @@ private val sharedFavoriteZooms = androidx.compose.runtime.mutableStateOf<List<F
 /** The pencilcase as last set here, read only so both panes recompose on a change; the list lives in settings. */
 private val sharedPencilcase = androidx.compose.runtime.mutableStateOf<List<com.xnotes.core.tools.PencilcaseItem>?>(null)
 
+/** The tabs as last set here, read only so both panes recompose on a change; the list lives in settings. */
+private val sharedTabs = androidx.compose.runtime.mutableStateOf<List<com.xnotes.settings.OpenTab>?>(null)
+
 /**
  * Which pane of a split view an editor drives. [PRIMARY] is the app's one editor in the ordinary
  * single-note case and the first pane of a split; [SECONDARY] is the second pane, built only when a
@@ -1165,9 +1168,13 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         displayName: String?,
         fromSession: Boolean = false,
     ) {
+        if (noteOpen && !canvasOpen) leaveNoteInPlace()
         flushAutosave() // a paged note may be open underneath; do not leave its edits unwritten
+        // A canvas swapped for another in place (a tab) writes its edits out first.
+        if (canvasOpen) infiniteOrNull?.let { it.commitText(); flushCanvasAutosave() }
         doc.path = uri
         doc.displayName = displayName
+        shownUri = uri
         val canvas = infinite
         canvas.replaceDocument(doc)
         canvas.applyPalette(palette)
@@ -3671,6 +3678,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val snap = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { session.load() }
         if (snap != null) {
             state.document = snap.document
+            shownUri = snap.document.path
             rebuildPdfSource()
             adoptOpenPdf(snap.document) // track the restored note's temp PDF for later cleanup
             history.clear()
@@ -4423,6 +4431,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             doc.displayName = name
             doc.dirty = false
             if (linkBack?.to != uri) linkBack = null
+            if (noteOpen && canvasOpen) leaveCanvasInPlace()
             replaceDocument(doc)
             state.openFileBytes = fileBytes
             state.lastSaveBytes = fileBytes // the on-disk size, until the first autosave rewrites it
@@ -4452,6 +4461,43 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             opening = false
             // An open that did not put the note on screen lets its file go again.
             if (!opened) holding?.let { com.xnotes.platform.PdfExports.release(it) }
+        }
+    }
+
+    /** [goHome] for the paged note while a canvas takes its place on screen, with no stop at backstage between. */
+    private fun leaveNoteInPlace() {
+        setAutoScroll(false)
+        AudioRecording.stopFor(this)
+        AudioPlayback.closeFor(this)
+        commitText()
+        flowText.endSession()
+        saveViewState()
+        flushAutosave()
+        val closed = autosaveUri
+        autosaveUri = null
+        endReadOnly()
+        releaseOpenPdf()
+        com.xnotes.platform.PdfExports.kick()
+        autosaveScope.launch {
+            noteWriteJob?.join()
+            closed?.let { regenerateClosedNoteThumb(it) }
+            SyncManager.syncOnNoteExit(appContext, closed)
+        }
+    }
+
+    /** [goHome] for the canvas while a paged note takes its place on screen. */
+    private fun leaveCanvasInPlace() {
+        val canvas = infinite
+        AudioRecording.stopFor(canvas)
+        AudioPlayback.closeFor(canvas)
+        canvas.commitText()
+        flushCanvasAutosave()
+        val closed = canvasAutosaveUri
+        canvasAutosaveUri = null
+        canvasOpen = false
+        autosaveScope.launch {
+            canvasWriteJob?.join()
+            SyncManager.syncOnNoteExit(appContext, closed)
         }
     }
 
@@ -4685,6 +4731,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         try {
             synchronized(saveLock) { codec.write(state.document, output) }
             state.document.path = uri
+            shownUri = uri
             if (name != null) state.document.displayName = name
             state.document.dirty = false
             maybeBindAutosave(uri) // saving into the folder makes it autosave thereafter
@@ -5410,6 +5457,53 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val key = documentKey(uri)
         val entry = com.xnotes.settings.RecentDoc(uri, name ?: uri.substringAfterLast('/'), System.currentTimeMillis())
         setRecents((listOf(entry) + recentDocs.filterNot { documentKey(it.uri) == key }).take(RECENT_MAX))
+        val at = tabIndex(uri)
+        setTabs(
+            if (at < 0) openTabs + com.xnotes.settings.OpenTab(uri, entry.name)
+            else openTabs.toMutableList().also { it[at] = it[at].copy(uri = uri, name = entry.name) },
+        )
+        shownUri = uri
+    }
+
+    /** The notes and canvases kept as tabs, in strip order; both panes share them. */
+    val openTabs: List<com.xnotes.settings.OpenTab>
+        get() { sharedTabs.value; return settings.openTabs }
+
+    /** The document this pane shows, as the tabs know it; null for an unsaved note. Meaningful only while [noteOpen]. */
+    var shownUri by mutableStateOf<String?>(null)
+        private set
+
+    private fun setTabs(list: List<com.xnotes.settings.OpenTab>) {
+        if (list == openTabs) return
+        sharedTabs.value = list
+        settings = settings.copy(openTabs = list)
+        saveSettingsSoon()
+    }
+
+    private fun tabIndex(uri: String): Int {
+        val key = documentKey(uri)
+        return openTabs.indexOfFirst { documentKey(it.uri) == key }
+    }
+
+    fun closeTab(uri: String) {
+        val key = documentKey(uri)
+        setTabs(openTabs.filterNot { documentKey(it.uri) == key })
+    }
+
+    fun moveTabFirst(uri: String) {
+        val at = tabIndex(uri)
+        if (at > 0) setTabs(openTabs.toMutableList().also { it.add(0, it.removeAt(at)) })
+    }
+
+    fun colorTab(uri: String, color: Rgba?) {
+        val at = tabIndex(uri)
+        if (at >= 0) setTabs(openTabs.toMutableList().also { it[at] = it[at].copy(color = color) })
+    }
+
+    /** Close every tab but [uri]'s, or all of them when [uri] has none. */
+    fun keepOnlyTab(uri: String?) {
+        val key = uri?.let(::documentKey)
+        setTabs(openTabs.filter { documentKey(it.uri) == key })
     }
 
     /** Forget everything in Recent. */
@@ -5418,7 +5512,10 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     /** Drop from Recent everything at or under [docUri], a deleted or trashed document. */
     private fun dropRecentsWithin(docUri: String) {
         val key = documentKey(docUri)
-        autosaveScope.launch { setRecents(recentDocs.filterNot { com.xnotes.core.util.DocKeys.within(documentKey(it.uri), key) }) }
+        autosaveScope.launch {
+            setRecents(recentDocs.filterNot { com.xnotes.core.util.DocKeys.within(documentKey(it.uri), key) })
+            setTabs(openTabs.filterNot { com.xnotes.core.util.DocKeys.within(documentKey(it.uri), key) })
+        }
     }
 
     /**
@@ -6437,6 +6534,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         }
         autosaveScope.launch {
             setRecents(recentDocs.map { r -> follow(r.uri)?.let { r.copy(uri = it) } ?: r })
+            setTabs(openTabs.map { t -> follow(t.uri)?.let { t.copy(uri = it, name = if (newName != null && documentKey(t.uri) == from) newName else t.name) } ?: t })
+            shownUri = shownUri?.let { follow(it) ?: it }
             val movedViews = folderViews.mapKeys { (k, _) -> com.xnotes.core.util.DocKeys.moved(k, from, to) ?: k }
             if (movedViews != folderViews) {
                 folderViews = movedViews
@@ -6954,6 +7053,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private fun adoptNoteFork(fork: Fork) {
         state.document.path = fork.uri
         state.document.displayName = fork.name
+        shownUri = fork.uri
         autosaveUri = fork.uri
         refreshContent()
         message = appContext.getString(R.string.note_forked, com.xnotes.core.util.DocumentKind.stripSuffix(fork.name))
@@ -6964,6 +7064,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         val canvas = infiniteOrNull ?: return
         canvas.document.path = fork.uri
         canvas.document.displayName = fork.name
+        shownUri = fork.uri
         canvasAutosaveUri = fork.uri
         refreshContent()
         message = appContext.getString(R.string.canvas_forked, com.xnotes.core.util.DocumentKind.stripSuffix(fork.name))
@@ -8626,6 +8727,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         controller.resetGestureState() // drop the outgoing note's fling/elastic so it can't bleed in
         clearPageSelection()
         state.document = doc
+        shownUri = doc.path
         rebuildPdfSource()
         adoptOpenPdf(doc) // outgoing note's PDF source is now closed; delete its temp file
         history.clear()
@@ -12068,6 +12170,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         flushAutosave()
         autosaveUri = null
         state.document = blankDocument().also { stampNewNoteDefaults(it) }
+        shownUri = null
         rebuildPdfSource() // close the outgoing note's PDF source (a blank note has none)
         adoptOpenPdf(state.document) // and reclaim its temp PDF file now it's released
         history.clear()

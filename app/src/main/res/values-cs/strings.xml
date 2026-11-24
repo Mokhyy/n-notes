@@ -1622,4 +1622,9 @@
     <string name="math_llm_offline_none">Nic</string>
     <string name="math_llm_offline_hint">Bez sítě použije Převést na matematiku tento stažený model.</string>
     <string name="math_wip">Ve vývoji: tato funkce se stále vyvíjí a můžete narazit na problémy.</string>
+    <string name="close_tab">Zavřít kartu</string>
+    <string name="close_all_tabs">Zavřít všechny karty</string>
+    <string name="move_to_first">Přesunout na začátek</string>
+    <string name="all_tabs">Všechny karty</string>
+    <string name="tab_options">Možnosti karty</string>
 </resources>

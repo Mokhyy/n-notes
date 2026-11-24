@@ -1599,4 +1599,9 @@
     <string name="math_llm_offline_none">Ninguno</string>
     <string name="math_llm_offline_hint">Sin red, Convertir en matemáticas usa este modelo descargado.</string>
     <string name="math_wip">En desarrollo: esta función aún se está desarrollando y puede que encuentres problemas.</string>
+    <string name="close_tab">Cerrar pestaña</string>
+    <string name="close_all_tabs">Cerrar todas las pestañas</string>
+    <string name="move_to_first">Mover al principio</string>
+    <string name="all_tabs">Todas las pestañas</string>
+    <string name="tab_options">Opciones de pestaña</string>
 </resources>

@@ -1373,4 +1373,9 @@
     <string name="math_llm_offline_none">无</string>
     <string name="math_llm_offline_hint">没有网络时，转换为公式会使用这个已下载的模型。</string>
     <string name="math_wip">开发中：此功能仍在开发，可能会遇到问题。</string>
+    <string name="close_tab">关闭标签页</string>
+    <string name="close_all_tabs">关闭所有标签页</string>
+    <string name="move_to_first">移到最前</string>
+    <string name="all_tabs">所有标签页</string>
+    <string name="tab_options">标签页选项</string>
 </resources>

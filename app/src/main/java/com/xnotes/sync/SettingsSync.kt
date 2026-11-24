@@ -25,7 +25,7 @@ object SettingsSync {
     private const val STATE_PATH = "$REMOTE_DIR/$REMOTE_FILE"
 
     /** Top-level settings keys that stay device-local (never pulled from the cloud). */
-    private val LOCAL_TOP_KEYS = listOf("browse_root")
+    private val LOCAL_TOP_KEYS = listOf("browse_root", "open_tabs")
 
     /** Preference keys that stay device-local: the cloud sync config itself and what this device hides. */
     private val LOCAL_PREF_KEYS = listOf(
