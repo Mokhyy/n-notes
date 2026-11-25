@@ -272,6 +272,7 @@ private fun ToolbarItemView(
                     ThicknessSwatch(
                         width = w,
                         active = i == editor.activeWidthIndex,
+                        drag = editor,
                         onClick = { if (i == editor.activeWidthIndex) setWidthSwitcherIndex(i) else editor.pickWidth(i) },
                     )
                     if (widthSwitcherIndex == i) WidthSwitcherPopup(editor, i) { setWidthSwitcherIndex(null) }
@@ -583,7 +584,7 @@ internal fun Swatch(
 
 /** A toolbar thickness preset: a pill whose height is the preset's width, ringed when armed. */
 @Composable
-internal fun ThicknessSwatch(width: Double, active: Boolean, onClick: () -> Unit) {
+internal fun ThicknessSwatch(width: Double, active: Boolean, drag: ColorDropHost, onClick: () -> Unit) {
     val bar = LocalBar.current
     val palette = LocalPalette.current
     val box = bar.swatch
@@ -597,6 +598,7 @@ internal fun ThicknessSwatch(width: Double, active: Boolean, onClick: () -> Unit
             .then(if (active) Modifier.border(2.dp, if (palette.isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black, CircleShape) else Modifier)
             .padding(4.dp)
             .clip(CircleShape)
+            .widthDragSource(drag, width, bar.vertical)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

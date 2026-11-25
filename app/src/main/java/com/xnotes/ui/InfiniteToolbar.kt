@@ -173,7 +173,7 @@ fun InfiniteToolbar(
                     ToolbarItem.WIDTH -> {
                         editor.toolbarWidths.forEachIndexed { i, w ->
                             Box {
-                                ThicknessSwatch(w, active = editor.activeWidthIndex == i) {
+                                ThicknessSwatch(w, active = editor.activeWidthIndex == i, drag = editor) {
                                     if (editor.activeWidthIndex == i) widthSwitcherIndex = i else editor.pickWidth(i)
                                 }
                                 if (widthSwitcherIndex == i) WidthSwitcherPopup(editor, i) { widthSwitcherIndex = null }

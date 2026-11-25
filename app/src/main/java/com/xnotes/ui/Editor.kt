@@ -9041,6 +9041,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
         override fun applyDrop(spot: DropSpot, action: DropAction, color: Rgba) = applyColorDrop(spot, action, color)
 
+        override fun applyWidthDrop(spot: DropSpot, action: DropAction, width: Double) = doWidthDrop(spot, action, width)
+
         override fun viewInWindow(): Offset {
             val at = IntArray(2).also { view.getLocationInWindow(it) }
             return Offset(at[0].toFloat(), at[1].toFloat())
@@ -9052,6 +9054,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     override val colorDrag: ColorDrag? get() = colorDropper.drag
 
     override fun beginColorDrag(color: Rgba, window: Offset) = colorDropper.begin(color, window)
+
+    override fun beginWidthDrag(width: Double, window: Offset) = colorDropper.beginWidth(width, window)
 
     override fun moveColorDrag(window: Offset) = colorDropper.move(window)
 
@@ -9123,6 +9127,31 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             // Ruled earlier, before this when: the point sat on a markup and its colour is done.
             DropAction.RecolourMarkup -> return
             DropAction.None -> return
+        }
+        command.redo()
+        history.push(command)
+        afterHistory(state.document.pages, null, regions = touchedRegions(command))
+    }
+
+    /** Carry out a thickness drop on page [spot]'s frame as one undo step: restyle the line or the
+     *  selection it lands on to [width]. Fills and markups are a colour's business and are ignored. */
+    private fun doWidthDrop(spot: DropSpot, action: DropAction, width: Double) {
+        val page = state.document.pages.getOrNull(spot.frame)?.takeIf { it === spot.key } ?: return
+        fun onPage(item: CanvasItem) = page.items.any { it === item }
+        val live = controller.selectedItems()
+        val selected = dropSelection[spot.frame].orEmpty().filter { item -> onPage(item) && live.any { it === item } }
+        val onSelection = boundsOf(selected)?.outset(spot.reach)?.contains(spot.at) == true
+        val command: Command = if (onSelection) {
+            val entries = selected.mapNotNull { item -> DrawStyle.of(item)?.let { RestyleItems.Entry(item, it, it.copy(width = width)) } }
+            RestyleItems(entries.ifEmpty { return })
+        } else when (action) {
+            is DropAction.Recolour -> {
+                val item = action.item.takeIf(::onPage) ?: return
+                if (item is TextItem) return
+                val before = DrawStyle.of(item) ?: return
+                RestyleItems(listOf(RestyleItems.Entry(item, before, before.copy(width = width))))
+            }
+            else -> return
         }
         command.redo()
         history.push(command)

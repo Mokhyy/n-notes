@@ -1401,6 +1401,8 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
 
         override fun applyDrop(spot: DropSpot, action: DropAction, color: Rgba) = applyColorDrop(spot, action, color)
 
+        override fun applyWidthDrop(spot: DropSpot, action: DropAction, width: Double) = doWidthDrop(spot, action, width)
+
         override fun viewInWindow(): Offset {
             val at = IntArray(2).also { view.getLocationInWindow(it) }
             return Offset(at[0].toFloat(), at[1].toFloat())
@@ -1412,6 +1414,8 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     override val colorDrag: ColorDrag? get() = colorDropper.drag
 
     override fun beginColorDrag(color: Rgba, window: Offset) = colorDropper.begin(color, window)
+
+    override fun beginWidthDrag(width: Double, window: Offset) = colorDropper.beginWidth(width, window)
 
     override fun moveColorDrag(window: Offset) = colorDropper.move(window)
 
@@ -1465,6 +1469,30 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
             // The canvas has no markups; the surface never hands this in, but the when is exhaustive.
             DropAction.RecolourMarkup -> return
             DropAction.None -> return
+        }
+        command.redo()
+        history.push(command)
+        markDirty()
+        refresh()
+        publishOverlay()
+    }
+
+    /** Carry out a thickness drop as one undo step: restyle the line or the selection it lands on to
+     *  [width]. The canvas has no markups or fills to recolour, so only lines and the selection apply. */
+    private fun doWidthDrop(spot: DropSpot, action: DropAction, width: Double) {
+        val unchanged = selection.items.size == dropSelection.size && dropSelection.all { d -> selection.items.any { it === d } }
+        if (unchanged && spot.selection?.outset(spot.reach)?.contains(spot.at) == true) {
+            restyleSelection(null, width)
+            return
+        }
+        val command: Command = when (action) {
+            is DropAction.Recolour -> {
+                val item = action.item.takeIf { document.containsRef(it) } ?: return
+                if (item is com.xnotes.core.model.TextItem) return
+                val before = DrawStyle.of(item) ?: return
+                OnCanvas(document, RestyleItems(listOf(RestyleItems.Entry(item, before, before.copy(width = width)))), listOf(item))
+            }
+            else -> return
         }
         command.redo()
         history.push(command)
