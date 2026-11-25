@@ -695,6 +695,18 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private var swatchesDark = true
     var toolbarColorCount by mutableStateOf(5)
         private set
+    /** The stroke-thickness presets the thickness tool shows, in dp. */
+    var toolbarWidths by mutableStateOf(Settings.DEFAULT_TOOLBAR_WIDTHS)
+        private set
+    /** Which of [toolbarWidths] is armed. */
+    var activeWidthIndex by mutableStateOf(1)
+        private set
+    /** When true, every thickness-bearing tool follows [globalThickness]; else each keeps its own. */
+    var followThickness by mutableStateOf(false)
+        private set
+
+    /** The armed thickness preset in dp. */
+    val globalThickness: Double get() = toolbarWidths[activeWidthIndex.coerceIn(0, toolbarWidths.lastIndex)]
     var toolbarLayout by mutableStateOf(ToolbarLayout.DEFAULT)
     var selectionBarLayout by mutableStateOf(com.xnotes.core.tools.SelectionBarLayout.DEFAULT)
         private set
@@ -1109,6 +1121,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             it.toolbarColors = toolbarColors
             it.recentColors = settings.recentColors
             it.toolbarColorCount = toolbarColorCount
+            it.pushThicknessState(toolbarWidths, activeWidthIndex)
+            it.followThickness = followThickness
+            it.globalThickness = globalThickness
             it.toolbarLayout = canvasToolbarLayout
             it.pad.frontBuffering = !settings.prefs.disableFrontBuffering
             it.pickColor(activeColorIndex)
@@ -1120,6 +1135,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 recolorSwatch(index, color)
                 settingsDirty = true
             }
+            it.onWidthChanged = { index, width -> setWidthPreset(index, width) }
+            it.onWidthCommitted = { commitWidthPreset() }
+            it.onFollowThicknessChanged = { on -> updateFollowThickness(on) }
             // The new-canvas background lives in the settings file this editor owns.
             it.newCanvasBackground = newCanvasBackground
             it.onSaveNewCanvasBackground = { bg -> saveNewCanvasBackground(bg) }
@@ -3295,6 +3313,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         toolbarColors = settings.toolbarColors(swatchesDark)
         otherSwatches = settings.toolbarColors(!swatchesDark)
         toolbarColorCount = settings.toolbarColorCount
+        toolbarWidths = settings.toolbarWidths
+        activeWidthIndex = settings.activeWidth.coerceIn(0, (toolbarWidths.size - 1).coerceAtLeast(0))
+        followThickness = settings.followThickness
         toolbarLayout = settings.toolbarLayout
         canvasToolbarLayout = settings.canvasToolbarLayout
         selectionBarLayout = settings.selectionBarLayout
@@ -3308,6 +3329,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         controller.tableToolDefaults = { com.xnotes.canvas.TableToolDefaults(tableToolCols, tableToolRows, tableToolLook, tableToolColor) }
         for (t in ToolDefaults.persistedTools) controller.setToolConfig(t, settings.configFor(t))
         controller.inkColor = toolbarColors[activeColorIndex]
+        pushThicknessFollow()
         selectTool(settings.lastTool)
         pushToolsToCanvas()
         applyPagePrefsToState(settings.prefs)
@@ -3575,7 +3597,45 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         canvas.recentColors = settings.recentColors
         canvas.toolbarColorCount = toolbarColorCount
         canvas.toolbarLayout = canvasToolbarLayout
+        canvas.pushThicknessState(toolbarWidths, activeWidthIndex)
+        canvas.followThickness = followThickness
+        canvas.globalThickness = globalThickness
         canvas.pickColor(activeColorIndex)
+    }
+
+    /** Push the follow-thickness flag and armed preset to both surfaces; the draw path reads them live. */
+    private fun pushThicknessFollow() {
+        controller.followThickness = followThickness
+        controller.globalThickness = globalThickness
+        infiniteOrNull?.let { it.followThickness = followThickness; it.globalThickness = globalThickness }
+    }
+
+    /** Arm thickness preset [index]; while following, every thickness-bearing tool draws at it. */
+    fun pickWidth(index: Int) {
+        if (index !in toolbarWidths.indices) return
+        activeWidthIndex = index
+        pushThicknessFollow()
+    }
+
+    /** Live-edit preset [index]'s width (the thickness popup's slider); the active preset applies at once. */
+    override fun setWidthPreset(index: Int, width: Double) {
+        if (index !in toolbarWidths.indices) return
+        toolbarWidths = toolbarWidths.toMutableList().also { it[index] = width }
+        if (index == activeWidthIndex) pushThicknessFollow()
+    }
+
+    /** The thickness popup closed: persist the edited presets. */
+    override fun commitWidthPreset() {
+        settings = settings.copy(toolbarWidths = toolbarWidths)
+        settingsRepo.save(settings)
+    }
+
+    /** Turn following the armed thickness on/off for every thickness-bearing tool, and persist. */
+    fun updateFollowThickness(on: Boolean) {
+        followThickness = on
+        pushThicknessFollow()
+        settings = settings.copy(followThickness = on)
+        settingsRepo.save(settings)
     }
 
     /** Snapshot live state into settings and save (call on pause/stop). */
@@ -3599,6 +3659,9 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 toolbarColorsLight = if (swatchesDark) otherSwatches else toolbarColors,
                 toolbarColorCount = toolbarColorCount,
                 activeColor = activeColorIndex,
+                toolbarWidths = toolbarWidths,
+                activeWidth = activeWidthIndex,
+                followThickness = followThickness,
                 lastTool = tool,
                 lastCanvasTool = fromCanvas?.tool ?: settings.lastCanvasTool,
                 sidebarVisible = sidebarVisible,
@@ -9070,6 +9133,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         }
 
     override val hostShapeConfig: ShapeConfig get() = shapeConfig
+    override val hostFollowThickness: Boolean get() = followThickness
+    override val hostToolbarWidths: List<Double> get() = toolbarWidths
     override val hostToolbarColors: List<Rgba> get() = toolbarColors
     override val hostActiveColorIndex: Int get() = activeColorIndex
     override val hostRecentColors: List<Rgba> get() = recentColors

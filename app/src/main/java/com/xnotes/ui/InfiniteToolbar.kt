@@ -1,6 +1,10 @@
 package com.xnotes.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import com.xnotes.ui.theme.LocalPalette
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.foundation.layout.Box
@@ -82,6 +86,7 @@ fun InfiniteToolbar(
     // Which swatch has the colour picker open, as on the paged bar: tapping the armed swatch again
     // opens it, so the five colours are both the ink and the way to change it.
     var switcherIndex by remember { mutableStateOf<Int?>(null) }
+    var widthSwitcherIndex by remember { mutableStateOf<Int?>(null) }
 
     // Pinned outside the scrolling strip, so closing a split pane is always one tap away.
     ToolbarFrame(
@@ -168,6 +173,25 @@ fun InfiniteToolbar(
                                 if (switcherIndex == i) ColorSwitcherPopup(editor, i) { switcherIndex = null }
                             }
                         }
+
+                    ToolbarItem.WIDTH -> {
+                        editor.toolbarWidths.forEachIndexed { i, w ->
+                            Box {
+                                ThicknessSwatch(w, active = editor.activeWidthIndex == i) {
+                                    if (editor.activeWidthIndex == i) widthSwitcherIndex = i else editor.pickWidth(i)
+                                }
+                                if (widthSwitcherIndex == i) WidthSwitcherPopup(editor, i) { widthSwitcherIndex = null }
+                            }
+                        }
+                        // The follow toggle: a hollow ring, colourless when off and accent when on.
+                        Box(
+                            Modifier
+                                .size(LocalBar.current.swatch)
+                                .clip(CircleShape)
+                                .border(3.dp, (if (editor.followThickness) LocalPalette.current.accent else LocalPalette.current.border).toComposeColor(), CircleShape)
+                                .clickable { editor.updateFollowThickness(!editor.followThickness) },
+                        )
+                    }
 
                     ToolbarItem.PENCILCASE ->
                         ToolbarIcon(Icons.Outlined.DesignServices, stringResource(R.string.toolbar_pencilcase), active = owner.showPencilcase) {

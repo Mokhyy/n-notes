@@ -96,6 +96,7 @@ import com.xnotes.core.tools.SelectKind
 import com.xnotes.core.tools.MarkupMode
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolConfig
+import com.xnotes.core.tools.ToolConversions
 import com.xnotes.core.tools.ToolDefaults
 import com.xnotes.ui.theme.Palette
 import kotlin.math.abs
@@ -496,6 +497,17 @@ class InteractionController(
     private var connectorDraft: ConnectorDraft? = null
     private var connectorPage = -1
 
+    /** When true, every thickness-bearing tool (pens, highlighter, eraser, shape) draws at
+     *  [globalThickness] instead of its own base width. */
+    var followThickness: Boolean = false
+
+    /** The armed thickness preset in dp, applied to every thickness-bearing tool while [followThickness] is on. */
+    var globalThickness: Double = ToolDefaults.configFor(Tool.PEN).baseWidth
+
+    /** The stroke width the shape tools draw at: the armed preset when [followThickness] is on, else the shape's own. */
+    private fun effectiveShapeWidth(): Double =
+        if (followThickness) globalThickness.coerceIn(1.0, 20.0) else shapeConfig.strokeWidth
+
     /** The connection points lit for the chrome, with their pages: under a hovering pen, at a drawn connector's ends. */
     private var connectHot: List<Pair<Int, Pt>> = emptyList()
 
@@ -706,7 +718,13 @@ class InteractionController(
     fun selectionByPage(): Map<Int, List<CanvasItem>> =
         selection.groupBy({ it.pageIndex }, { it.item })
 
-    fun configFor(t: Tool): ToolConfig = toolConfigs[t] ?: ToolDefaults.configFor(t)
+    fun configFor(t: Tool): ToolConfig {
+        val base = toolConfigs[t] ?: ToolDefaults.configFor(t)
+        // Follow-thickness: pens, highlighter and the eraser (its base width is its radius) all draw
+        // at the armed preset while it is on; each keeps its own width when it is off.
+        return if (followThickness && (t.isStroke || t == Tool.ERASER))
+            base.copy(baseWidth = ToolConversions.snapWidth(t, globalThickness)) else base
+    }
 
     fun setToolConfig(t: Tool, config: ToolConfig) {
         toolConfigs[t] = config
@@ -3126,7 +3144,7 @@ class InteractionController(
         // A draft this press finished left its polygon selected; the new shape takes over from it.
         clearSelection()
         val startLocal = state.toPageSpace(pageIndex, content)
-        pendingShape = shapeConfig.startShape(startLocal, inkColor, shapeConfig.strokeWidth * SHAPE_PEN_PARITY)
+        pendingShape = shapeConfig.startShape(startLocal, inkColor, effectiveShapeWidth() * SHAPE_PEN_PARITY)
         shapeAnchor = startLocal
         shapeAspect = pendingShape?.function?.naturalAspect()?.takeIf { it > 1e-9 }?.let { 1.0 / it }
         shapePageIndex = pageIndex
@@ -3312,7 +3330,7 @@ class InteractionController(
         val pi = state.pageIndexAtContent(content) ?: return
         val page = state.document.pages[pi]
         clearSelection()
-        val width = shapeConfig.strokeWidth * SHAPE_PEN_PARITY
+        val width = effectiveShapeWidth() * SHAPE_PEN_PARITY
         val draft = ConnectorDraft.startAt(state.toPageSpace(pi, content), page.items, dotReach()) {
             shapeConfig.startConnector(it, inkColor, width)
         } ?: return
@@ -3416,7 +3434,7 @@ class InteractionController(
         val pi = polygonPage ?: return
         if (state.pageRects.getOrNull(pi) == null) return
         val pts = draft.preview(content?.let { state.toPageSpace(pi, it) })
-        pendingShape = if (pts.size >= 2) shapeConfig.copy(fill = false).placedShape(pts, false, inkColor, shapeConfig.strokeWidth * SHAPE_PEN_PARITY) else null
+        pendingShape = if (pts.size >= 2) shapeConfig.copy(fill = false, strokeWidth = effectiveShapeWidth()).placedShape(pts, false, inkColor, effectiveShapeWidth() * SHAPE_PEN_PARITY) else null
         shapePageIndex = pi
         requestRender()
     }
@@ -3443,7 +3461,7 @@ class InteractionController(
         shapePageIndex = null
         if (draft != null && pi != null && draft.points.size >= (if (closed) 3 else 2)) {
             val page = state.document.pages[pi]
-            val shape = shapeConfig.placedShape(draft.points, closed, inkColor, shapeConfig.strokeWidth * SHAPE_PEN_PARITY)
+            val shape = shapeConfig.copy(strokeWidth = effectiveShapeWidth()).placedShape(draft.points, closed, inkColor, effectiveShapeWidth() * SHAPE_PEN_PARITY)
             page.items.add(shape)
             state.appendToCache(page, shape)
             history.push(AddItem(page, shape))

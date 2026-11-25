@@ -123,6 +123,13 @@ data class Settings(
     val favoriteZooms: List<Float> = DEFAULT_FAVORITE_ZOOMS,
     /** Tools saved in the pencilcase bar, in the order they were added, shared by every note and canvas. */
     val pencilcase: List<PencilcaseItem> = emptyList(),
+    /** The stroke-thickness presets the thickness tool shows, in dp; shared by every note and canvas. */
+    val toolbarWidths: List<Double> = DEFAULT_TOOLBAR_WIDTHS,
+    /** Which of [toolbarWidths] is armed. */
+    val activeWidth: Int = 1,
+    /** When true, every thickness-bearing tool follows the armed thickness preset; when false each
+     *  tool keeps its own base width. */
+    val followThickness: Boolean = false,
 ) {
     fun configFor(tool: Tool): ToolConfig = tools[tool] ?: ToolDefaults.configFor(tool)
 
@@ -204,11 +211,17 @@ data class Settings(
             .put("onboarding_done", onboardingDone)
             .put("favorite_zooms", JSONArray().apply { favoriteZooms.forEach { put(it.toDouble()) } })
             .put("pencilcase", JSONArray().apply { pencilcase.forEach { put(pencilcaseItemJson(it)) } })
+            .put("toolbar_widths", JSONArray().apply { toolbarWidths.forEach { put(it) } })
+            .put("active_width", activeWidth)
+            .put("follow_thickness", followThickness)
     }
 
     companion object {
         /** The tools the canvas bar can arm; a transient one restored there would show a tool never picked. */
         private val CANVAS_TOOLS = Tool.PENS + Tool.SELECTIONS + listOf(Tool.HIGHLIGHTER, Tool.ERASER, Tool.PAN, Tool.SHAPE, Tool.TAPE)
+
+        /** The thickness presets the bar ships with, in dp; all inside the pen width range (1..20). */
+        val DEFAULT_TOOLBAR_WIDTHS: List<Double> = listOf(2.0, 4.0, 7.0, 12.0)
 
         fun fromJson(o: JSONObject): Settings {
             val toolsObj = o.optJSONObject("tools")
@@ -220,6 +233,7 @@ data class Settings(
             }
             val shape = toolsObj?.optJSONObject("shape")?.let { shapeConfig(it) } ?: ShapeConfig()
 
+            val widths = doubleList(o.optJSONArray("toolbar_widths"), DEFAULT_TOOLBAR_WIDTHS)
             val (darkColors, lightColors) = toolbarColors(o)
             val (viewLight, viewDark) = viewDefaults(o)
 
@@ -275,6 +289,9 @@ data class Settings(
                 onboardingDone = o.optBoolean("onboarding_done", o.has("browse_root")),
                 favoriteZooms = favoriteZooms(o.optJSONArray("favorite_zooms")),
                 pencilcase = pencilcase(o.optJSONArray("pencilcase")),
+                toolbarWidths = widths,
+                activeWidth = o.optInt("active_width", 1).coerceIn(0, (widths.size - 1).coerceAtLeast(0)),
+                followThickness = o.optBoolean("follow_thickness", false),
             )
         }
 
@@ -554,6 +571,12 @@ data class Settings(
                 val a = arr.optJSONArray(i) ?: return@mapNotNull null
                 Rgba.fromList((0 until a.length()).map { a.optInt(it, 0) })
             }
+        }
+
+        /** A list of doubles, or [fallback] when the key was never written. */
+        private fun doubleList(arr: JSONArray?, fallback: List<Double>): List<Double> {
+            if (arr == null) return fallback
+            return (0 until arr.length()).map { arr.optDouble(it, fallback.getOrElse(it) { 0.0 }) }
         }
 
         private fun toolConfigJson(c: ToolConfig) = JSONObject()

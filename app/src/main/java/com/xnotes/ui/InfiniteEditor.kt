@@ -66,6 +66,8 @@ import com.xnotes.core.tools.ShapeConfig
 import com.xnotes.core.tools.Tool
 import com.xnotes.core.tools.ToolConfig
 import com.xnotes.core.tools.ToolDefaults
+import com.xnotes.core.tools.ToolConversions
+import com.xnotes.settings.Settings
 import com.xnotes.core.vector.VectorMesher
 import com.xnotes.gl.CanvasScene
 import com.xnotes.gl.InfiniteCanvasView
@@ -125,7 +127,7 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         onEraserCursor = { at, radius -> view.setEraserCursor(at, radius) },
         onPendingShape = { publishPendingShape(it) },
         onCommitShape = { commitItem(it) },
-        shapeConfig = { shapeConfig },
+        shapeConfig = { shapeConfigForDraw() },
         inkColor = { inkColor },
         detectShapes = { detectShapes },
         selection = { selection },
@@ -164,6 +166,68 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     /** The shape tool's style. */
     var shapeConfig by mutableStateOf(ShapeConfig())
         private set
+
+    /** When true, every thickness-bearing tool (pens, highlighter, eraser, shape) draws at
+     *  [globalThickness] instead of its own base width. */
+    var followThickness: Boolean = false
+
+    /** The armed thickness preset in dp, applied to every thickness-bearing tool while [followThickness] is on. */
+    var globalThickness: Double = ToolDefaults.configFor(Tool.PEN).baseWidth
+
+    /** The shape style the draw path uses: the armed thickness preset when [followThickness] is on. */
+    private fun shapeConfigForDraw(): ShapeConfig =
+        if (followThickness) shapeConfig.copy(strokeWidth = globalThickness.coerceIn(1.0, 20.0)) else shapeConfig
+
+    /** The toolbar's thickness presets, mirrored from the host editor; the canvas reports edits back up. */
+    var toolbarWidths: List<Double> = Settings.DEFAULT_TOOLBAR_WIDTHS
+        private set
+
+    /** Which of [toolbarWidths] is armed. */
+    var activeWidthIndex: Int = 1
+        private set
+
+    /** A preset was edited live; the host persists and mirrors it. */
+    var onWidthChanged: ((Int, Double) -> Unit)? = null
+
+    /** The thickness popup closed; the host commits the presets. */
+    var onWidthCommitted: (() -> Unit)? = null
+
+    /** The follow-thickness toggle changed; the host persists it. */
+    var onFollowThicknessChanged: ((Boolean) -> Unit)? = null
+
+    /** Push the presets and armed index from the host (also sets [globalThickness]/[followThickness]). */
+    fun pushThicknessState(widths: List<Double>, activeIndex: Int) {
+        toolbarWidths = widths
+        activeWidthIndex = activeIndex.coerceIn(0, (widths.size - 1).coerceAtLeast(0))
+        globalThickness = toolbarWidths[activeWidthIndex]
+    }
+
+    /** Arm thickness preset [index] on the canvas, the same way the paged bar picks one. */
+    fun pickWidth(index: Int) {
+        if (index !in toolbarWidths.indices) return
+        activeWidthIndex = index
+        globalThickness = toolbarWidths[index]
+        onToolStyleChanged?.invoke()
+    }
+
+    override fun setWidthPreset(index: Int, width: Double) {
+        if (index !in toolbarWidths.indices) return
+        toolbarWidths = toolbarWidths.toMutableList().also { it[index] = width }
+        if (index == activeWidthIndex) globalThickness = width
+        onWidthChanged?.invoke(index, width)
+        onToolStyleChanged?.invoke()
+    }
+
+    override fun commitWidthPreset() { onWidthCommitted?.invoke() }
+
+    /** Turn following the armed thickness on/off on the canvas, and report it up. */
+    fun updateFollowThickness(on: Boolean) {
+        followThickness = on
+        onFollowThicknessChanged?.invoke(on)
+        onToolStyleChanged?.invoke()
+    }
+
+    override val hostToolbarWidths: List<Double> get() = toolbarWidths
 
     /** Whether a held freehand stroke may snap to the shape it looks like. */
     private var detectShapes = false
@@ -1196,7 +1260,11 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
         val base = toolConfigs.getOrPut(forTool) { ToolDefaults.configFor(forTool) }
         // A tool with a colour override always draws in its own colour; the rest follow the
         // toolbar's active ink.
-        return base.copy(rgba = base.colorOverride ?: inkColor)
+        val inked = base.copy(rgba = base.colorOverride ?: inkColor)
+        // Follow-thickness: pens, highlighter and the eraser (its base width is its radius) all draw
+        // at the armed preset while it is on; each keeps its own width when it is off.
+        return if (followThickness && (forTool.isStroke || forTool == Tool.ERASER))
+            inked.copy(baseWidth = ToolConversions.snapWidth(forTool, globalThickness)) else inked
     }
 
     /**
@@ -1222,6 +1290,8 @@ class InfiniteEditor(context: Context) : ToolPopupHost, SelectionMenuHost, LongP
     var onDetectShapesChanged: ((Boolean) -> Unit)? = null
 
     override val hostShapeConfig: ShapeConfig get() = shapeConfig
+
+    override val hostFollowThickness: Boolean get() = followThickness
 
     /** The app's hidden shape chips and pages, read live from the preferences the paged editor holds. */
     var hiddenShapes: () -> Set<String> = { emptySet() }

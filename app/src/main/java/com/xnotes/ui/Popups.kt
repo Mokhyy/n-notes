@@ -237,10 +237,17 @@ fun ToolConfigPopup(editor: ToolPopupHost, tool: Tool, onPick: ((Tool) -> Unit)?
                 }
             }
             add {
-                MenuSlider(
-                    stringResource(R.string.caption_thickness), width,
-                    range.start.toFloat()..range.endInclusive.toFloat(), step = ToolConversions.WIDTH_STEP.toFloat(),
-                ) { width = it; emit() }
+                if (editor.hostFollowThickness) {
+                    // A tool that follows the toolbar's thickness preset takes no width of its own.
+                    MenuRow(stringResource(R.string.caption_thickness)) {
+                        Text(stringResource(R.string.thickness_following), color = LocalPalette.current.textDim.toComposeColor(), fontSize = 14.sp, maxLines = 1)
+                    }
+                } else {
+                    MenuSlider(
+                        stringResource(R.string.caption_thickness), width,
+                        range.start.toFloat()..range.endInclusive.toFloat(), step = ToolConversions.WIDTH_STEP.toFloat(),
+                    ) { width = it; emit() }
+                }
             }
             if (tool == Tool.HIGHLIGHTER) add { MenuSlider(stringResource(R.string.caption_intensity), intensity, 10f..100f) { intensity = it; emit() } }
             if (tool == Tool.DASHED) {
@@ -533,7 +540,13 @@ fun EraserConfigPopup(editor: ToolPopupHost, onDismiss: () -> Unit) {
                     modes.indexOf(mode).coerceAtLeast(0),
                 ) { mode = modes[it]; emit() }
                 val r = ToolConversions.widthRange(Tool.ERASER)
-                MenuSlider(stringResource(R.string.caption_size), size, r.start.toFloat()..r.endInclusive.toFloat()) { size = it; emit() }
+                if (editor.hostFollowThickness) {
+                    MenuRow(stringResource(R.string.caption_size)) {
+                        Text(stringResource(R.string.thickness_following), color = LocalPalette.current.textDim.toComposeColor(), fontSize = 14.sp, maxLines = 1)
+                    }
+                } else {
+                    MenuSlider(stringResource(R.string.caption_size), size, r.start.toFloat()..r.endInclusive.toFloat()) { size = it; emit() }
+                }
             }
         })
         PanelCard(padding = PaddingValues(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 12.dp)) {
@@ -814,6 +827,25 @@ fun ColorSwitcherPopup(host: ToolPopupHost, index: Int, onDismiss: () -> Unit) {
         onDismiss = { host.rememberSwatchColor(index); onDismiss() },
         onPick = { host.setSwatchColor(index, it) },
     )
+}
+
+/** Thickness switcher: the toolbar preset editor — a stepped slider that writes preset [index] live
+ *  and commits it when the popup closes, mirroring [ColorSwitcherPopup]. */
+@Composable
+fun WidthSwitcherPopup(host: ToolPopupHost, index: Int, onDismiss: () -> Unit) {
+    var value by remember(index) { mutableStateOf((host.hostToolbarWidths.getOrNull(index) ?: 4.0).toFloat()) }
+    val range = ToolConversions.widthRange(Tool.PEN)
+    ToolMenu(stringResource(R.string.caption_thickness), onDismiss) {
+        MenuCard(buildList<MenuGroup> {
+            add {
+                MenuSlider(
+                    stringResource(R.string.caption_thickness), value,
+                    range.start.toFloat()..range.endInclusive.toFloat(), step = ToolConversions.WIDTH_STEP.toFloat(),
+                ) { value = it; host.setWidthPreset(index, it.toDouble()) }
+            }
+        })
+    }
+    DisposableEffect(Unit) { onDispose { host.commitWidthPreset() } }
 }
 
 @Composable

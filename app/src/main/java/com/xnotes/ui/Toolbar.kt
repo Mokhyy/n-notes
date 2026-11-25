@@ -123,6 +123,7 @@ fun Toolbar(
     )
     var configForTool by remember { mutableStateOf<Tool?>(null) }
     var switcherIndex by remember { mutableStateOf<Int?>(null) }
+    var widthSwitcherIndex by remember { mutableStateOf<Int?>(null) }
     var renaming by remember { mutableStateOf(false) }
     @Composable
     fun Item(item: ToolbarItem) = ToolbarItemView(
@@ -133,6 +134,8 @@ fun Toolbar(
         setConfigForTool = { configForTool = it },
         switcherIndex = switcherIndex,
         setSwitcherIndex = { switcherIndex = it },
+        widthSwitcherIndex = widthSwitcherIndex,
+        setWidthSwitcherIndex = { widthSwitcherIndex = it },
         onRename = { renaming = true },
         onOpenBackstage = onOpenBackstage,
         onInsertImage = onInsertImage,
@@ -187,6 +190,8 @@ private fun ToolbarItemView(
     setConfigForTool: (Tool?) -> Unit,
     switcherIndex: Int?,
     setSwitcherIndex: (Int?) -> Unit,
+    widthSwitcherIndex: Int?,
+    setWidthSwitcherIndex: (Int?) -> Unit,
     onRename: () -> Unit,
     onOpenBackstage: () -> Unit,
     onInsertImage: () -> Unit,
@@ -259,6 +264,28 @@ private fun ToolbarItemView(
                 )
                 if (switcherIndex == i) ColorSwitcherPopup(editor, i) { setSwitcherIndex(null) }
             }
+        }
+
+        ToolbarItem.WIDTH -> {
+            editor.toolbarWidths.forEachIndexed { i, w ->
+                Box {
+                    ThicknessSwatch(
+                        width = w,
+                        active = i == editor.activeWidthIndex,
+                        onClick = { if (i == editor.activeWidthIndex) setWidthSwitcherIndex(i) else editor.pickWidth(i) },
+                    )
+                    if (widthSwitcherIndex == i) WidthSwitcherPopup(editor, i) { setWidthSwitcherIndex(null) }
+                }
+            }
+            // The follow toggle: a hollow ring, colourless when off and accent when on, so it never
+            // reads as one of the colour tool's solid swatches.
+            Box(
+                Modifier
+                    .size(LocalBar.current.swatch)
+                    .clip(CircleShape)
+                    .border(3.dp, (if (editor.followThickness) LocalPalette.current.accent else LocalPalette.current.border).toComposeColor(), CircleShape)
+                    .clickable { editor.updateFollowThickness(!editor.followThickness) },
+            )
         }
     }
 }
@@ -552,6 +579,35 @@ internal fun Swatch(
             .background(color)
             .clickable(onClick = onClick),
     )
+}
+
+/** A toolbar thickness preset: a pill whose height is the preset's width, ringed when armed. */
+@Composable
+internal fun ThicknessSwatch(width: Double, active: Boolean, onClick: () -> Unit) {
+    val bar = LocalBar.current
+    val palette = LocalPalette.current
+    val box = bar.swatch
+    val t = ((width - 1.0) / 19.0).coerceIn(0.0, 1.0).toFloat()
+    val lineH = 2.dp + box * (0.6f * t)
+    Box(
+        modifier = Modifier
+            .then(if (bar.vertical) Modifier.padding(vertical = 3.dp) else Modifier.padding(horizontal = 3.dp))
+            .size(box)
+            // The selection ring is white on a dark theme and black on a light one, so it shows whatever the swatch.
+            .then(if (active) Modifier.border(2.dp, if (palette.isDark) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.Black, CircleShape) else Modifier)
+            .padding(4.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .width(box * 0.6f)
+                .height(lineH)
+                .clip(CircleShape)
+                .background(palette.text.toComposeColor()),
+        )
+    }
 }
 
 @Composable
