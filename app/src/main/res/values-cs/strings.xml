@@ -1404,7 +1404,6 @@
     <string name="note_templates_empty">Zatím žádné šablony. Poznámku uložíš jako šablonu z její nabídky.</string>
     <string name="hidden_empty">Na tomto zařízení není nic skryté.</string>
     <string name="pref_show_hidden">Zobrazit soubory a složky skryté na tomto zařízení</string>
-    <string name="reader_read_only">Jen pro čtení</string>
     <string name="reader_open_failed">Tento soubor se nepodařilo otevřít.</string>
     <string name="reader_link_missing">V této složce se nepodařilo najít \"%1$s\".</string>
     <string name="reader_slide">Snímek %1$d z %2$d</string>

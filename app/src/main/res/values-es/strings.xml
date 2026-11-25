@@ -1381,7 +1381,6 @@
     <string name="note_templates_empty">Aún no hay plantillas. Guarda una nota como plantilla desde su menú.</string>
     <string name="hidden_empty">No hay nada oculto en este dispositivo.</string>
     <string name="pref_show_hidden">Mostrar archivos y carpetas ocultos en este dispositivo</string>
-    <string name="reader_read_only">Solo lectura</string>
     <string name="reader_open_failed">No se pudo abrir este archivo.</string>
     <string name="reader_link_missing">No se encontró \"%1$s\" en esta carpeta.</string>
     <string name="reader_slide">Diapositiva %1$d de %2$d</string>

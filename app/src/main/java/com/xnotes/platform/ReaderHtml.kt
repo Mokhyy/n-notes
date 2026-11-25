@@ -75,7 +75,7 @@ object ReaderHtml {
     private fun shell(body: String, c: Colors, wide: Boolean, extraCss: String): String {
         val css = """
             html{-webkit-text-size-adjust:100%}
-            body{background:${c.background};color:${c.text};font-family:sans-serif;font-size:17px;line-height:1.6;margin:0 auto;padding:18px 18px 72px;${if (wide) "" else "max-width:820px;"}overflow-wrap:break-word;word-wrap:break-word}
+            body{background:${c.background};color:${c.text};font-family:sans-serif;font-size:17px;line-height:1.6;margin:0 auto;padding:76px 18px 84px;${if (wide) "" else "max-width:820px;"}overflow-wrap:break-word;word-wrap:break-word}
             a{color:${c.accent}}
             h1,h2,h3,h4,h5,h6{line-height:1.25;margin:1.2em 0 .5em}
             h1{font-size:1.8em}h2{font-size:1.45em}h3{font-size:1.2em}

@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.annotation.SuppressLint
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -12,23 +15,18 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -114,19 +112,12 @@ internal fun ReaderScreen(editor: Editor, file: ReaderFile, onClose: () -> Unit,
         webView?.let { wv -> if (q.isEmpty()) { wv.clearMatches(); webHits = 0 to 0 } else wv.findAllAsync(q) }
     }
     val findStatus = if (query.isBlank()) "" else "${webHits.first} / ${webHits.second}"
+    // The note reader's islands: a tap shows or hides them, scrolling hides them.
+    var awake by remember(file.uri) { mutableStateOf(true) }
     Column(Modifier.fillMaxSize().background(background.toComposeColor())) {
-        // The bar is app chrome like the note toolbar; only the page below follows the reader's light/dark.
-        ReaderBar(
-            file, dark,
-            zoom = zoom.floatValue,
-            onZoom = { zoom.floatValue = it },
-            onToggleDark = { editor.applyHomePreferences(editor.preferences.copy(readerDark = !dark)) },
-            onFind = { finding = !finding },
-            onClose = onClose,
-        )
         if (finding) FindBar(query, { query = it }, findStatus, { webView?.findNext(false) }, { webView?.findNext(true) }, { finding = false })
-        CompositionLocalProvider(LocalPalette provides palette) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            CompositionLocalProvider(LocalPalette provides palette) {
                 when (val c = content) {
                     null -> ReaderMessage(stringResource(R.string.loading), text)
                     ReaderContent.Failed -> ReaderMessage(stringResource(R.string.reader_open_failed), text)
@@ -138,59 +129,44 @@ internal fun ReaderScreen(editor: Editor, file: ReaderFile, onClose: () -> Unit,
                                 webView = wv
                                 wv.setFindListener { active, count, _ -> webHits = (if (count == 0) 0 else active + 1) to count }
                             },
+                            onTap = { awake = !awake },
+                            onScroll = { awake = false },
                         ) { url -> openLink(context, url, onWikiLink) }
                     }
                 }
+            }
+            // The islands are app chrome like the note reader's; only the page under them follows the reader's light/dark.
+            FileReaderIslands(
+                file.name,
+                awake,
+                onClose,
+                actions = {
+                    ToolbarIcon(XnotesIcons.search, stringResource(R.string.find_in_page)) { finding = !finding }
+                    ToolbarIcon(
+                        if (dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                        stringResource(if (dark) R.string.reader_switch_to_light else R.string.reader_switch_to_dark),
+                    ) { editor.applyHomePreferences(editor.preferences.copy(readerDark = !dark)) }
+                },
+            ) {
+                ZoomControls(zoom.floatValue) { zoom.floatValue = it }
             }
         }
     }
 }
 
-/** Built from the note toolbar's own pieces (icons, monospace labels, separators) so the two bars match. */
+/** The zoom slider, its percentage and its reset, for the bottom island. */
 @Composable
-private fun ReaderBar(
-    file: ReaderFile,
-    dark: Boolean,
-    zoom: Float,
-    onZoom: (Float) -> Unit,
-    onToggleDark: () -> Unit,
-    onFind: () -> Unit,
-    onClose: () -> Unit,
-) {
-    val palette = LocalPalette.current
-    Row(
-        Modifier.fillMaxWidth().height(50.dp).background(palette.panel.toComposeColor()),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            ToolbarIcon(XnotesIcons.prev, stringResource(R.string.reader_close), onClick = onClose)
-            Label(file.name, Modifier.widthIn(max = 160.dp))
-            Separator()
-            Icon(XnotesIcons.lock, null, tint = palette.textDim.toComposeColor(), modifier = Modifier.padding(start = 4.dp).size(16.dp))
-            Label(stringResource(R.string.reader_read_only))
-            Separator()
-            // A pinch can go past the slider's range; the slider then rests at its nearest end.
-            Slider(
-                value = zoom.coerceIn(ZOOM_STEPS.first(), ZOOM_STEPS.last()),
-                onValueChange = { v -> onZoom(ZOOM_STEPS.minBy { abs(it - v) }) },
-                valueRange = ZOOM_STEPS.first()..ZOOM_STEPS.last(),
-                steps = ZOOM_STEPS.size - 2,
-                modifier = Modifier.width(140.dp),
-            )
-            Label("${(zoom * 100).roundToInt()}%", Modifier.widthIn(min = 44.dp))
-            ToolbarIcon(Icons.Outlined.RestartAlt, stringResource(R.string.reader_zoom_reset), enabled = zoom != 1f) { onZoom(1f) }
-        }
-        ToolbarIcon(XnotesIcons.search, stringResource(R.string.find_in_page), onClick = onFind)
-        ToolbarIcon(
-            if (dark) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-            stringResource(if (dark) R.string.reader_switch_to_light else R.string.reader_switch_to_dark),
-            onClick = onToggleDark,
-        )
-        Spacer(Modifier.width(4.dp))
-    }
+private fun RowScope.ZoomControls(zoom: Float, onZoom: (Float) -> Unit) {
+    // A pinch can go past the slider's range; the slider then rests at its nearest end.
+    Slider(
+        value = zoom.coerceIn(ZOOM_STEPS.first(), ZOOM_STEPS.last()),
+        onValueChange = { v -> onZoom(ZOOM_STEPS.minBy { abs(it - v) }) },
+        valueRange = ZOOM_STEPS.first()..ZOOM_STEPS.last(),
+        steps = ZOOM_STEPS.size - 2,
+        modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+    )
+    Label("${(zoom * 100).roundToInt()}%", Modifier.widthIn(min = 44.dp))
+    ToolbarIcon(Icons.Outlined.RestartAlt, stringResource(R.string.reader_zoom_reset), enabled = zoom != 1f) { onZoom(1f) }
 }
 
 @Composable
@@ -201,8 +177,18 @@ private fun ReaderMessage(message: String, text: Rgba) {
 }
 
 @Composable
-private fun ReaderWebView(html: String, background: Color, textZoom: Int, onCreated: (WebView) -> Unit, onLink: (String) -> Unit) {
+private fun ReaderWebView(
+    html: String,
+    background: Color,
+    textZoom: Int,
+    onCreated: (WebView) -> Unit,
+    onTap: () -> Unit,
+    onScroll: () -> Unit,
+    onLink: (String) -> Unit,
+) {
     val onLinkNow = rememberUpdatedState(onLink)
+    val onTapNow = rememberUpdatedState(onTap)
+    val onScrollNow = rememberUpdatedState(onScroll)
     AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
@@ -229,6 +215,12 @@ private fun ReaderWebView(html: String, background: Color, textZoom: Int, onCrea
                         view.postDelayed({ view.scrollTo(0, y) }, 60)
                     }
                 }
+                val taps = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
+                    override fun onSingleTapConfirmed(e: MotionEvent): Boolean { onTapNow.value(); return false }
+                })
+                @SuppressLint("ClickableViewAccessibility")
+                setOnTouchListener { _, e -> taps.onTouchEvent(e); false }
+                setOnScrollChangeListener { _, _, y, _, oldY -> if (y != oldY) onScrollNow.value() }
                 onCreated(this)
             }
         },

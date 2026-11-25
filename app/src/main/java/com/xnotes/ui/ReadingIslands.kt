@@ -235,7 +235,7 @@ internal fun BoxScope.ReadingIslands(
             TopIslands {
                 if (up) {
                     HomeIsland(editor, chrome, onHome, Modifier.layoutId(HOME).drifting(alpha, drift, -TOP_DRIFT))
-                    TitleIsland(editor, Modifier.layoutId(TITLE).drifting(alpha, drift, -TOP_DRIFT))
+                    TitleIsland(noteName(editor), Modifier.layoutId(TITLE).drifting(alpha, drift, -TOP_DRIFT))
                 }
                 GearIsland(editor, chrome, fullscreen, onToggleFullscreen, onImportTemplate, onClose, Modifier.layoutId(GEAR).graphicsLayer { this.alpha = gear.value })
             }
@@ -311,12 +311,46 @@ private fun HomeIsland(editor: Editor, chrome: ReadingChrome, onHome: () -> Unit
     }
 }
 
-/** The note's name beside an open book, which says the note is being read. */
+/** The open note's name, or Untitled before it has one. */
 @Composable
-private fun TitleIsland(editor: Editor, modifier: Modifier) {
-    val palette = LocalPalette.current
+private fun noteName(editor: Editor): String {
     val doc = editor.state.document
-    val name = if (doc.displayName == null && doc.path == null) stringResource(R.string.untitled) else editor.title
+    return if (doc.displayName == null && doc.path == null) stringResource(R.string.untitled) else editor.title
+}
+
+/** The note reader's islands over a read-only file: close and the name along the top beside [actions], and [bottom] below. */
+@Composable
+internal fun BoxScope.FileReaderIslands(
+    name: String,
+    awake: Boolean,
+    onClose: () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+    bottom: @Composable RowScope.() -> Unit,
+) {
+    val alpha = animateFloatAsState(if (awake) 1f else 0f, fade(true, awake, SHOW_MS, EaseOut), label = "fileIslandsAlpha")
+    val drift = animateFloatAsState(if (awake) 0f else 1f, fade(true, awake, SHOW_DRIFT_MS, Settle), label = "fileIslandsDrift")
+    val gone by remember { derivedStateOf { alpha.value == 0f } }
+    if (!awake && gone) return
+    CompositionLocalProvider(LocalBar provides barMetrics(LocalToolbarLook.current.size)) {
+        CompositionLocalProvider(LocalTipSide provides TipSide.BELOW) {
+            TopIslands {
+                Island(Modifier.layoutId(HOME).drifting(alpha, drift, -TOP_DRIFT)) {
+                    ToolbarIcon(XnotesIcons.prev, stringResource(R.string.reader_close), onClick = onClose)
+                }
+                TitleIsland(name, Modifier.layoutId(TITLE).drifting(alpha, drift, -TOP_DRIFT))
+                Island(Modifier.layoutId(GEAR).drifting(alpha, drift, -TOP_DRIFT), actions)
+            }
+        }
+        CompositionLocalProvider(LocalTipSide provides TipSide.ABOVE) {
+            Island(Modifier.align(Alignment.BottomCenter).padding(ISLAND_MARGIN).widthIn(max = BOTTOM_MAX).fillMaxWidth().drifting(alpha, drift, BOTTOM_DRIFT), bottom)
+        }
+    }
+}
+
+/** A name beside an open book, which says it is being read. */
+@Composable
+private fun TitleIsland(name: String, modifier: Modifier) {
+    val palette = LocalPalette.current
     Row(
         modifier.height(LocalBar.current.thickness).barPill().keepsTouches().padding(start = 15.dp, end = 18.dp),
         verticalAlignment = Alignment.CenterVertically,

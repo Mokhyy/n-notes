@@ -1359,7 +1359,6 @@
     <string name="note_templates_empty">Aucun modèle pour l\'instant. Enregistrez une note comme modèle depuis son menu.</string>
     <string name="hidden_empty">Rien n\'est masqué sur cet appareil.</string>
     <string name="pref_show_hidden">Afficher les fichiers et dossiers masqués sur cet appareil</string>
-    <string name="reader_read_only">Lecture seule</string>
     <string name="reader_open_failed">Impossible d\'ouvrir ce fichier.</string>
     <string name="reader_link_missing">Impossible de trouver \"%1$s\" dans ce dossier.</string>
     <string name="reader_slide">Diapositive %1$d sur %2$d</string>

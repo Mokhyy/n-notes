@@ -1381,7 +1381,6 @@
     <string name="note_templates_empty">No templates yet. Save a note as a template from its menu.</string>
     <string name="hidden_empty">Nothing is hidden on this device.</string>
     <string name="pref_show_hidden">Show files and folders hidden on this device</string>
-    <string name="reader_read_only">Read only</string>
     <string name="reader_open_failed">Couldn\'t open this file.</string>
     <string name="reader_link_missing">Couldn\'t find \"%1$s\" in this folder.</string>
     <string name="reader_slide">Slide %1$d of %2$d</string>

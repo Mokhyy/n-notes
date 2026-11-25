@@ -1426,7 +1426,6 @@
     <string name="note_templates_empty">Шаблонів ще немає. Збережіть нотатку як шаблон із її меню.</string>
     <string name="hidden_empty">На цьому пристрої нічого не приховано.</string>
     <string name="pref_show_hidden">Показувати файли й папки, приховані на цьому пристрої</string>
-    <string name="reader_read_only">Лише читання</string>
     <string name="reader_open_failed">Не вдалося відкрити цей файл.</string>
     <string name="reader_link_missing">Не вдалося знайти \"%1$s\" у цій папці.</string>
     <string name="reader_slide">Слайд %1$d з %2$d</string>
