@@ -1064,7 +1064,7 @@ internal fun scrollForSection(y: Int, maxScroll: Int, height: Float, top: Float)
     else ((y + maxScroll - height + top) / 2f).roundToInt().coerceIn(0, maxScroll)
 
 /** Locales the app ships strings for; keep in sync with the res/values-* folders. */
-private val APP_LANGUAGES = listOf("en", "cs", "es", "fr", "ru", "zh-Hans")
+private val APP_LANGUAGES = listOf("en", "cs", "es", "fr", "ru", "uk", "zh-Hans")
 private const val LANGUAGE_REQUEST_URL = "https://github.com/NeDDy3z/Sponka/issues/new?title=Language+request%3A+"
 
 private fun nativeName(tag: String): String {
