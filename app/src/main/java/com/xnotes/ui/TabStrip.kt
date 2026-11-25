@@ -40,6 +40,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -123,7 +129,7 @@ internal fun TabStrip(
             LaunchedEffect(lead, slots.size) { if (lead >= 0) scroll.animateScrollTo((lead * widthPx - widthPx).coerceAtLeast(0)) }
             // shortcut: the strip does not scroll while a tab is carried to its edge; add it if long strips need it.
             // As wide as the strip, so a tab carried past the last one is not cut off where they end.
-            Row(Modifier.fillMaxSize().horizontalScroll(scroll).padding(start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxSize().fadeEdges(scroll).horizontalScroll(scroll).padding(start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 val caret = order.caret(slots.size)
                 slots.forEachIndexed { s, range ->
                     if (caret == s) DropLine(vertical = false)
@@ -148,6 +154,22 @@ internal fun TabStrip(
         TabCounter(tabs, slots, active, visible, shown != null, onSelect, onClose, onMove, onMoveFirst, onSplit, onSwap, onUnsplit, onCloseSplit, onColor, onCloseOthers)
     }
 }
+
+/** Fades the strip's ends where more tabs scroll past them, so they are not cut off sharply. */
+private fun Modifier.fadeEdges(scroll: ScrollState): Modifier =
+    graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen).drawWithContent {
+        drawContent()
+        val fade = TAB_FADE.toPx()
+        if (scroll.value > 0) {
+            drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), endX = fade), size = Size(fade, size.height), blendMode = BlendMode.DstIn)
+        }
+        if (scroll.value < scroll.maxValue) {
+            val start = size.width - fade
+            drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = start), Offset(start, 0f), Size(fade, size.height), blendMode = BlendMode.DstIn)
+        }
+    }
+
+private val TAB_FADE = 16.dp
 
 /** A long-press drag that moves one of a row's or column's items, all in root coordinates. */
 private class TabDrag(val vertical: Boolean) {
