@@ -168,6 +168,7 @@
     <string name="filter_screen">滤色</string>
     <string name="caption_keep_images">不过滤图片</string>
     <string name="caption_scrollbar">滚动条</string>
+    <string name="caption_page_gap">页面间距</string>
     <string name="default_for_all_notes">所有笔记的默认值</string>
     <string name="off">关闭</string>
     <string name="title_go_to_page">跳转到页面</string>
@@ -472,7 +473,6 @@
     <string name="toggle_previous">切换上一个工具</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss 会展开为创建日期和时间。# 会变为序号以确保文件夹中的名称不重复。</string>
     <string name="pref_next_note_named">下一个笔记将命名为 %1$s</string>
-    <string name="pref_side_margin_px">"页边距  %1$d px"</string>
     <string name="pref_cache_memory_auto">"缓存内存  自动（%1$d MB）"</string>
     <string name="pref_cache_memory_mb">"缓存内存  %1$d MB"</string>
     <string name="pref_hidden_shapes">形状工具中的形状和连接线</string>

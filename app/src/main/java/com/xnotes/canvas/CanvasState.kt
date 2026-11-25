@@ -226,14 +226,14 @@ class CanvasState(
      *  consumed by [establishInitialView] once the viewport is sized. */
     var pendingInitialView: InitialView? = null
 
-    /** Horizontal margin on each side of the page column (0 ⇒ fit-width fills the viewport). */
+    /** The View settings' page gap, used beside the page column too (0 => fit-width fills the viewport). */
     var sideMargin: Double = MARGIN
 
     /** Whether the hairline outline around each page is drawn (a user preference). */
     var pageBorders: Boolean = true
 
     /** Gap (content px) between pages — inside a spread, between rows, and between paginated
-     *  rows alike — equal to [sideMargin] so spacing always matches the margin preference. */
+     *  rows alike — equal to [sideMargin], so one "Page gap" slider sets every space. */
     val pageGap: Double get() = sideMargin
 
     /** Margin (content px) above and below the content: [sideMargin] too, so a page is framed evenly. */

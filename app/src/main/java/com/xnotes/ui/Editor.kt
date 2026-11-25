@@ -3404,7 +3404,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         flowText.highlight = { toolbarInk() }
         controller.penButtonTool = if (p.penButtonTool == "none") null else (Tool.fromId(p.penButtonTool) ?: Tool.ERASER)
         controller.penButtonHover = p.penButtonHover
-        state.sideMargin = p.sideMargin
+        state.sideMargin = viewSettings.pageGap.toDouble()
         state.pageBorders = !p.hidePageBorders
         cacheMemoryMb = p.cacheMemoryMb
         state.cacheLimit = { cacheBudget() }
@@ -3502,16 +3502,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     /** Apply edited preferences live and persist (used by the Preferences dialog). */
     fun applyPreferences(p: Preferences) {
-        val marginChanged = p.sideMargin != settings.prefs.sideMargin
         settings = settings.copy(prefs = p)
         for (editor in listOfNotNull(this, sibling)) {
             editor.fullscreen = p.startFullscreen ?: !editor.deviceHasDisplayCutout
             editor.applyPagePrefsToState(p)
             editor.republishFlow(invalidate = true)
             editor.state.invalidateAllCaches()
-            if (marginChanged) {
-                if (editor.state.fitHeightActive) editor.state.fitHeight() else editor.state.fitWidth()
-            }
             editor.refreshView()
             editor.prefsVersion++
             editor.view.requestRender()
@@ -7717,7 +7713,8 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     ) {
         val beforeOrigin = state.origin()
         state.freeMovement = new.freeMovement
-        if (prev.mode != new.mode || prev.rotation != new.rotation || prev.verticalScroll != new.verticalScroll || state.horizontalStrip != strip) {
+        state.sideMargin = new.pageGap.toDouble()
+        if (prev.mode != new.mode || prev.rotation != new.rotation || prev.verticalScroll != new.verticalScroll || state.horizontalStrip != strip || prev.pageGap != new.pageGap) {
             // Re-group / re-orient / re-flow the pages, keep the reader on the same page, and
             // re-fit a fit-width view to the new row width (a Double spread is about twice as
             // wide; a 90 degree turn swaps every page's footprint).

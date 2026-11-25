@@ -171,6 +171,7 @@
     <string name="filter_screen">Trama</string>
     <string name="caption_keep_images">No filtrar imágenes</string>
     <string name="caption_scrollbar">Barra de desplazamiento</string>
+    <string name="caption_page_gap">Espacio entre páginas</string>
     <string name="default_for_all_notes">Predeterminado para todas las notas</string>
     <string name="off">Desactivado</string>
     <string name="title_go_to_page">Ir a la página</string>
@@ -535,7 +536,6 @@
     <string name="toggle_previous">Alternar herramienta anterior</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss se sustituyen por la fecha y hora de creación. # se convierte en el número que mantiene el nombre libre en su carpeta.</string>
     <string name="pref_next_note_named">La siguiente nota se llamaría %1$s</string>
-    <string name="pref_side_margin_px">"Margen lateral  %1$d px"</string>
     <string name="pref_cache_memory_auto">"Memoria caché  Automática (%1$d MB)"</string>
     <string name="pref_cache_memory_mb">"Memoria caché  %1$d MB"</string>
     <string name="pref_hidden_shapes">Formas y conectores de la herramienta de formas</string>

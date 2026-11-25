@@ -187,6 +187,7 @@
     <string name="filter_screen">Screen</string>
     <string name="caption_keep_images">Don\'t filter images</string>
     <string name="caption_scrollbar">Scrollbar</string>
+    <string name="caption_page_gap">Page gap</string>
     <string name="default_for_all_notes">Default for all notes</string>
     <string name="off">Off</string>
     <string name="title_go_to_page">Go to page</string>
@@ -551,7 +552,6 @@
     <string name="toggle_previous">Toggle previous tool</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss expand to the creation date and time. # becomes the number that keeps the name free in its folder.</string>
     <string name="pref_next_note_named">The next note would be named %1$s</string>
-    <string name="pref_side_margin_px">"Page margin  %1$d px"</string>
     <string name="pref_cache_memory_auto">"Cache memory  Automatic (%1$d MB)"</string>
     <string name="pref_cache_memory_mb">"Cache memory  %1$d MB"</string>
     <string name="pref_hidden_shapes">Shapes and connectors in the shape tool</string>

@@ -171,6 +171,7 @@
     <string name="filter_screen">Superposition</string>
     <string name="caption_keep_images">Ne pas filtrer les images</string>
     <string name="caption_scrollbar">Barre de défilement</string>
+    <string name="caption_page_gap">Espacement des pages</string>
     <string name="default_for_all_notes">Par défaut pour toutes les notes</string>
     <string name="off">Désactivé</string>
     <string name="title_go_to_page">Aller à la page</string>
@@ -535,7 +536,6 @@
     <string name="toggle_previous">Basculer vers l\'outil précédent</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss sont remplacés par la date et l\'heure de création. # devient le numéro qui rend le nom unique dans son dossier.</string>
     <string name="pref_next_note_named">La prochaine note s\'appellerait %1$s</string>
-    <string name="pref_side_margin_px">"Marge latérale  %1$d px"</string>
     <string name="pref_cache_memory_auto">"Mémoire cache  Automatique (%1$d Mo)"</string>
     <string name="pref_cache_memory_mb">"Mémoire cache  %1$d Mo"</string>
     <string name="pref_hidden_shapes">Formes et connecteurs de l\'outil de formes</string>

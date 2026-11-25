@@ -29,6 +29,7 @@ internal object ViewSettingsJson {
         if (s.keepImages != base.keepImages) put("keepImages", s.keepImages)
         if (s.rotation != base.rotation) put("rotation", s.rotation)
         if (s.scrollbar != base.scrollbar) put("scrollbar", s.scrollbar)
+        if (s.pageGap != base.pageGap) put("pageGap", s.pageGap)
     }
 
     fun read(o: JSONObject, base: ViewSettings = ViewSettings()): ViewSettings = ViewSettings(
@@ -44,6 +45,7 @@ internal object ViewSettingsJson {
         keepImages = o.optBoolean("keepImages", base.keepImages),
         rotation = ViewSettings.normalizeRotation(o.optInt("rotation", base.rotation)),
         scrollbar = o.optBoolean("scrollbar", base.scrollbar),
+        pageGap = o.optInt("pageGap", base.pageGap).coerceIn(0, ViewSettings.PAGE_GAP_MAX),
     )
 }
 
@@ -91,6 +93,7 @@ internal object ViewOverridesJson {
         s.keepImages?.let { put("keepImages", it) }
         s.rotation?.let { put("rotation", it) }
         s.scrollbar?.let { put("scrollbar", it) }
+        s.pageGap?.let { put("pageGap", it) }
     }
 
     fun read(o: JSONObject): ViewOverrides = ViewOverrides(
@@ -106,5 +109,6 @@ internal object ViewOverridesJson {
         keepImages = if (o.has("keepImages")) o.optBoolean("keepImages", false) else null,
         rotation = if (o.has("rotation")) ViewSettings.normalizeRotation(o.optInt("rotation", 0)) else null,
         scrollbar = if (o.has("scrollbar")) o.optBoolean("scrollbar", false) else null,
+        pageGap = if (o.has("pageGap")) o.optInt("pageGap", 16).coerceIn(0, ViewSettings.PAGE_GAP_MAX) else null,
     )
 }

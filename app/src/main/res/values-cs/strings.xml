@@ -171,6 +171,7 @@
     <string name="filter_screen">Závoj</string>
     <string name="caption_keep_images">Nefiltrovat obrázky</string>
     <string name="caption_scrollbar">Posuvník</string>
+    <string name="caption_page_gap">Mezera mezi stránkami</string>
     <string name="default_for_all_notes">Výchozí pro všechny poznámky</string>
     <string name="off">Vypnuto</string>
     <string name="title_go_to_page">Přejít na stránku</string>
@@ -535,7 +536,6 @@
     <string name="toggle_previous">Přepnout na předchozí nástroj</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss se nahradí datem a časem vytvoření. # se nahradí číslem, díky kterému je název ve složce volný.</string>
     <string name="pref_next_note_named">Další poznámka by se jmenovala %1$s</string>
-    <string name="pref_side_margin_px">"Boční okraj  %1$d px"</string>
     <string name="pref_cache_memory_auto">"Paměť cache  Automaticky (%1$d MB)"</string>
     <string name="pref_cache_memory_mb">"Paměť cache  %1$d MB"</string>
     <string name="pref_hidden_shapes">Tvary a spojnice v nástroji Tvar</string>

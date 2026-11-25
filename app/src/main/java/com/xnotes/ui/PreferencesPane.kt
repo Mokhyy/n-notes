@@ -517,13 +517,6 @@ fun PreferencesPane(
                 CheckRow(stringResource(R.string.caption_free_movement), editor.viewDefaults.freeMovement) {
                     editor.updateViewDefaults(editor.viewDefaults.copy(freeMovement = it))
                 }
-                FieldLabel(stringResource(R.string.pref_side_margin_px, prefs.sideMargin.toInt()))
-                Slider(
-                    value = prefs.sideMargin.toFloat(),
-                    onValueChange = { update(prefs.copy(sideMargin = it.toDouble())) },
-                    valueRange = 0f..64f,
-                    modifier = Modifier.width(280.dp),
-                )
                 FieldLabel(stringResource(R.string.pref_page_colour))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SwatchCircles(editor, SwatchRole.PAPER, prefs.pageColor) { update(prefs.copy(pageColor = it)) }

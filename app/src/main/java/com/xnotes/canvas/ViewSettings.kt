@@ -47,6 +47,8 @@ data class ViewSettings(
     val rotation: Int = 0,
     /** Whether the canvas-area scrollbar is shown (off by default). */
     val scrollbar: Boolean = false,
+    /** Space in content px around the pages: beside them, between them and above and below. */
+    val pageGap: Int = 16,
 ) {
     /** Whether any colour filter changes the PDF page. */
     val filtersOn: Boolean
@@ -60,10 +62,12 @@ data class ViewSettings(
         freeMovement = o.freeMovement,
         rotation = o.rotation,
         scrollbar = o.scrollbar,
+        pageGap = o.pageGap,
     )
 
     companion object {
         val ROTATIONS = listOf(0, 90, 180, 270)
+        const val PAGE_GAP_MAX = 64
 
         /** The defaults until the user saves their own: dark and OLED invert PDF pages, and images keep their colours. */
         fun factory(dark: Boolean): ViewSettings = ViewSettings(invert = if (dark) 95 else 0, keepImages = true)
@@ -118,6 +122,7 @@ data class ViewOverrides(
     val keepImages: Boolean? = null,
     val rotation: Int? = null,
     val scrollbar: Boolean? = null,
+    val pageGap: Int? = null,
 ) {
     /** The note's effective settings: every null falls back to [defaults]. */
     fun resolve(defaults: ViewSettings): ViewSettings = ViewSettings(
@@ -133,5 +138,6 @@ data class ViewOverrides(
         keepImages = keepImages ?: defaults.keepImages,
         rotation = rotation ?: defaults.rotation,
         scrollbar = scrollbar ?: defaults.scrollbar,
+        pageGap = pageGap ?: defaults.pageGap,
     )
 }

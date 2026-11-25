@@ -999,6 +999,10 @@ private fun ViewPage(editor: Editor, s: ViewState, onBack: () -> Unit, onFilters
         CardDivider()
         PanelSwitch(stringResource(R.string.caption_scrollbar), vs.scrollbar) { on -> set { it.copy(scrollbar = on) } }
         CardDivider()
+        Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp)) {
+            HeldSlider(stringResource(R.string.caption_page_gap), vs.pageGap, ViewSettings.PAGE_GAP_MAX, unit = " px") { v -> set { it.copy(pageGap = v) } }
+        }
+        CardDivider()
         // Autoscroll lives outside the View settings, so it never stirs the "Default for all notes" row.
         PanelSwitch(
             stringResource(R.string.caption_autoscroll),
@@ -1030,9 +1034,14 @@ private fun ViewPage(editor: Editor, s: ViewState, onBack: () -> Unit, onFilters
     }
     if (!reader && s.showDefaultRow && editor.viewOverrides != ViewOverrides()) {
         Spacer(Modifier.height(6.dp))
-        PanelCheck(stringResource(R.string.default_for_all_notes), vs == editor.viewDefaults) { on ->
-            editor.updateViewDefaults(if (on) vs else s.openedDefaults.takeIf { it != vs } ?: editor.factoryViewDefaults)
-        }
+        DefaultForAllNotes(editor, s, vs)
+    }
+}
+
+@Composable
+private fun DefaultForAllNotes(editor: Editor, s: ViewState, vs: ViewSettings) {
+    PanelCheck(stringResource(R.string.default_for_all_notes), vs == editor.viewDefaults) { on ->
+        editor.updateViewDefaults(if (on) vs else s.openedDefaults.takeIf { it != vs } ?: editor.factoryViewDefaults)
     }
 }
 
@@ -1120,16 +1129,20 @@ private fun FiltersPage(editor: Editor, s: ViewState, onBack: () -> Unit) {
         CardDivider()
         PanelSwitch(stringResource(R.string.caption_keep_images), vs.keepImages) { on -> set { it.copy(keepImages = on) } }
     }
+    if (!editor.readOnly && s.showDefaultRow && editor.viewOverrides != ViewOverrides()) {
+        Spacer(Modifier.height(6.dp))
+        DefaultForAllNotes(editor, s, vs)
+    }
     Spacer(Modifier.height(10.dp))
     Text(stringResource(R.string.filters_hint), color = palette.textDim.toComposeColor(), fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(horizontal = 4.dp))
 }
 
 /** A filter's percentage slider. It applies on release, since every change re-renders the PDF. */
 @Composable
-private fun HeldSlider(label: String, value: Int, max: Int, onSet: (Int) -> Unit) {
+private fun HeldSlider(label: String, value: Int, max: Int, unit: String = "%", onSet: (Int) -> Unit) {
     var held by remember { mutableStateOf<Int?>(null) }
     val shown = held ?: value
-    PanelSlider(label, "$shown%", shown.toFloat(), 0f..max.toFloat(), onChangeFinished = { held?.let(onSet); held = null }) { held = it.roundToInt() }
+    PanelSlider(label, "$shown$unit", shown.toFloat(), 0f..max.toFloat(), onChangeFinished = { held?.let(onSet); held = null }) { held = it.roundToInt() }
 }
 
 /** What a blend's colour side offers before one is picked: warm paper to multiply, deep blue to screen. */

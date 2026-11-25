@@ -383,8 +383,10 @@ data class Settings(
         /** The light and the dark View defaults. Settings from before the split kept one set for
          *  every theme: unless it held a colour filter, both themes take their factory filters. */
         private fun viewDefaults(o: JSONObject): Pair<com.xnotes.canvas.ViewSettings, com.xnotes.canvas.ViewSettings> {
-            val light = com.xnotes.canvas.ViewSettings.factory(dark = false)
-            val dark = com.xnotes.canvas.ViewSettings.factory(dark = true)
+            // The page gap was a preference ("side_margin") before it moved into the View settings.
+            val gap = o.optJSONObject("prefs")?.optDouble("side_margin", 16.0)?.toInt()?.coerceIn(0, com.xnotes.canvas.ViewSettings.PAGE_GAP_MAX) ?: 16
+            val light = com.xnotes.canvas.ViewSettings.factory(dark = false).copy(pageGap = gap)
+            val dark = com.xnotes.canvas.ViewSettings.factory(dark = true).copy(pageGap = gap)
             if (o.has("view_defaults_light") || o.has("view_defaults_dark")) return Pair(
                 o.optJSONObject("view_defaults_light")?.let { com.xnotes.platform.ViewSettingsJson.read(it, light) } ?: light,
                 o.optJSONObject("view_defaults_dark")?.let { com.xnotes.platform.ViewSettingsJson.read(it, dark) } ?: dark,

@@ -188,6 +188,7 @@
     <string name="filter_screen">Екран</string>
     <string name="caption_keep_images">Не фільтрувати зображення</string>
     <string name="caption_scrollbar">Смуга прокручування</string>
+    <string name="caption_page_gap">Відступ між сторінками</string>
     <string name="default_for_all_notes">Типово для всіх нотаток</string>
     <string name="off">Вимк.</string>
     <string name="title_go_to_page">Перейти до сторінки</string>
@@ -552,7 +553,6 @@
     <string name="toggle_previous">Перемкнути на попередній інструмент</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss замінюються на дату й час створення. # замінюється на число, яке робить назву унікальною в папці.</string>
     <string name="pref_next_note_named">Наступну нотатку буде названо %1$s</string>
-    <string name="pref_side_margin_px">"Поле сторінки  %1$d px"</string>
     <string name="pref_cache_memory_auto">"Пам\'ять кешу  Автоматично (%1$d МБ)"</string>
     <string name="pref_cache_memory_mb">"Пам\'ять кешу  %1$d МБ"</string>
     <string name="pref_hidden_shapes">Фігури та з\'єднувачі в інструменті фігур</string>

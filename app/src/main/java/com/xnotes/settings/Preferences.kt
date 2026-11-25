@@ -95,7 +95,6 @@ data class Preferences(
     /** Preferences open on a list of categories; off shows every setting in one long list. */
     val prefsCategories: Boolean = true,
     /** Horizontal margin (px) on each side of the page column; 0 ⇒ fit-width fills the screen. */
-    val sideMargin: Double = 16.0,
     /** Whether the hairline outline around every page is left undrawn. */
     val hidePageBorders: Boolean = false,
     /** Whether the floating zoom bar is drawn over the page or canvas. */
@@ -245,7 +244,6 @@ data class Preferences(
         .put("disable_back_button", disableBackButton)
         .put("check_updates_on_startup", checkUpdatesOnStartup)
         .put("prefs_categories", prefsCategories)
-        .put("side_margin", sideMargin)
         .put("hide_page_borders", hidePageBorders)
         .put("show_zoom_bar", showZoomBar)
         .put("show_pencilcase", showPencilcase)
@@ -434,7 +432,6 @@ data class Preferences(
                 disableBackButton = o.optBoolean("disable_back_button", false),
                 checkUpdatesOnStartup = o.optBoolean("check_updates_on_startup", true),
                 prefsCategories = o.optBoolean("prefs_categories", true),
-                sideMargin = o.optDouble("side_margin", 16.0).coerceIn(0.0, 80.0),
                 hidePageBorders = o.optBoolean("hide_page_borders", false),
                 showZoomBar = o.optBoolean("show_zoom_bar", false),
                 showPencilcase = o.optBoolean("show_pencilcase", false),

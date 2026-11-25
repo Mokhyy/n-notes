@@ -188,6 +188,7 @@
     <string name="filter_screen">Осветление</string>
     <string name="caption_keep_images">Не применять к изображениям</string>
     <string name="caption_scrollbar">Полоса прокрутки</string>
+    <string name="caption_page_gap">Отступ между страницами</string>
     <string name="default_for_all_notes">По умолчанию для всех заметок</string>
     <string name="off">Выкл.</string>
     <string name="title_go_to_page">Перейти к странице</string>
@@ -552,7 +553,6 @@
     <string name="toggle_previous">Переключить на прошлый инструмент</string>
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss заменяются на дату и время создания. # заменяется на номер, который делает имя уникальным в папке.</string>
     <string name="pref_next_note_named">Следующая заметка получит имя %1$s</string>
-    <string name="pref_side_margin_px">"Поля страницы  %1$d px"</string>
     <string name="pref_cache_memory_auto">"Память кэша  Авто (%1$d МБ)"</string>
     <string name="pref_cache_memory_mb">"Память кэша  %1$d МБ"</string>
     <string name="pref_hidden_shapes">Фигуры и соединители в инструменте фигур</string>
