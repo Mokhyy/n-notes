@@ -243,7 +243,7 @@ private fun Tab(
         Row(
             Modifier
                 .fillMaxHeight()
-                .padding(horizontal = if (shown) 0.dp else 3.dp, vertical = if (shown) 0.dp else 3.dp)
+                .padding(horizontal = if (shown) 0.dp else 3.dp, vertical = 3.dp)
                 .tabOutline()
                 .clip(MaterialTheme.shapes.small)
                 .background(if (shown) below else Color.Transparent)
@@ -251,7 +251,7 @@ private fun Tab(
                 .padding(start = 10.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val dim = palette.textDim.toComposeColor()
+            val dim = (if (shown) palette.selectionForeground else palette.textDim).toComposeColor()
             Icon(
                 kindIcon(tab.name),
                 contentDescription = null,
@@ -261,7 +261,7 @@ private fun Tab(
             Spacer(Modifier.width(8.dp))
             Text(
                 DocumentKind.stripSuffix(tab.name),
-                color = if (shown) palette.text.toComposeColor() else dim,
+                color = dim,
                 fontSize = 13.sp,
                 fontWeight = if (shown) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
@@ -275,7 +275,7 @@ private fun Tab(
                 Icon(XnotesIcons.close, contentDescription = stringResource(R.string.close_tab), tint = dim, modifier = Modifier.size(14.dp))
             }
         }
-        tab.color?.let { c -> ColorEdge(c, Modifier.align(Alignment.TopCenter), if (shown) 10.dp else 13.dp, if (shown) 0.dp else 3.dp) }
+        tab.color?.let { c -> ColorEdge(c, Modifier.align(Alignment.TopCenter), if (shown) 10.dp else 13.dp, 3.dp) }
     }
 }
 
@@ -311,13 +311,13 @@ private fun SplitTab(
     onUnsplit: () -> Unit,
 ) {
     val palette = LocalPalette.current
-    val dim = palette.textDim.toComposeColor()
     val shown = focused >= 0
+    val dim = if (shown) palette.selectionForeground.toComposeColor().copy(alpha = 0.7f) else palette.textDim.toComposeColor()
     Box(modifier.height(STRIP_HEIGHT - 6.dp)) {
         Row(
             Modifier
                 .fillMaxHeight()
-                .padding(horizontal = if (shown) 0.dp else 3.dp, vertical = if (shown) 0.dp else 3.dp)
+                .padding(horizontal = if (shown) 0.dp else 3.dp, vertical = 3.dp)
                 .tabOutline()
                 .clip(MaterialTheme.shapes.small)
                 .background(if (shown) below else Color.Transparent)
@@ -332,7 +332,7 @@ private fun SplitTab(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             DocumentKind.stripSuffix(tab.name),
-                            color = if (on) palette.text.toComposeColor() else dim,
+                            color = if (on) palette.selectionForeground.toComposeColor() else dim,
                             fontSize = 13.sp,
                             fontWeight = if (on) FontWeight.Medium else FontWeight.Normal,
                             maxLines = 1,
