@@ -146,6 +146,9 @@ internal fun hueOf(c: Rgba): Hue {
     }
 }
 
+internal fun is24Hour(context: android.content.Context, clock: String): Boolean =
+    if (clock == "system") android.text.format.DateFormat.is24HourFormat(context) else clock == "24"
+
 internal fun clockText(w: ExplorerWords, t: LocalTime, clock24: Boolean): String =
     if (clock24) "%02d:%02d".format(Locale.ROOT, t.hour, t.minute)
     else w.clock12((t.hour + 11) % 12 + 1, t.minute, t.hour >= 12)

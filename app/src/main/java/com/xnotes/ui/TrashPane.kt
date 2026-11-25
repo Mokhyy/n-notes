@@ -85,7 +85,7 @@ internal fun TrashPane(editor: Editor, sidebarOpen: Boolean, onShowSidebar: () -
         value = root?.let { r -> withContext(Dispatchers.IO) { editor.browseRootName(r) } }
     }
     val now = remember(items) { System.currentTimeMillis() }
-    val clock24 = android.text.format.DateFormat.is24HourFormat(context)
+    val clock24 = is24Hour(context, prefs.clock)
     val zone = ZoneId.systemDefault()
     val shown = items.orEmpty().filter { query.isBlank() || it.entry.name.contains(query.trim(), ignoreCase = true) }
 

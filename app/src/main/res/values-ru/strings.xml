@@ -1358,6 +1358,7 @@
     <string name="pref_show_folder_counts">Показывать число элементов в папках</string>
     <string name="pref_show_extensions">Показывать расширения файлов (.xnote, .xcanvas)</string>
     <string name="pref_dates">Даты</string>
+    <string name="pref_time">Время</string>
     <string name="material_system_colours">Системные цвета</string>
     <string name="material_system_fallback">На этом устройстве используется акцентный цвет по умолчанию.</string>
     <string name="material_custom_colour">Выбрать свой цвет</string>

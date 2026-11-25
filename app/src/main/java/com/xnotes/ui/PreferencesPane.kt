@@ -1216,8 +1216,14 @@ internal fun HomeExplorerControls(editor: Editor, prefs: Preferences, updateHome
     FieldLabel(stringResource(R.string.pref_dates))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Chip(words.daysAgo(2), prefs.dateStyle == "relative") { updateHome(prefs.copy(dateStyle = "relative")) }
-        Chip("${words.shortWeekday(java.time.DayOfWeek.WEDNESDAY)} ${clockText(words, java.time.LocalTime.of(17, 30), true)}", prefs.dateStyle == "day") { updateHome(prefs.copy(dateStyle = "day")) }
+        Chip("${words.shortWeekday(java.time.DayOfWeek.WEDNESDAY)} ${clockText(words, java.time.LocalTime.of(17, 30), is24Hour(LocalContext.current, prefs.clock))}", prefs.dateStyle == "day") { updateHome(prefs.copy(dateStyle = "day")) }
         Chip(words.dayMonthYear(16, java.time.Month.SEPTEMBER, 2026), prefs.dateStyle == "date") { updateHome(prefs.copy(dateStyle = "date")) }
+    }
+    FieldLabel(stringResource(R.string.pref_time))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Chip(stringResource(R.string.theme_system), prefs.clock == "system") { updateHome(prefs.copy(clock = "system")) }
+        Chip(clockText(words, java.time.LocalTime.of(17, 30), true), prefs.clock == "24") { updateHome(prefs.copy(clock = "24")) }
+        Chip(clockText(words, java.time.LocalTime.of(17, 30), false), prefs.clock == "12") { updateHome(prefs.copy(clock = "12")) }
     }
     FieldLabel(stringResource(R.string.pref_tapping_file))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

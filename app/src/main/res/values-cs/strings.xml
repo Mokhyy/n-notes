@@ -1271,6 +1271,7 @@
     <string name="pref_show_folder_counts">Zobrazovat počet položek ve složkách</string>
     <string name="pref_show_extensions">Zobrazovat přípony souborů (.xnote, .xcanvas)</string>
     <string name="pref_dates">Data</string>
+    <string name="pref_time">Čas</string>
     <string name="material_system_colours">Systémové barvy</string>
     <string name="material_system_fallback">Používá výchozí barvu zvýraznění tohoto zařízení.</string>
     <string name="material_custom_colour">Vybrat vlastní barvu</string>

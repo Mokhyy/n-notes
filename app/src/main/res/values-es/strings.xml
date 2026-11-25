@@ -1249,6 +1249,7 @@
     <string name="pref_show_folder_counts">Mostrar el número de elementos en las carpetas</string>
     <string name="pref_show_extensions">Mostrar extensiones de archivo (.xnote, .xcanvas)</string>
     <string name="pref_dates">Fechas</string>
+    <string name="pref_time">Hora</string>
     <string name="material_system_colours">Colores del sistema</string>
     <string name="material_system_fallback">Usa el color de énfasis predeterminado de este dispositivo.</string>
     <string name="material_custom_colour">Elegir un color personalizado</string>

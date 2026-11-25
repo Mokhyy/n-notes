@@ -168,6 +168,8 @@ data class Preferences(
     val homeSwipeLeft: String = "sidebar_close",
     /** How the explorer writes dates: "relative" (2 days ago), "day" (Wed 17:30) or "date" (16 Sep 2026). */
     val dateStyle: String = "day",
+    /** Clock style for times in the explorer: "system", "24" or "12". */
+    val clock: String = "system",
     /** Tapping a file previews it instead of opening it. */
     val tapPreviews: Boolean = false,
     /** Days a deleted item waits in Trash: 0 deletes at once, [TRASH_FOREVER] keeps it until Trash is emptied. */
@@ -312,6 +314,7 @@ data class Preferences(
         .put("home_swipe_right", homeSwipeRight)
         .put("home_swipe_left", homeSwipeLeft)
         .put("date_style", dateStyle)
+        .put("clock", clock)
         .put("tap_previews", tapPreviews)
         .put("trash_days", trashDays)
         .put("per_folder_views", perFolderViews)
@@ -487,6 +490,7 @@ data class Preferences(
                 homeSwipeRight = o.optString("home_swipe_right", "sidebar_open").takeIf { it in HOME_SWIPES } ?: "sidebar_open",
                 homeSwipeLeft = o.optString("home_swipe_left", "sidebar_close").takeIf { it in HOME_SWIPES } ?: "sidebar_close",
                 dateStyle = o.optString("date_style", "day").let { if (it == "relative" || it == "date") it else "day" },
+                clock = o.optString("clock", "system").let { if (it == "24" || it == "12") it else "system" },
                 tapPreviews = o.optBoolean("tap_previews", false),
                 trashDays = o.optInt("trash_days", 30).let { if (it == TRASH_FOREVER || it in 0..365) it else 30 },
                 perFolderViews = o.optBoolean("per_folder_views", false),

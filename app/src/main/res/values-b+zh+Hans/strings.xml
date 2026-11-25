@@ -1082,6 +1082,7 @@
     <string name="pref_show_folder_counts">在文件夹上显示项目数</string>
     <string name="pref_show_extensions">显示文件扩展名（.xnote、.xcanvas）</string>
     <string name="pref_dates">日期</string>
+    <string name="pref_time">时间</string>
     <string name="kind_read_only_file">只读文件</string>
     <string name="kind_read_only_files">只读文件</string>
     <string name="kind_no_read_only_files">这里没有只读文件。</string>

@@ -1604,7 +1604,7 @@ private fun ExplorerSection(
         )
     }
     val folderNames = timeline?.folderNames
-    val clock24 = android.text.format.DateFormat.is24HourFormat(context)
+    val clock24 = is24Hour(context, prefs.clock)
     // Kept while what it describes holds, so a drag (which recomposes this every frame) leaves the tiles be.
     val restLabel = stringResource(R.string.in_folder, rootName ?: stringResource(R.string.folder))
     val body = remember(view, folderRow, groups, metas, counts, now, clock24, prefs, host, showRecent, recentByUri, folderNames, layout, words, pinned, restLabel, shelves, rootDocId) { ExplorerBody(

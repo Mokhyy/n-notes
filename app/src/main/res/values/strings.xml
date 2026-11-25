@@ -1313,6 +1313,7 @@
     <string name="pref_show_folder_counts">Show item counts on folders</string>
     <string name="pref_show_extensions">Show file extensions (.xnote, .xcanvas)</string>
     <string name="pref_dates">Dates</string>
+    <string name="pref_time">Time</string>
     <string name="material_system_colours">System colours</string>
     <string name="material_system_fallback">Uses the default accent on this device.</string>
     <string name="material_custom_colour">Choose a custom colour</string>
