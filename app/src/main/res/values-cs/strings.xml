@@ -20,6 +20,13 @@
     <string name="tool_ruler">Pravítko</string>
     <string name="tool_text">Text</string>
     <string name="tool_text_box">Textové pole</string>
+    <string name="box_defaults_hint">Nová textová pole začínají takto.</string>
+    <string name="box_fill">Výplň</string>
+    <string name="box_border">Ohraničení</string>
+    <string name="box_thickness">Tloušťka</string>
+    <string name="box_corners">Rohy</string>
+    <string name="box_style">Styl pole</string>
+    <string name="edit_text">Upravit text</string>
     <string name="tool_markup">Značení textu v PDF</string>
     <string name="tool_reader">Čtečka</string>
     <string name="reader_exit">Ukončit čtečku</string>
@@ -48,6 +55,21 @@
     <string name="toolbar_fullscreen">Celá obrazovka</string>
     <string name="toolbar_colours">Barvy</string>
     <string name="toolbar_minimap">Minimapa</string>
+    <string name="settings">Nastavení</string>
+    <string name="back">Zpět</string>
+    <string name="caption_page">Stránka</string>
+    <string name="caption_new_page_size">Velikost nové stránky</string>
+    <string name="same_as_previous">Stejné jako předchozí</string>
+    <string name="page_of_count">z %1$d</string>
+    <string name="limits_off">Limity vypnuty</string>
+    <string name="limits_on">Limity zapnuty</string>
+    <string name="title_zoom_limits">Limity přiblížení</string>
+    <string name="zoom_limits_hint">Dokud je limit zapnutý, zastaví se na něm sevření prstů, tlačítka přiblížení, klávesy i každé přizpůsobení.</string>
+    <string name="fit_page_short">Na stránku</string>
+    <string name="fit_width_short">Na šířku</string>
+    <string name="fit_height_short">Na výšku</string>
+    <string name="rotate">Otočit</string>
+    <string name="read_only">Jen pro čtení</string>
     <string name="toolbar_pencilcase">Penál</string>
     <string name="pencilcase_save">Uložit nástroj do penálu</string>
     <string name="pencilcase_remove">Odebrat %1$s</string>
@@ -96,6 +118,7 @@
     <string name="caption_straight_line">Rovná čára</string>
     <string name="caption_inverse">Inverzní</string>
     <string name="caption_neon">Neon</string>
+    <string name="stroke_preview">Náhled tahu</string>
     <string name="tape_straight">Rovná</string>
     <string name="tape_freehand">Od ruky</string>
     <string name="tape_solid">Plná</string>
@@ -137,6 +160,8 @@
     <string name="view_cover">Obálka</string>
     <string name="caption_vertical_scrolling">Svislé posouvání</string>
     <string name="caption_free_movement">Volný pohyb stránky</string>
+    <string name="caption_autoscroll">Automatické posouvání</string>
+    <string name="caption_autoscroll_speed">Rychlost</string>
     <string name="caption_pdf_filters">Barevné filtry PDF</string>
     <string name="filter_contrast">Kontrast</string>
     <string name="filter_invert">Invertovat</string>
@@ -305,6 +330,8 @@
     <string name="caption_cells">Buňky</string>
     <string name="count_fewer">Méně</string>
     <string name="count_more">Více</string>
+    <string name="decrease">Zmenšit</string>
+    <string name="increase">Zvětšit</string>
     <string name="title_table">Tabulka</string>
     <string name="caption_columns">Sloupce</string>
     <string name="caption_rows">Řádky</string>
@@ -388,6 +415,19 @@
     <string name="recording_other_pane">Druhý panel právě nahrává</string>
     <string name="recording_in_progress">Probíhá nahrávání</string>
     <string name="recording_channel">Nahrávky</string>
+    <string name="pdf_export_channel">Ukládání PDF</string>
+    <string name="pdf_changed_title">Toto PDF bylo změněno v jiné aplikaci</string>
+    <string name="pdf_changed_body">Jiná aplikace změnila toto PDF od jeho poslední úpravy v xnotes. Vyber, kterou verzi ponechat.</string>
+    <string name="pdf_changed_keep_theirs">Ponechat změny z druhé aplikace</string>
+    <string name="pdf_changed_keep_theirs_detail">Tvůj inkoust, tvary a text zůstanou na stránkách, ale už je nepůjde upravovat ani mazat.</string>
+    <string name="pdf_changed_keep_ours">Pokračovat v úpravách v xnotes</string>
+    <string name="pdf_changed_keep_ours_detail">Změny z druhé aplikace se odeberou při dalším uložení tohoto PDF v xnotes.</string>
+    <string name="pdf_changed_some_title">Některá z těchto PDF byla změněna v jiné aplikaci</string>
+    <string name="pdf_changed_note_body">Jiná aplikace změnila toto PDF od jeho poslední úpravy v xnotes. Vyber, ze které verze se poznámka vytvoří.</string>
+    <string name="pdf_changed_notes_body">Jiná aplikace je změnila od jejich poslední úpravy v xnotes. Vyber, ze které verze se jejich poznámky vytvoří.</string>
+    <string name="pdf_changed_note_ours">Ponechat verzi z xnotes</string>
+    <string name="pdf_changed_note_ours_detail">Vše zůstane upravitelné a změny z druhé aplikace se do poznámky nedostanou.</string>
+    <string name="pdf_export_saving">Ukládání PDF</string>
     <string name="recording_chip">Nahrávání, %1$s</string>
     <string name="err_mic_needed">Nahrávání vyžaduje mikrofon.</string>
     <string name="mic_settings">Nastavení</string>
@@ -408,6 +448,7 @@
     <string name="show_sidebar">Zobrazit postranní panel</string>
     <string name="preferences">Předvolby</string>
     <string name="reset_to_defaults">Obnovit výchozí</string>
+    <string name="use_default">Použít výchozí</string>
     <string name="pref_general">Obecné</string>
     <string name="pref_language">Jazyk</string>
     <string name="pref_language_system">Aplikace používá jazyk systému.</string>
@@ -434,6 +475,12 @@
     <string name="pan_single">Posun jedním prstem</string>
     <string name="pan_two">Posun dvěma prsty</string>
     <string name="pan_none">Bez posunu</string>
+    <string name="caption_pan_axes">Posun podél</string>
+    <string name="caption_pan_sensitivity">Citlivost</string>
+    <string name="caption_pan_glide">Doběh</string>
+    <string name="pan_axis_x">X</string>
+    <string name="pan_axis_y">Y</string>
+    <string name="pan_axis_zoom">Přiblížení</string>
     <string name="pref_detect_shapes">Převádět podržené tahy na tvary (podrž pero v klidu)</string>
     <string name="pref_pen_button_hold">Boční tlačítko stylusu/pera (podržení)</string>
     <string name="pref_pen_button_hover">Aktivovat i nad displejem (není nutné se ho dotknout)</string>
@@ -489,6 +536,8 @@
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss se nahradí datem a časem vytvoření. # se nahradí číslem, díky kterému je název ve složce volný.</string>
     <string name="pref_next_note_named">Další poznámka by se jmenovala %1$s</string>
     <string name="pref_side_margin_px">"Boční okraj  %1$d px"</string>
+    <string name="pref_cache_memory_auto">"Paměť cache  Automaticky (%1$d MB)"</string>
+    <string name="pref_cache_memory_mb">"Paměť cache  %1$d MB"</string>
     <string name="pref_hidden_shapes">Tvary a spojnice v nástroji Tvar</string>
     <string name="pref_hidden_shapes_help">Odškrtnutím stránky skryješ všechny její čipy, klepnutím na čip skryješ jen ten jeden. Pořadí změníš přetažením stránky za úchyt nebo dlouhým stisknutím a přetažením čipu.</string>
     <string name="pref_shapes_heading">Tvary</string>
@@ -513,6 +562,8 @@
     <string name="page_from_image">Šablona stránky z obrázku</string>
     <string name="cover_from_image">Šablona obálky z obrázku</string>
     <string name="tab_generate_ai">Vytvořit pomocí AI</string>
+    <string name="all_templates">Všechny šablony</string>
+    <string name="add_template">Přidat šablonu</string>
     <string name="ai_intro">AI asistenti jako ChatGPT a Claude ti umí navrhnout šablony stránek i obálek. Formát xtemplate je pro ně nový, proto k požadavku přilož jeho specifikaci.</string>
     <string name="ai_step_copy">Zkopíruj specifikaci</string>
     <string name="ai_guide_name">xtemplate pro AI asistenty</string>
@@ -566,6 +617,8 @@
     <string name="loading">Načítání…</string>
     <string name="folder_empty">V této složce nejsou žádné poznámky.</string>
     <string name="import_title">Import</string>
+    <string name="keep_as_pdf">Ponechat jako PDF</string>
+    <string name="convert_to_pdf">Převést do PDF</string>
     <string name="folder_name">Název složky</string>
     <string name="delete_confirm_title">Smazat?</string>
     <string name="search_notes">Hledat v poznámkách</string>
@@ -797,6 +850,12 @@
     <string name="err_paste_pages">Stránky se nepodařilo vložit.</string>
     <string name="importing_markdown">Importování Markdownu…</string>
     <string name="import_progress">Importováno %1$d z %2$d</string>
+    <plurals name="import_pdfs_title">
+        <item quantity="one">Importovat %d PDF</item>
+        <item quantity="few">Importovat %d PDF</item>
+        <item quantity="many">Importovat %d PDF</item>
+        <item quantity="other">Importovat %d PDF</item>
+    </plurals>
     <plurals name="imported_pdfs">
         <item quantity="one">Importováno %d PDF</item>
         <item quantity="few">Importována %d PDF</item>
@@ -898,6 +957,8 @@
     <string name="no_bookmarks">— žádné záložky —</string>
     <string name="add">Přidat</string>
     <string name="page_n">Stránka %1$d</string>
+    <string name="expand_entry">Rozbalit</string>
+    <string name="collapse_entry">Sbalit</string>
 
     <!-- Selection and long-press menus -->
     <string name="bring_to_front">Přenést do popředí</string>
@@ -1027,6 +1088,7 @@
     <string name="swatches">Vzorník</string>
     <string name="spectrum">Spektrum</string>
     <string name="eyedropper">Vybrat barvu z obrazovky</string>
+    <string name="previous_colour">Předchozí barva</string>
     <string name="eyedropper_hint">Klepni na barvu, kterou chceš vybrat</string>
 
     <!-- Canvas and storage -->
@@ -1147,9 +1209,12 @@
     <string name="sort_created">Datum vytvoření</string>
     <string name="select_all">Vybrat vše</string>
     <string name="opt_layout">Rozložení</string>
+    <string name="opt_compact_rows">Kompaktní řádky</string>
     <string name="opt_tile_size">Velikost dlaždic</string>
     <string name="opt_place_by">Řadit soubory podle</string>
+    <string name="opt_whole_page_thumbs">Náhledy celých stránek</string>
     <string name="opt_show_on_tiles">Zobrazit na dlaždicích</string>
+    <string name="shown_of">%1$d z %2$d</string>
     <string name="show_page_count">Počet stránek</string>
     <string name="show_time">Čas</string>
     <string name="colour_code">Barevné označení</string>
@@ -1352,7 +1417,10 @@
     <string name="reader_switch_to_dark">Přepnout na tmavý</string>
     <string name="reader_zoom_reset">Obnovit přiblížení</string>
     <string name="convert_to_note">Převést na poznámku</string>
+    <string name="converting_to_pdf">Převádění do PDF…</string>
     <string name="converting_to_note">Převádění na poznámku...</string>
+    <string name="err_convert">Tento soubor se nepodařilo převést.</string>
+    <string name="make_a_note">Vytvořit poznámku</string>
     <string name="err_convert_to_note">Tento soubor se nepodařilo převést.</string>
     <string name="reader_truncated_cells">Zobrazeno prvních %1$d řádků a %2$d sloupců tohoto listu.</string>
     <string name="material_contrast">"Kontrast  %1$s"</string>
@@ -1453,6 +1521,22 @@
     <string name="pref_split_categories">Rozdělit nastavení do kategorií</string>
     <string name="pref_snap_rotation_90">Přichytávat otočení po 90 stupních</string>
     <string name="on">Zapnuto</string>
+    <string name="caption_edge">Okraj</string>
+    <string name="tap_an_edge">Klepnutím vyber okraj</string>
+    <string name="margin_edge_value">%1$s %2$d %%</string>
+    <string name="no_template">Bez šablony</string>
+    <string name="new_pages_size">nové stránky %1$s</string>
+    <string name="vertical_scrolling_lower">svislé posouvání</string>
+    <string name="rotated_degrees">otočeno o %1$d°</string>
+    <string name="filters_on">Filtry PDF zapnuty</string>
+    <string name="filters_hint">Každá změna se použije po pustění, protože se celé PDF překresluje.</string>
+    <string name="speed_mm_s">%1$s mm/s</string>
+    <plurals name="waypoints_saved">
+        <item quantity="one">%1$d uložený pohled</item>
+        <item quantity="few">%1$d uložené pohledy</item>
+        <item quantity="many">%1$d uloženého pohledu</item>
+        <item quantity="other">%1$d uložených pohledů</item>
+    </plurals>
     <string name="pref_ocr_handwriting_language">Jazyk rozpoznávání rukopisu (Převést na text)</string>
     <string name="pref_ocr_math">Ručně psaná matematika (Převést na matematiku)</string>
     <string name="math_model_description">Modely v zařízení, které převádějí vybrané ručně psané vzorce do LaTeXu. Vyberte jeden a stáhněte ho jednou, pak funguje i offline.</string>

@@ -20,6 +20,13 @@
     <string name="tool_ruler">Règle</string>
     <string name="tool_text">Texte</string>
     <string name="tool_text_box">Zone de texte</string>
+    <string name="box_defaults_hint">Les nouvelles zones de texte commencent ainsi.</string>
+    <string name="box_fill">Remplissage</string>
+    <string name="box_border">Bordure</string>
+    <string name="box_thickness">Épaisseur</string>
+    <string name="box_corners">Coins</string>
+    <string name="box_style">Style de la zone</string>
+    <string name="edit_text">Modifier le texte</string>
     <string name="tool_markup">Annotation de texte PDF</string>
     <string name="tool_reader">Lecteur</string>
     <string name="reader_exit">Quitter le lecteur</string>
@@ -48,6 +55,21 @@
     <string name="toolbar_fullscreen">Plein écran</string>
     <string name="toolbar_colours">Couleurs</string>
     <string name="toolbar_minimap">Mini-carte</string>
+    <string name="settings">Réglages</string>
+    <string name="back">Retour</string>
+    <string name="caption_page">Page</string>
+    <string name="caption_new_page_size">Taille des nouvelles pages</string>
+    <string name="same_as_previous">Comme la précédente</string>
+    <string name="page_of_count">sur %1$d</string>
+    <string name="limits_off">Limites désactivées</string>
+    <string name="limits_on">Limites activées</string>
+    <string name="title_zoom_limits">Limites du zoom</string>
+    <string name="zoom_limits_hint">Lorsqu\'une limite est activée, le pincement, les boutons de zoom, les touches et chaque ajustement s\'arrêtent à cette limite.</string>
+    <string name="fit_page_short">Ajuster la page</string>
+    <string name="fit_width_short">Ajuster la largeur</string>
+    <string name="fit_height_short">Ajuster la hauteur</string>
+    <string name="rotate">Pivoter</string>
+    <string name="read_only">Lecture seule</string>
     <string name="toolbar_pencilcase">Trousse</string>
     <string name="pencilcase_save">Ranger l\'outil dans la trousse</string>
     <string name="pencilcase_remove">Retirer %1$s</string>
@@ -96,6 +118,7 @@
     <string name="caption_strength">Force</string>
     <string name="caption_crossover">Croisement</string>
     <string name="caption_neon">Néon</string>
+    <string name="stroke_preview">Aperçu du trait</string>
     <string name="tape_straight">Droit</string>
     <string name="tape_freehand">Main levée</string>
     <string name="tape_solid">Uni</string>
@@ -137,6 +160,8 @@
     <string name="view_cover">Couverture</string>
     <string name="caption_vertical_scrolling">Défilement vertical</string>
     <string name="caption_free_movement">Déplacement libre des pages</string>
+    <string name="caption_autoscroll">Défilement auto</string>
+    <string name="caption_autoscroll_speed">Vitesse</string>
     <string name="caption_pdf_filters">Filtres de couleur PDF</string>
     <string name="filter_contrast">Contraste</string>
     <string name="filter_invert">Inverser</string>
@@ -305,6 +330,8 @@
     <string name="caption_cells">Cellules</string>
     <string name="count_fewer">Moins</string>
     <string name="count_more">Plus</string>
+    <string name="decrease">Diminuer</string>
+    <string name="increase">Augmenter</string>
     <string name="title_table">Tableau</string>
     <string name="caption_columns">Colonnes</string>
     <string name="caption_rows">Lignes</string>
@@ -388,6 +415,19 @@
     <string name="recording_other_pane">L\'autre volet enregistre</string>
     <string name="recording_in_progress">Un enregistrement est en cours</string>
     <string name="recording_channel">Enregistrements</string>
+    <string name="pdf_export_channel">Enregistrement des PDF</string>
+    <string name="pdf_changed_title">Ce PDF a été modifié dans une autre appli</string>
+    <string name="pdf_changed_body">Une autre appli a modifié ce PDF depuis votre dernière modification dans xnotes. Choisissez la version à conserver.</string>
+    <string name="pdf_changed_keep_theirs">Conserver les modifications de l\'autre appli</string>
+    <string name="pdf_changed_keep_theirs_detail">Votre encre, vos formes et votre texte restent sur les pages, mais vous ne pouvez plus les modifier ni les effacer.</string>
+    <string name="pdf_changed_keep_ours">Continuer à modifier dans xnotes</string>
+    <string name="pdf_changed_keep_ours_detail">Les modifications de l\'autre appli seront supprimées au prochain enregistrement de ce PDF par xnotes.</string>
+    <string name="pdf_changed_some_title">Certains de ces PDF ont été modifiés dans une autre appli</string>
+    <string name="pdf_changed_note_body">Une autre appli a modifié ce PDF depuis votre dernière modification dans xnotes. Choisissez la version dont la note est issue.</string>
+    <string name="pdf_changed_notes_body">Une autre appli les a modifiés depuis votre dernière modification dans xnotes. Choisissez la version dont leurs notes sont issues.</string>
+    <string name="pdf_changed_note_ours">Conserver la version xnotes</string>
+    <string name="pdf_changed_note_ours_detail">Tout reste modifiable, et les modifications de l\'autre appli sont exclues de la note.</string>
+    <string name="pdf_export_saving">Enregistrement du PDF</string>
     <string name="recording_chip">Enregistrement, %1$s</string>
     <string name="err_mic_needed">L\'enregistrement nécessite le microphone.</string>
     <string name="mic_settings">Paramètres</string>
@@ -408,6 +448,7 @@
     <string name="show_sidebar">Afficher la barre latérale</string>
     <string name="preferences">Préférences</string>
     <string name="reset_to_defaults">Rétablir les valeurs par défaut</string>
+    <string name="use_default">Utiliser la valeur par défaut</string>
     <string name="pref_general">Général</string>
     <string name="pref_language">Langue</string>
     <string name="pref_language_system">L\'application suit la langue du système.</string>
@@ -434,6 +475,12 @@
     <string name="pan_single">Défilement à un doigt</string>
     <string name="pan_two">Défilement à deux doigts</string>
     <string name="pan_none">Aucun défilement</string>
+    <string name="caption_pan_axes">Déplacer selon</string>
+    <string name="caption_pan_sensitivity">Sensibilité</string>
+    <string name="caption_pan_glide">Glissement</string>
+    <string name="pan_axis_x">X</string>
+    <string name="pan_axis_y">Y</string>
+    <string name="pan_axis_zoom">Zoom</string>
     <string name="pref_detect_shapes">Convertir les traits maintenus en formes (gardez le stylet immobile)</string>
     <string name="pref_pen_button_hold">Bouton latéral du stylet (maintenu)</string>
     <string name="pref_pen_button_hover">Activer pendant le survol (sans toucher l\'écran)</string>
@@ -489,6 +536,8 @@
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss sont remplacés par la date et l\'heure de création. # devient le numéro qui rend le nom unique dans son dossier.</string>
     <string name="pref_next_note_named">La prochaine note s\'appellerait %1$s</string>
     <string name="pref_side_margin_px">"Marge latérale  %1$d px"</string>
+    <string name="pref_cache_memory_auto">"Mémoire cache  Automatique (%1$d Mo)"</string>
+    <string name="pref_cache_memory_mb">"Mémoire cache  %1$d Mo"</string>
     <string name="pref_hidden_shapes">Formes et connecteurs de l\'outil de formes</string>
     <string name="pref_hidden_shapes_help">Décochez une page pour masquer toutes ses puces, ou touchez une puce pour masquer uniquement celle-ci. Faites glisser une page par sa poignée, ou appuyez longuement sur une puce et faites-la glisser, pour changer l\'ordre.</string>
     <string name="pref_shapes_heading">Formes</string>
@@ -513,6 +562,8 @@
     <string name="page_from_image">Modèle de page à partir d\'une image</string>
     <string name="cover_from_image">Modèle de couverture à partir d\'une image</string>
     <string name="tab_generate_ai">Générer avec l\'IA</string>
+    <string name="all_templates">Tous les modèles</string>
+    <string name="add_template">Ajouter un modèle</string>
     <string name="ai_intro">Les assistants IA comme ChatGPT et Claude peuvent concevoir pour vous des modèles de page et de couverture. Comme le format xtemplate est nouveau pour eux, fournissez-leur sa spécification avec votre demande.</string>
     <string name="ai_step_copy">Copiez la spécification</string>
     <string name="ai_guide_name">xtemplate pour les assistants IA</string>
@@ -566,6 +617,8 @@
     <string name="loading">Chargement…</string>
     <string name="folder_empty">Ce dossier ne contient aucune note.</string>
     <string name="import_title">Importer</string>
+    <string name="keep_as_pdf">Garder en PDF</string>
+    <string name="convert_to_pdf">Convertir en PDF</string>
     <string name="folder_name">Nom du dossier</string>
     <string name="delete_confirm_title">Supprimer ?</string>
     <string name="search_notes">Rechercher dans les notes</string>
@@ -779,6 +832,10 @@
     <string name="err_paste_pages">Impossible de coller les pages.</string>
     <string name="importing_markdown">Import du Markdown…</string>
     <string name="import_progress">%1$d sur %2$d importés</string>
+    <plurals name="import_pdfs_title">
+        <item quantity="one">Importer %d PDF</item>
+        <item quantity="other">Importer %d PDF</item>
+    </plurals>
     <plurals name="imported_pdfs">
         <item quantity="one">%d PDF importé</item>
         <item quantity="other">%d PDF importés</item>
@@ -870,6 +927,8 @@
     <string name="no_bookmarks">— aucun signet —</string>
     <string name="add">Ajouter</string>
     <string name="page_n">Page %1$d</string>
+    <string name="expand_entry">Développer</string>
+    <string name="collapse_entry">Réduire</string>
 
     <!-- Selection and long-press menus -->
     <string name="bring_to_front">Mettre au premier plan</string>
@@ -999,6 +1058,7 @@
     <string name="swatches">Nuancier</string>
     <string name="spectrum">Spectre</string>
     <string name="eyedropper">Choisir une couleur à l\'écran</string>
+    <string name="previous_colour">Couleur précédente</string>
     <string name="eyedropper_hint">Touchez une couleur pour la choisir</string>
 
     <!-- Canvas and storage -->
@@ -1111,9 +1171,12 @@
     <string name="sort_created">Date de création</string>
     <string name="select_all">Tout sélectionner</string>
     <string name="opt_layout">Disposition</string>
+    <string name="opt_compact_rows">Lignes compactes</string>
     <string name="opt_tile_size">Taille des vignettes</string>
     <string name="opt_place_by">Placer les fichiers par</string>
+    <string name="opt_whole_page_thumbs">Miniatures de page entière</string>
     <string name="opt_show_on_tiles">Afficher sur les vignettes</string>
+    <string name="shown_of">%1$d sur %2$d</string>
     <string name="show_page_count">Nombre de pages</string>
     <string name="show_time">Heure</string>
     <string name="colour_code">Code couleur</string>
@@ -1309,7 +1372,10 @@
     <string name="reader_switch_to_dark">Passer en mode sombre</string>
     <string name="reader_zoom_reset">Réinitialiser le zoom</string>
     <string name="convert_to_note">Convertir en note</string>
+    <string name="converting_to_pdf">Conversion en PDF…</string>
     <string name="converting_to_note">Conversion en note...</string>
+    <string name="err_convert">Impossible de convertir ce fichier.</string>
+    <string name="make_a_note">Créer une note</string>
     <string name="err_convert_to_note">Impossible de convertir ce fichier.</string>
     <string name="reader_truncated_cells">Affichage des %1$d premières lignes et des %2$d premières colonnes de cette feuille.</string>
     <string name="material_contrast">"Contraste  %1$s"</string>
@@ -1410,6 +1476,20 @@
     <string name="pref_split_categories">Répartir les paramètres en catégories</string>
     <string name="pref_snap_rotation_90">Aimanter la rotation à 90 degrés</string>
     <string name="on">Activé</string>
+    <string name="caption_edge">Bord</string>
+    <string name="tap_an_edge">Touchez un bord pour le choisir</string>
+    <string name="margin_edge_value">%1$s %2$d%%</string>
+    <string name="no_template">Aucun modèle</string>
+    <string name="new_pages_size">nouvelles pages %1$s</string>
+    <string name="vertical_scrolling_lower">défilement vertical</string>
+    <string name="rotated_degrees">pivoté de %1$d°</string>
+    <string name="filters_on">Filtres PDF activés</string>
+    <string name="filters_hint">Chaque modification s\'applique quand vous relâchez, car tout le PDF est redessiné.</string>
+    <string name="speed_mm_s">%1$s mm/s</string>
+    <plurals name="waypoints_saved">
+        <item quantity="one">%1$d vue enregistrée</item>
+        <item quantity="other">%1$d vues enregistrées</item>
+    </plurals>
     <string name="pref_ocr_handwriting_language">Langue de reconnaissance de l\'écriture manuscrite (Convertir en texte)</string>
     <string name="pref_ocr_math">Maths manuscrites (Convertir en maths)</string>
     <string name="math_model_description">Des modèles sur l\'appareil qui transforment les formules manuscrites sélectionnées en LaTeX. Choisissez-en un et téléchargez-le une fois : il fonctionne ensuite hors ligne.</string>

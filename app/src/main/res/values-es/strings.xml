@@ -20,6 +20,13 @@
     <string name="tool_ruler">Regla</string>
     <string name="tool_text">Texto</string>
     <string name="tool_text_box">Cuadro de texto</string>
+    <string name="box_defaults_hint">Los cuadros de texto nuevos empiezan así.</string>
+    <string name="box_fill">Relleno</string>
+    <string name="box_border">Borde</string>
+    <string name="box_thickness">Grosor</string>
+    <string name="box_corners">Esquinas</string>
+    <string name="box_style">Estilo del cuadro</string>
+    <string name="edit_text">Editar texto</string>
     <string name="tool_markup">Marcado de texto PDF</string>
     <string name="tool_reader">Lector</string>
     <string name="reader_exit">Salir del lector</string>
@@ -48,6 +55,21 @@
     <string name="toolbar_fullscreen">Pantalla completa</string>
     <string name="toolbar_colours">Colores</string>
     <string name="toolbar_minimap">Minimapa</string>
+    <string name="settings">Ajustes</string>
+    <string name="back">Atrás</string>
+    <string name="caption_page">Página</string>
+    <string name="caption_new_page_size">Tamaño de página nueva</string>
+    <string name="same_as_previous">Igual que el anterior</string>
+    <string name="page_of_count">de %1$d</string>
+    <string name="limits_off">Límites desactivados</string>
+    <string name="limits_on">Límites activados</string>
+    <string name="title_zoom_limits">Límites de zoom</string>
+    <string name="zoom_limits_hint">Mientras un límite está activado, el pellizco, los botones de zoom, las teclas y todos los ajustes se detienen en él.</string>
+    <string name="fit_page_short">Ajustar página</string>
+    <string name="fit_width_short">Ajustar ancho</string>
+    <string name="fit_height_short">Ajustar alto</string>
+    <string name="rotate">Girar</string>
+    <string name="read_only">Solo lectura</string>
     <string name="toolbar_pencilcase">Estuche</string>
     <string name="pencilcase_save">Guardar herramienta en el estuche</string>
     <string name="pencilcase_remove">Quitar %1$s</string>
@@ -96,6 +118,7 @@
     <string name="caption_straight_line">Línea recta</string>
     <string name="caption_inverse">Inverso</string>
     <string name="caption_neon">Neón</string>
+    <string name="stroke_preview">Vista previa del trazo</string>
     <string name="tape_straight">Recta</string>
     <string name="tape_freehand">A mano alzada</string>
     <string name="tape_solid">Sólida</string>
@@ -137,6 +160,8 @@
     <string name="view_cover">Portada</string>
     <string name="caption_vertical_scrolling">Desplazamiento vertical</string>
     <string name="caption_free_movement">Movimiento libre de páginas</string>
+    <string name="caption_autoscroll">Desplazamiento automático</string>
+    <string name="caption_autoscroll_speed">Velocidad</string>
     <string name="caption_pdf_filters">Filtros de color del PDF</string>
     <string name="filter_contrast">Contraste</string>
     <string name="filter_invert">Invertir</string>
@@ -305,6 +330,8 @@
     <string name="caption_cells">Celdas</string>
     <string name="count_fewer">Menos</string>
     <string name="count_more">Más</string>
+    <string name="decrease">Reducir</string>
+    <string name="increase">Aumentar</string>
     <string name="title_table">Tabla</string>
     <string name="caption_columns">Columnas</string>
     <string name="caption_rows">Filas</string>
@@ -388,6 +415,19 @@
     <string name="recording_other_pane">El otro panel está grabando</string>
     <string name="recording_in_progress">Hay una grabación en curso</string>
     <string name="recording_channel">Grabaciones</string>
+    <string name="pdf_export_channel">Guardado de PDF</string>
+    <string name="pdf_changed_title">Este PDF se cambió en otra aplicación</string>
+    <string name="pdf_changed_body">Otra aplicación ha cambiado este PDF desde la última vez que lo editaste en xnotes. Elige qué versión conservar.</string>
+    <string name="pdf_changed_keep_theirs">Conservar los cambios de la otra aplicación</string>
+    <string name="pdf_changed_keep_theirs_detail">Tu tinta, formas y texto se quedan en las páginas, pero ya no podrás editarlos ni borrarlos.</string>
+    <string name="pdf_changed_keep_ours">Seguir editando en xnotes</string>
+    <string name="pdf_changed_keep_ours_detail">Los cambios de la otra aplicación se eliminan la próxima vez que xnotes guarde este PDF.</string>
+    <string name="pdf_changed_some_title">Algunos de estos PDF se cambiaron en otra aplicación</string>
+    <string name="pdf_changed_note_body">Otra aplicación ha cambiado este PDF desde la última vez que lo editaste en xnotes. Elige de qué versión se crea la nota.</string>
+    <string name="pdf_changed_notes_body">Otra aplicación los ha cambiado desde la última vez que los editaste en xnotes. Elige de qué versión se crean sus notas.</string>
+    <string name="pdf_changed_note_ours">Conservar la versión de xnotes</string>
+    <string name="pdf_changed_note_ours_detail">Todo sigue siendo editable y los cambios de la otra aplicación se dejan fuera de la nota.</string>
+    <string name="pdf_export_saving">Guardando PDF</string>
     <string name="recording_chip">Grabación, %1$s</string>
     <string name="err_mic_needed">Para grabar se necesita el micrófono.</string>
     <string name="mic_settings">Ajustes</string>
@@ -408,6 +448,7 @@
     <string name="show_sidebar">Mostrar barra lateral</string>
     <string name="preferences">Preferencias</string>
     <string name="reset_to_defaults">Restablecer valores predeterminados</string>
+    <string name="use_default">Usar el predeterminado</string>
     <string name="pref_general">General</string>
     <string name="pref_language">Idioma</string>
     <string name="pref_language_system">La app usa el idioma del sistema.</string>
@@ -434,6 +475,12 @@
     <string name="pan_single">Desplazar con un dedo</string>
     <string name="pan_two">Desplazar con dos dedos</string>
     <string name="pan_none">Sin desplazamiento</string>
+    <string name="caption_pan_axes">Desplazar en</string>
+    <string name="caption_pan_sensitivity">Sensibilidad</string>
+    <string name="caption_pan_glide">Inercia</string>
+    <string name="pan_axis_x">X</string>
+    <string name="pan_axis_y">Y</string>
+    <string name="pan_axis_zoom">Zoom</string>
     <string name="pref_detect_shapes">Convertir trazos sostenidos en formas (mantén el lápiz quieto)</string>
     <string name="pref_pen_button_hold">Botón lateral del lápiz (mantener)</string>
     <string name="pref_pen_button_hover">Activar al pasar por encima (sin tocar la pantalla)</string>
@@ -489,6 +536,8 @@
     <string name="pref_filename_template_help">YYYY YY MM DD HH mm ss se sustituyen por la fecha y hora de creación. # se convierte en el número que mantiene el nombre libre en su carpeta.</string>
     <string name="pref_next_note_named">La siguiente nota se llamaría %1$s</string>
     <string name="pref_side_margin_px">"Margen lateral  %1$d px"</string>
+    <string name="pref_cache_memory_auto">"Memoria caché  Automática (%1$d MB)"</string>
+    <string name="pref_cache_memory_mb">"Memoria caché  %1$d MB"</string>
     <string name="pref_hidden_shapes">Formas y conectores de la herramienta de formas</string>
     <string name="pref_hidden_shapes_help">Desmarca una página para ocultar todos sus chips, o toca un chip para ocultar solo ese. Arrastra una página por su asa, o mantén pulsado un chip y arrástralo, para cambiar el orden.</string>
     <string name="pref_shapes_heading">Formas</string>
@@ -513,6 +562,8 @@
     <string name="page_from_image">Plantilla de página desde imagen</string>
     <string name="cover_from_image">Plantilla de portada desde imagen</string>
     <string name="tab_generate_ai">Generar con IA</string>
+    <string name="all_templates">Todas las plantillas</string>
+    <string name="add_template">Añadir una plantilla</string>
     <string name="ai_intro">Los asistentes de IA como ChatGPT y Claude pueden diseñar plantillas de página y de portada por ti. Como el formato xtemplate es nuevo para ellos, incluye su especificación junto con tu petición.</string>
     <string name="ai_step_copy">Copia la especificación</string>
     <string name="ai_guide_name">xtemplate para asistentes de IA</string>
@@ -566,6 +617,8 @@
     <string name="loading">Cargando…</string>
     <string name="folder_empty">Esta carpeta no tiene notas.</string>
     <string name="import_title">Importar</string>
+    <string name="keep_as_pdf">Mantener como PDF</string>
+    <string name="convert_to_pdf">Convertir a PDF</string>
     <string name="folder_name">Nombre de la carpeta</string>
     <string name="delete_confirm_title">¿Eliminar?</string>
     <string name="search_notes">Buscar notas</string>
@@ -788,6 +841,11 @@
     <string name="err_paste_pages">No se pudieron pegar las páginas.</string>
     <string name="importing_markdown">Importando Markdown…</string>
     <string name="import_progress">%1$d de %2$d importados</string>
+    <plurals name="import_pdfs_title">
+        <item quantity="one">Importar %d PDF</item>
+        <item quantity="many">Importar %d PDF</item>
+        <item quantity="other">Importar %d PDF</item>
+    </plurals>
     <plurals name="imported_pdfs">
         <item quantity="one">%d PDF importado</item>
         <item quantity="many">%d PDF importados</item>
@@ -884,6 +942,8 @@
     <string name="no_bookmarks">— sin marcadores —</string>
     <string name="add">Añadir</string>
     <string name="page_n">Página %1$d</string>
+    <string name="expand_entry">Expandir</string>
+    <string name="collapse_entry">Contraer</string>
 
     <!-- Selection and long-press menus -->
     <string name="bring_to_front">Traer al frente</string>
@@ -1013,6 +1073,7 @@
     <string name="swatches">Muestras</string>
     <string name="spectrum">Espectro</string>
     <string name="eyedropper">Elegir un color de la pantalla</string>
+    <string name="previous_colour">Color anterior</string>
     <string name="eyedropper_hint">Toca un color para elegirlo</string>
 
     <!-- Canvas and storage -->
@@ -1129,9 +1190,12 @@
     <string name="sort_created">Fecha de creación</string>
     <string name="select_all">Seleccionar todo</string>
     <string name="opt_layout">Diseño</string>
+    <string name="opt_compact_rows">Filas compactas</string>
     <string name="opt_tile_size">Tamaño de miniaturas</string>
     <string name="opt_place_by">Colocar archivos por</string>
+    <string name="opt_whole_page_thumbs">Miniaturas de página completa</string>
     <string name="opt_show_on_tiles">Mostrar en miniaturas</string>
+    <string name="shown_of">%1$d de %2$d</string>
     <string name="show_page_count">Número de páginas</string>
     <string name="show_time">Hora</string>
     <string name="colour_code">Código de color</string>
@@ -1330,7 +1394,10 @@
     <string name="reader_switch_to_dark">Cambiar a oscuro</string>
     <string name="reader_zoom_reset">Restablecer zoom</string>
     <string name="convert_to_note">Convertir en nota</string>
+    <string name="converting_to_pdf">Convirtiendo a PDF…</string>
     <string name="converting_to_note">Convirtiendo en nota...</string>
+    <string name="err_convert">No se pudo convertir ese archivo.</string>
+    <string name="make_a_note">Crear una nota</string>
     <string name="err_convert_to_note">No se pudo convertir ese archivo.</string>
     <string name="reader_truncated_cells">Se muestran las primeras %1$d filas y %2$d columnas de esta hoja.</string>
     <string name="material_contrast">"Contraste  %1$s"</string>
@@ -1431,6 +1498,21 @@
     <string name="pref_split_categories">Dividir los ajustes en categorías</string>
     <string name="pref_snap_rotation_90">Ajustar la rotación a 90 grados</string>
     <string name="on">Activado</string>
+    <string name="caption_edge">Borde</string>
+    <string name="tap_an_edge">Toca un borde para elegirlo</string>
+    <string name="margin_edge_value">%1$s %2$d%%</string>
+    <string name="no_template">Sin plantilla</string>
+    <string name="new_pages_size">páginas nuevas %1$s</string>
+    <string name="vertical_scrolling_lower">desplazamiento vertical</string>
+    <string name="rotated_degrees">girado %1$d°</string>
+    <string name="filters_on">Filtros de PDF activados</string>
+    <string name="filters_hint">Cada cambio se aplica al soltar, porque todo el PDF se vuelve a dibujar.</string>
+    <string name="speed_mm_s">%1$s mm/s</string>
+    <plurals name="waypoints_saved">
+        <item quantity="one">%1$d vista guardada</item>
+        <item quantity="many">%1$d vistas guardadas</item>
+        <item quantity="other">%1$d vistas guardadas</item>
+    </plurals>
     <string name="pref_ocr_handwriting_language">Idioma del reconocimiento de escritura a mano (Convertir en texto)</string>
     <string name="pref_ocr_math">Matemáticas a mano (Convertir en matemáticas)</string>
     <string name="math_model_description">Modelos en el dispositivo que convierten las fórmulas escritas a mano seleccionadas en LaTeX. Elige uno y descárgalo una vez; después funciona sin conexión.</string>
