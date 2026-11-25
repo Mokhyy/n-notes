@@ -8,8 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,7 +57,10 @@ fun UpdateSection(checkOnStartup: Boolean, onCheckOnStartup: (Boolean) -> Unit) 
         )
         CheckRow(stringResource(R.string.update_check_on_startup), checkOnStartup, onCheckOnStartup)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(
+            SheetButton(
+                stringResource(R.string.update_check),
+                kind = ButtonKind.CONFIRM,
+                enabled = !busy,
                 onClick = {
                     error = null
                     status = null
@@ -72,9 +73,7 @@ fun UpdateSection(checkOnStartup: Boolean, onCheckOnStartup: (Boolean) -> Unit) 
                         busy = false
                     }
                 },
-                enabled = !busy,
-                colors = ButtonDefaults.buttonColors(containerColor = palette.accent.toComposeColor(), contentColor = palette.bg.toComposeColor()),
-            ) { Text(stringResource(R.string.update_check)) }
+            )
             if (busy) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = palette.accent.toComposeColor(), strokeWidth = 2.dp)
         }
 

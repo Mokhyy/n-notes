@@ -200,6 +200,13 @@ internal fun SheetButton(
     }
 }
 
+/** A [SheetButton] with an outline, for a button standing on its own outside a dialog. */
+@Composable
+internal fun OutlinedSheetButton(label: String, kind: ButtonKind = ButtonKind.PLAIN, enabled: Boolean = true, onClick: () -> Unit) {
+    val shape = MaterialTheme.shapes.medium
+    SheetButton(label, Modifier.border(1.dp, LocalPalette.current.border.toComposeColor(), shape), kind, enabled, onClick)
+}
+
 /** A row of a dialog's buttons, each as wide as the others. */
 @Composable
 internal fun DialogButtons(content: @Composable RowScope.() -> Unit) {

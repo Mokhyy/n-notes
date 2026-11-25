@@ -405,8 +405,8 @@ fun PreferencesPane(
                 CheckRow(stringResource(R.string.pref_start_fullscreen), editor.fullscreen) { editor.setFullscreenPref(it) }
                 CheckRow(stringResource(R.string.pref_keep_screen_on), prefs.keepScreenOn) { updateHome(prefs.copy(keepScreenOn = it)) }
                 CheckRow(stringResource(R.string.pref_disable_back_button), prefs.disableBackButton) { updateHome(prefs.copy(disableBackButton = it)) }
-                TextButton(onClick = { confirmOnboarding = true }) { Text(stringResource(R.string.onboarding_restart), fontSize = 13.sp) }
-                TextButton(onClick = onOpenAbout) { Text(stringResource(R.string.about), fontSize = 13.sp) }
+                OutlinedSheetButton(stringResource(R.string.onboarding_restart)) { confirmOnboarding = true }
+                OutlinedSheetButton(stringResource(R.string.about), onClick = onOpenAbout)
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
                 LanguageSection()
                 if (all) HorizontalDivider(color = palette.border.toComposeColor())
@@ -1009,7 +1009,7 @@ private fun PortSection(editor: Editor) {
         SectionTitle(stringResource(R.string.pref_port))
         Text(stringResource(R.string.pref_port_help), color = palette.textDim.toComposeColor(), fontSize = 12.sp)
         Row {
-            TextButton(enabled = !busy, onClick = {
+            OutlinedSheetButton(stringResource(R.string.port_scan), enabled = !busy) {
                 busy = true
                 status = context.getString(R.string.port_scanning)
                 scope.launch {
@@ -1022,7 +1022,7 @@ private fun PortSection(editor: Editor) {
                     }
                     busy = false
                 }
-            }) { Text(stringResource(R.string.port_scan), fontSize = 13.sp) }
+            }
             val todo = found
             if (!todo.isNullOrEmpty()) {
                 TextButton(enabled = !busy, onClick = {
@@ -1103,9 +1103,9 @@ internal fun LanguageSection() {
             color = palette.text.toComposeColor(), fontSize = 12.sp,
         )
     }
-    TextButton(onClick = {
+    OutlinedSheetButton(stringResource(R.string.pref_language_request)) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(LANGUAGE_REQUEST_URL))) }
-    }) { Text(stringResource(R.string.pref_language_request), fontSize = 13.sp) }
+    }
 }
 
 @Composable
@@ -1148,10 +1148,10 @@ internal fun PermissionsSection(syncOn: Boolean) {
             if (!it) TextButton(onClick = { request.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text(stringResource(R.string.battery_allow), fontSize = 13.sp) }
         }
     }
-    TextButton(onClick = {
+    OutlinedSheetButton(stringResource(R.string.permission_open_app_settings)) {
         val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
         runCatching { context.startActivity(intent) }
-    }) { Text(stringResource(R.string.permission_open_app_settings), fontSize = 13.sp) }
+    }
 }
 
 /** Home screen and file explorer settings; shared by Preferences and onboarding. */
