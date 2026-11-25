@@ -1,10 +1,6 @@
 package com.xnotes.ui
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.size
-import com.xnotes.ui.theme.LocalPalette
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DesignServices
 import androidx.compose.foundation.layout.Box
@@ -183,13 +179,11 @@ fun InfiniteToolbar(
                                 if (widthSwitcherIndex == i) WidthSwitcherPopup(editor, i) { widthSwitcherIndex = null }
                             }
                         }
-                        // The follow toggle: a hollow ring, colourless when off and accent when on.
-                        Box(
-                            Modifier
-                                .size(LocalBar.current.swatch)
-                                .clip(CircleShape)
-                                .border(3.dp, (if (editor.followThickness) LocalPalette.current.accent else LocalPalette.current.border).toComposeColor(), CircleShape)
-                                .clickable { editor.updateFollowThickness(!editor.followThickness) },
+                        FollowThicknessButton(
+                            follow = editor.followThickness,
+                            tools = editor.followThicknessTools,
+                            onToggle = { editor.updateFollowThickness(!editor.followThickness) },
+                            onChangeTools = { editor.updateFollowThicknessTools(it) },
                         )
                     }
 

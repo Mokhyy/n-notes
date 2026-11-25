@@ -381,12 +381,14 @@ class SettingsTest {
         assertEquals(Settings.DEFAULT_TOOLBAR_WIDTHS, defaults.toolbarWidths)
         assertEquals(1, defaults.activeWidth)
         assertFalse(defaults.followThickness)
+        assertEquals(com.xnotes.core.tools.Tool.THICKNESS_TOOLS.toSet(), defaults.followThicknessTools)
 
-        val original = Settings(toolbarWidths = listOf(1.0, 3.5, 9.0), activeWidth = 2, followThickness = true)
+        val original = Settings(toolbarWidths = listOf(1.0, 3.5, 9.0), activeWidth = 2, followThickness = true, followThicknessTools = setOf(com.xnotes.core.tools.Tool.PEN, com.xnotes.core.tools.Tool.SHAPE))
         val back = Settings.fromJson(original.toJson())
         assertEquals(listOf(1.0, 3.5, 9.0), back.toolbarWidths)
         assertEquals(2, back.activeWidth)
         assertTrue(back.followThickness)
+        assertEquals(setOf(com.xnotes.core.tools.Tool.PEN, com.xnotes.core.tools.Tool.SHAPE), back.followThicknessTools)
     }
 
     @Test fun toolbarActiveWidthClampsToPresets() {

@@ -701,8 +701,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     /** Which of [toolbarWidths] is armed. */
     var activeWidthIndex by mutableStateOf(1)
         private set
-    /** When true, every thickness-bearing tool follows [globalThickness]; else each keeps its own. */
+    /** When true, the thickness-bearing tools in [followThicknessTools] follow [globalThickness];
+     *  else each keeps its own base width. */
     var followThickness by mutableStateOf(false)
+        private set
+    /** Which thickness-bearing tools follow the armed preset while [followThickness] is on. */
+    var followThicknessTools by mutableStateOf(Tool.THICKNESS_TOOLS.toSet())
         private set
 
     /** The armed thickness preset in dp. */
@@ -1124,6 +1128,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             it.pushThicknessState(toolbarWidths, activeWidthIndex)
             it.followThickness = followThickness
             it.globalThickness = globalThickness
+            it.followThicknessTools = followThicknessTools
             it.toolbarLayout = canvasToolbarLayout
             it.pad.frontBuffering = !settings.prefs.disableFrontBuffering
             it.pickColor(activeColorIndex)
@@ -1138,6 +1143,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
             it.onWidthChanged = { index, width -> setWidthPreset(index, width) }
             it.onWidthCommitted = { commitWidthPreset() }
             it.onFollowThicknessChanged = { on -> updateFollowThickness(on) }
+            it.onFollowThicknessToolsChanged = { set -> updateFollowThicknessTools(set) }
             // The new-canvas background lives in the settings file this editor owns.
             it.newCanvasBackground = newCanvasBackground
             it.onSaveNewCanvasBackground = { bg -> saveNewCanvasBackground(bg) }
@@ -3316,6 +3322,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         toolbarWidths = settings.toolbarWidths
         activeWidthIndex = settings.activeWidth.coerceIn(0, (toolbarWidths.size - 1).coerceAtLeast(0))
         followThickness = settings.followThickness
+        followThicknessTools = settings.followThicknessTools
         toolbarLayout = settings.toolbarLayout
         canvasToolbarLayout = settings.canvasToolbarLayout
         selectionBarLayout = settings.selectionBarLayout
@@ -3607,7 +3614,12 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
     private fun pushThicknessFollow() {
         controller.followThickness = followThickness
         controller.globalThickness = globalThickness
-        infiniteOrNull?.let { it.followThickness = followThickness; it.globalThickness = globalThickness }
+        controller.followThicknessTools = followThicknessTools
+        infiniteOrNull?.let {
+            it.followThickness = followThickness
+            it.globalThickness = globalThickness
+            it.followThicknessTools = followThicknessTools
+        }
     }
 
     /** Arm thickness preset [index]; while following, every thickness-bearing tool draws at it. */
@@ -3630,11 +3642,19 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
         settingsRepo.save(settings)
     }
 
-    /** Turn following the armed thickness on/off for every thickness-bearing tool, and persist. */
+    /** Turn following the armed thickness on/off for the following tools, and persist. */
     fun updateFollowThickness(on: Boolean) {
         followThickness = on
         pushThicknessFollow()
         settings = settings.copy(followThickness = on)
+        settingsRepo.save(settings)
+    }
+
+    /** Set which thickness-bearing tools follow the armed preset, and persist. */
+    fun updateFollowThicknessTools(tools: Set<Tool>) {
+        followThicknessTools = tools
+        pushThicknessFollow()
+        settings = settings.copy(followThicknessTools = tools)
         settingsRepo.save(settings)
     }
 
@@ -3662,6 +3682,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
                 toolbarWidths = toolbarWidths,
                 activeWidth = activeWidthIndex,
                 followThickness = followThickness,
+                followThicknessTools = followThicknessTools,
                 lastTool = tool,
                 lastCanvasTool = fromCanvas?.tool ?: settings.lastCanvasTool,
                 sidebarVisible = sidebarVisible,
@@ -9134,6 +9155,7 @@ class Editor(context: Context, val pane: Pane = Pane.PRIMARY) : ToolPopupHost, S
 
     override val hostShapeConfig: ShapeConfig get() = shapeConfig
     override val hostFollowThickness: Boolean get() = followThickness
+    override val hostFollowThicknessTools: Set<Tool> get() = followThicknessTools
     override val hostToolbarWidths: List<Double> get() = toolbarWidths
     override val hostToolbarColors: List<Rgba> get() = toolbarColors
     override val hostActiveColorIndex: Int get() = activeColorIndex

@@ -497,16 +497,20 @@ class InteractionController(
     private var connectorDraft: ConnectorDraft? = null
     private var connectorPage = -1
 
-    /** When true, every thickness-bearing tool (pens, highlighter, eraser, shape) draws at
-     *  [globalThickness] instead of its own base width. */
+    /** When true, the thickness-bearing tools in [followThicknessTools] draw at [globalThickness]
+     *  instead of their own base width. */
     var followThickness: Boolean = false
 
-    /** The armed thickness preset in dp, applied to every thickness-bearing tool while [followThickness] is on. */
+    /** Which thickness-bearing tools follow [globalThickness] while [followThickness] is on. */
+    var followThicknessTools: Set<Tool> = Tool.THICKNESS_TOOLS.toSet()
+
+    /** The armed thickness preset in dp, applied to the following tools while [followThickness] is on. */
     var globalThickness: Double = ToolDefaults.configFor(Tool.PEN).baseWidth
 
-    /** The stroke width the shape tools draw at: the armed preset when [followThickness] is on, else the shape's own. */
+    /** The stroke width the shape tools draw at: the armed preset when following (and the shape is in
+     *  the follow set), else the shape's own. */
     private fun effectiveShapeWidth(): Double =
-        if (followThickness) globalThickness.coerceIn(1.0, 20.0) else shapeConfig.strokeWidth
+        if (followThickness && Tool.SHAPE in followThicknessTools) globalThickness.coerceIn(1.0, 20.0) else shapeConfig.strokeWidth
 
     /** The connection points lit for the chrome, with their pages: under a hovering pen, at a drawn connector's ends. */
     private var connectHot: List<Pair<Int, Pt>> = emptyList()
@@ -720,9 +724,9 @@ class InteractionController(
 
     fun configFor(t: Tool): ToolConfig {
         val base = toolConfigs[t] ?: ToolDefaults.configFor(t)
-        // Follow-thickness: pens, highlighter and the eraser (its base width is its radius) all draw
-        // at the armed preset while it is on; each keeps its own width when it is off.
-        return if (followThickness && (t.isStroke || t == Tool.ERASER))
+        // Follow-thickness: a tool in the follow set draws at the armed preset; the eraser's base
+        // width is its radius. Tools not in the set keep their own width.
+        return if (followThickness && t in followThicknessTools)
             base.copy(baseWidth = ToolConversions.snapWidth(t, globalThickness)) else base
     }
 

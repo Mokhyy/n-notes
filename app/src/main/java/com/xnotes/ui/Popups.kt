@@ -13,6 +13,8 @@ import com.xnotes.core.shapes.ShapePresets
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -846,6 +848,64 @@ fun WidthSwitcherPopup(host: ToolPopupHost, index: Int, onDismiss: () -> Unit) {
         })
     }
     DisposableEffect(Unit) { onDispose { host.commitWidthPreset() } }
+}
+
+/**
+ * The follow-thickness control: a tap toggles whether the following tools share the armed thickness,
+ * a long-press opens [FollowThicknessFilterMenu] to choose which tools follow. Shared by both bars.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun FollowThicknessButton(
+    follow: Boolean,
+    tools: Set<Tool>,
+    onToggle: () -> Unit,
+    onChangeTools: (Set<Tool>) -> Unit,
+) {
+    val palette = LocalPalette.current
+    val box = LocalBar.current.swatch
+    var open by remember { mutableStateOf(false) }
+    Box {
+        // A hollow ring, not a filled disc: colourless (neutral) when off, accent when on, so it
+        // never reads as one of the colour tool's solid swatches.
+        Box(
+            Modifier
+                .size(box)
+                .clip(CircleShape)
+                .border(3.dp, (if (follow) palette.accent else palette.border).toComposeColor(), CircleShape)
+                .combinedClickable(onLongClick = { open = true }, onClick = onToggle),
+        )
+        if (open) FollowThicknessFilterMenu(tools, onChangeTools) { open = false }
+    }
+}
+
+/** One chip per thickness-bearing tool group; toggling a group adds or removes its tools. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FollowThicknessFilterMenu(
+    tools: Set<Tool>,
+    onChange: (Set<Tool>) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val groups = listOf(
+        Triple(stringResource(R.string.tool_pen), Tool.PENS, ImageVector.vectorResource(R.drawable.ic_stroke_regular)),
+        Triple(stringResource(R.string.tool_highlighter), listOf(Tool.HIGHLIGHTER), ImageVector.vectorResource(R.drawable.ic_stroke_highlighter)),
+        Triple(stringResource(R.string.tool_eraser), listOf(Tool.ERASER), XnotesIcons.eraser),
+        Triple(stringResource(R.string.tool_shape), listOf(Tool.SHAPE), XnotesIcons.shape),
+    )
+    ToolMenu(stringResource(R.string.caption_thickness), onDismiss) {
+        PanelCard(padding = PaddingValues(start = 12.dp, top = 10.dp, end = 12.dp, bottom = 12.dp)) {
+            PanelCaption(stringResource(R.string.caption_follow_tools))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                for ((label, members, icon) in groups) {
+                    val on = members.any { it in tools }
+                    KindChip(icon, label, on) {
+                        onChange(if (on) tools - members.toSet() else tools + members)
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable

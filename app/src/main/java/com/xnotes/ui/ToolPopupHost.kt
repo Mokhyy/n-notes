@@ -59,6 +59,9 @@ interface ToolPopupHost : SwatchHost {
     /** The toolbar's thickness presets, in dp. */
     val hostToolbarWidths: List<Double> get() = emptyList()
 
+    /** Which thickness-bearing tools follow the armed preset while [hostFollowThickness] is on. */
+    val hostFollowThicknessTools: Set<Tool> get() = emptySet()
+
     /** Live-edit thickness preset [index] (the thickness popup's slider). */
     fun setWidthPreset(index: Int, width: Double) {}
 

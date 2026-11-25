@@ -277,14 +277,12 @@ private fun ToolbarItemView(
                     if (widthSwitcherIndex == i) WidthSwitcherPopup(editor, i) { setWidthSwitcherIndex(null) }
                 }
             }
-            // The follow toggle: a hollow ring, colourless when off and accent when on, so it never
-            // reads as one of the colour tool's solid swatches.
-            Box(
-                Modifier
-                    .size(LocalBar.current.swatch)
-                    .clip(CircleShape)
-                    .border(3.dp, (if (editor.followThickness) LocalPalette.current.accent else LocalPalette.current.border).toComposeColor(), CircleShape)
-                    .clickable { editor.updateFollowThickness(!editor.followThickness) },
+            // The follow toggle: tap to share the armed preset, long-press to choose which tools follow.
+            FollowThicknessButton(
+                follow = editor.followThickness,
+                tools = editor.followThicknessTools,
+                onToggle = { editor.updateFollowThickness(!editor.followThickness) },
+                onChangeTools = { editor.updateFollowThicknessTools(it) },
             )
         }
     }
@@ -485,6 +483,7 @@ private const val GLIDE_MAX_MS = 300
  * bar's tools and its selection is the bar's gliding circle; otherwise [active] fades in a circle
  * of its own.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ToolbarIcon(
     icon: ImageVector,
@@ -494,6 +493,7 @@ internal fun ToolbarIcon(
     glideKey: Any? = null,
     hint: String? = null,
     shortcut: String? = null,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val palette = LocalPalette.current
@@ -517,7 +517,7 @@ internal fun ToolbarIcon(
     val press by animateFloatAsState(if (pressed) 0.85f else 1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMedium), label = "toolPress")
     Tooltip(contentDescription, hint = hint, shortcut = shortcut) {
         Box(
-            Modifier.size(bar.button).clickable(interaction, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
+            Modifier.size(bar.button).combinedClickable(interaction, indication = null, enabled = enabled, role = Role.Button, onLongClick = onLongClick, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             Box(

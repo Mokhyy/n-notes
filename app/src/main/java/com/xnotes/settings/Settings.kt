@@ -130,6 +130,8 @@ data class Settings(
     /** When true, every thickness-bearing tool follows the armed thickness preset; when false each
      *  tool keeps its own base width. */
     val followThickness: Boolean = false,
+    /** Which thickness-bearing tools follow the armed preset while [followThickness] is on. */
+    val followThicknessTools: Set<Tool> = Tool.THICKNESS_TOOLS.toSet(),
 ) {
     fun configFor(tool: Tool): ToolConfig = tools[tool] ?: ToolDefaults.configFor(tool)
 
@@ -214,6 +216,7 @@ data class Settings(
             .put("toolbar_widths", JSONArray().apply { toolbarWidths.forEach { put(it) } })
             .put("active_width", activeWidth)
             .put("follow_thickness", followThickness)
+            .put("follow_thickness_tools", JSONArray().apply { followThicknessTools.forEach { put(it.id) } })
     }
 
     companion object {
@@ -292,6 +295,7 @@ data class Settings(
                 toolbarWidths = widths,
                 activeWidth = o.optInt("active_width", 1).coerceIn(0, (widths.size - 1).coerceAtLeast(0)),
                 followThickness = o.optBoolean("follow_thickness", false),
+                followThicknessTools = toolsOf(o.optJSONArray("follow_thickness_tools"), Tool.THICKNESS_TOOLS.toSet()),
             )
         }
 
@@ -577,6 +581,12 @@ data class Settings(
         private fun doubleList(arr: JSONArray?, fallback: List<Double>): List<Double> {
             if (arr == null) return fallback
             return (0 until arr.length()).map { arr.optDouble(it, fallback.getOrElse(it) { 0.0 }) }
+        }
+
+        /** A set of tools by id, or [fallback] when the key was never written. */
+        private fun toolsOf(arr: JSONArray?, fallback: Set<Tool>): Set<Tool> {
+            if (arr == null) return fallback
+            return (0 until arr.length()).mapNotNull { Tool.fromId(arr.optString(it)) }.toSet()
         }
 
         private fun toolConfigJson(c: ToolConfig) = JSONObject()
